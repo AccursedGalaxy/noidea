@@ -3,11 +3,9 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/AccursedGalaxy/noidea/internal/config"
 	"github.com/AccursedGalaxy/noidea/internal/secure"
@@ -180,90 +178,4 @@ func validateApiKeyOnStartup() {
 			fmt.Fprintf(os.Stderr, "Please update it with 'noidea config apikey'\n\n")
 		}
 	}
-}
-
-// validateAPIKey checks if the API key works with the provider
-func validateAPIKey(provider, apiKey string) (bool, error) {
-	switch provider {
-	case "xai":
-		return validateXAIKey(apiKey)
-	case "openai":
-		return validateOpenAIKey(apiKey)
-	case "deepseek":
-		return validateDeepSeekKey(apiKey)
-	default:
-		return false, fmt.Errorf("unknown provider: %s", provider)
-	}
-}
-
-// validateXAIKey checks if the xAI API key is valid
-func validateXAIKey(apiKey string) (bool, error) {
-	// Simple HTTP request to xAI API to verify key
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-	
-	req, err := http.NewRequest("GET", "https://api.groq.com/v1/models", nil)
-	if err != nil {
-		return false, err
-	}
-	
-	req.Header.Add("Authorization", "Bearer "+apiKey)
-	
-	resp, err := client.Do(req)
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close()
-	
-	// Check if the request was successful
-	return resp.StatusCode >= 200 && resp.StatusCode < 300, nil
-}
-
-// validateOpenAIKey checks if the OpenAI API key is valid
-func validateOpenAIKey(apiKey string) (bool, error) {
-	// Simple HTTP request to OpenAI API to verify key
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-	
-	req, err := http.NewRequest("GET", "https://api.openai.com/v1/models", nil)
-	if err != nil {
-		return false, err
-	}
-	
-	req.Header.Add("Authorization", "Bearer "+apiKey)
-	
-	resp, err := client.Do(req)
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close()
-	
-	// Check if the request was successful
-	return resp.StatusCode >= 200 && resp.StatusCode < 300, nil
-}
-
-// validateDeepSeekKey checks if the DeepSeek API key is valid
-func validateDeepSeekKey(apiKey string) (bool, error) {
-	// Simple HTTP request to DeepSeek API to verify key
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-	
-	req, err := http.NewRequest("GET", "https://api.deepseek.com/v1/models", nil)
-	if err != nil {
-		return false, err
-	}
-	
-	req.Header.Add("Authorization", "Bearer "+apiKey)
-	
-	resp, err := client.Do(req)
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close()
-	
-	// Check if the request was successful
-	return resp.StatusCode >= 200 && resp.StatusCode < 300, nil
 }
