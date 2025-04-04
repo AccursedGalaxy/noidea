@@ -579,22 +579,44 @@ func generateIssueWithAI(description string, repo *github.RepoInfo, codeRefs map
 	}
 	
 	// Build an enhanced system prompt that includes code context awareness
-	systemPrompt := `You are a helpful assistant that creates well-structured GitHub issues from user descriptions. 
-Format the issue in a clear, professional way with appropriate sections like Description, Expected Behavior, Steps to Reproduce, etc.
-If code snippets or file references are included, analyze them to provide more specific details in the issue.
-Your goal is to create a comprehensive, actionable issue that a developer could immediately work on.`
+	systemPrompt := `You are a technical project manager and expert developer creating detailed GitHub issues.
+Your task is to analyze the user's description and any code references to create a comprehensive, actionable issue.
+
+For each issue, you must:
+1. Create a descriptive title that summarizes the main point
+2. Write a detailed description section that explains the issue or feature
+3. Fill in the "Expected Behavior" section with clear, concrete objectives and technical details
+4. Fill in the "Current Behavior" section with specific details about the current implementation or limitations
+5. Suggest concrete implementation approaches in the "Possible Solution" section, including code patterns, architectures, or technologies to use
+6. Include specific, actionable "Steps to Reproduce" for bugs, or implementation steps for features
+7. Format the issue using proper Markdown
+
+IMPORTANT: 
+- Do NOT use placeholder text like "[What should happen]" or "[Step one]"
+- You MUST provide ACTUAL technical details in every section
+- Your response should be immediately usable as a thorough development ticket
+- If implementing a feature, describe how it should be implemented technically
+- If fixing a bug, describe both the current behavior and what needs to be fixed
+
+When code references are provided:
+- Analyze the code structure and purpose
+- Reference specific functions, classes, or patterns in your solution
+- Suggest specific code changes or approaches based on the existing architecture
+- Consider dependencies and potential impact on other parts of the codebase
+
+Your issues should be technically precise, actionable, and provide clear direction for developers.`
 
 	// Build an enhanced user prompt that includes code context
-	userPromptFormat := "Create a GitHub issue for the following description:\n\n{{.Message}}\n\n"
+	userPromptFormat := "Create a detailed GitHub issue for the following description:\n\n{{.Message}}\n\n"
 	
 	// Add code references if available
 	if len(codeRefs) > 0 {
-		userPromptFormat += "Referenced code files:\n\n"
+		userPromptFormat += "Referenced code files (analyze these to provide specific implementation details):\n\n"
 		for filePath, content := range codeRefs {
 			// Limit file content to avoid token limits
 			contentPreview := content
-			if len(contentPreview) > 1000 {
-				contentPreview = contentPreview[:1000] + "...[truncated]"
+			if len(contentPreview) > 2000 {
+				contentPreview = contentPreview[:2000] + "...[truncated]"
 			}
 			userPromptFormat += fmt.Sprintf("File: %s\n```\n%s\n```\n\n", filePath, contentPreview)
 		}
@@ -605,8 +627,20 @@ Your goal is to create a comprehensive, actionable issue that a developer could 
 		userPromptFormat += fmt.Sprintf("Additional context:\n%s\n\n", additionalContext)
 	}
 	
-	userPromptFormat += "For repository: {{.Username}}/{{.RepoName}}\n\n"
-	userPromptFormat += "Provide both a concise title and a detailed body with proper Markdown formatting. Separate the title and body with '---' on its own line."
+	// Add repo info for more context
+	userPromptFormat += "Repository information:\n"
+	userPromptFormat += fmt.Sprintf("- Owner/Name: {{.Username}}/{{.RepoName}}\n")
+	
+	// Add instructions for response format
+	userPromptFormat += "\nFormat your response with the following sections, filling them with specific details based on your analysis:\n"
+	userPromptFormat += "1. First line: A concise, descriptive title\n"
+	userPromptFormat += "2. \"---\" separator on its own line\n"
+	userPromptFormat += "3. ## Description - A comprehensive explanation of the issue or feature\n"
+	userPromptFormat += "4. ## Expected Behavior - CONCRETE description of what should happen when implemented (do not use placeholders)\n"
+	userPromptFormat += "5. ## Current Behavior - CONCRETE description of the current state (do not use placeholders)\n"
+	userPromptFormat += "6. ## Possible Solution - DETAILED implementation suggestions with specific approach (do not use placeholders)\n"
+	userPromptFormat += "7. ## Steps to Reproduce/Implement - SPECIFIC, actionable steps (do not use placeholders)\n"
+	userPromptFormat += "\nIMPORTANT: Do NOT use placeholder text like '[What should happen]'. You MUST include actual technical details, implementation ideas, and specific steps in each section.\n"
 	
 	// Define custom personality for issue creation
 	issuePersonality := personality.Personality{
@@ -614,7 +648,7 @@ Your goal is to create a comprehensive, actionable issue that a developer could 
 		Description:      "GitHub Issue Creator",
 		SystemPrompt:     systemPrompt,
 		UserPromptFormat: userPromptFormat,
-		MaxTokens:        2000, // Increased token limit to handle code references
+		MaxTokens:        2500, // Increased token limit to handle code references and detailed analysis
 		Temperature:      0.7,
 	}
 	
@@ -643,7 +677,7 @@ Your goal is to create a comprehensive, actionable issue that a developer could 
 			diffBuilder.WriteString("@@ -0,0 +1 @@\n")
 			// Add some content as context (limiting to avoid token issues)
 			contentLines := strings.Split(content, "\n")
-			maxLines := 100
+			maxLines := 150 // Increased for better context
 			if len(contentLines) > maxLines {
 				contentLines = contentLines[:maxLines]
 				contentLines = append(contentLines, "... (truncated)")
@@ -658,6 +692,30 @@ Your goal is to create a comprehensive, actionable issue that a developer could 
 	
 	// Get commit history for additional context
 	ctx.CommitHistory = []string{} // Empty array for no history
+	
+	// Collect additional repository context to help the AI
+	repoContext := ""
+	
+	// Check for commonly important files for context
+	commonFiles := []string{"README.md", "CONTRIBUTING.md", "ROADMAP.md", "TODO.md"}
+	for _, filename := range commonFiles {
+		if _, err := os.Stat(filename); err == nil {
+			data, err := os.ReadFile(filename)
+			if err == nil && len(data) > 0 {
+				// Limit the amount of context to avoid token overflow
+				preview := string(data)
+				if len(preview) > 1000 {
+					preview = preview[:1000] + "...[truncated]"
+				}
+				repoContext += fmt.Sprintf("Contents of %s:\n```\n%s\n```\n\n", filename, preview)
+			}
+		}
+	}
+	
+	// Add this context if we found any
+	if repoContext != "" {
+		ctx.Message += "\n\nRepository Context:\n" + repoContext
+	}
 	
 	// Generate AI response
 	aiResponse, err := issueEngine.GenerateFeedback(ctx)
@@ -687,7 +745,7 @@ Your goal is to create a comprehensive, actionable issue that a developer could 
 	}
 	
 	// Add reference to noidea CLI
-	body += "\n\n---\n_Generated with noidea CLI_"
+	body += "\n\n## Environment\n\n- Repository: " + repo.Owner + "/" + repo.Name + "\n- Generated with noidea CLI"
 	
 	return title, body
 }
@@ -948,73 +1006,202 @@ func generateSimpleIssueTemplate(description string, repo *github.RepoInfo) (str
 		title = title[:57] + "..."
 	}
 	
+	// Extract key information from the description
+	descLower := strings.ToLower(description)
+	
+	// Parse the description to extract details for the template sections
+	var expectedBehavior, currentBehavior, possibleSolution, stepsToReproduce string
+	
+	// Check if this is related to any specific features from our roadmap
+	isPluginSystem := strings.Contains(descLower, "plugin system") || strings.Contains(descLower, "plugin interface")
+	isGithubProjects := strings.Contains(descLower, "github project") || strings.Contains(descLower, "project board")
+	isLocalCache := strings.Contains(descLower, "local cache") || strings.Contains(descLower, "sqlite") || strings.Contains(descLower, "syncing")
+	isWorkflow := strings.Contains(descLower, "workflow") || strings.Contains(descLower, "branch") || strings.Contains(descLower, "commit linking")
+	isVersioning := strings.Contains(descLower, "version") || strings.Contains(descLower, "semantic") || strings.Contains(descLower, "release")
+	
+	// Check if this is a bug or feature
+	isBug := strings.Contains(descLower, "bug") || strings.Contains(descLower, "fix") || 
+		strings.Contains(descLower, "issue") || strings.Contains(descLower, "problem") ||
+		strings.Contains(descLower, "error") || strings.Contains(descLower, "crash") ||
+		strings.Contains(descLower, "doesn't work") || strings.Contains(descLower, "does not work") ||
+		strings.Contains(descLower, "broken")
+	
+	// Default values
+	expectedBehavior = "When this feature is implemented, the system should be able to:\n" +
+		"- Support the functionality described in the description\n" +
+		"- Integrate seamlessly with existing components\n" +
+		"- Provide a user-friendly interface for this capability"
+	
+	currentBehavior = "Currently, this functionality is not implemented or doesn't meet the requirements described."
+	
+	possibleSolution = "Consider implementing this feature by:\n" +
+		"- Creating the necessary interfaces and classes\n" +
+		"- Integrating with existing systems\n" +
+		"- Following the established patterns in the codebase\n" +
+		"- Adding appropriate tests and documentation"
+	
+	stepsToReproduce = "1. Design the solution based on requirements\n" +
+		"2. Implement the core functionality\n" +
+		"3. Add tests and documentation\n" +
+		"4. Submit for review"
+	
+	// Add specific content based on the type of issue
+	if isPluginSystem {
+		expectedBehavior = "When implemented, the Plugin System Foundation should:\n" +
+			"- Support loading and unloading of plugins at runtime\n" +
+			"- Provide well-defined interfaces for plugins to implement\n" +
+			"- Include a discovery mechanism for finding available plugins\n" +
+			"- Ensure plugins can't compromise the core application's stability\n" +
+			"- Include documentation and examples for plugin creators"
+
+		currentBehavior = "Currently, the application has no plugin system in place. All functionality is built directly into the application with no extension points."
+		
+		possibleSolution = "Implement the plugin system by:\n" +
+			"- Creating an `internal/plugin` package with interface definitions\n" +
+			"- Defining a standard plugin manifest format (JSON or YAML)\n" +
+			"- Implementing a plugin loader that can dynamically load Go plugins or process scripts\n" +
+			"- Adding a plugin registry to track loaded plugins\n" +
+			"- Creating hooks in the application for plugins to integrate with\n" +
+			"- Providing a sandboxing mechanism for plugin execution"
+		
+		stepsToReproduce = "1. Define plugin interfaces in a new `internal/plugin` package\n" +
+			"2. Implement the plugin loading and registration system\n" +
+			"3. Create extension points in the application code\n" +
+			"4. Add plugin management commands to the CLI\n" +
+			"5. Create documentation and example plugins\n" +
+			"6. Add tests for the plugin system"
+	} else if isGithubProjects {
+		expectedBehavior = "When implemented, the GitHub Projects integration should:\n" +
+			"- Display project boards and their columns within the CLI\n" +
+			"- Allow moving cards between columns\n" +
+			"- Support creating new project boards\n" +
+			"- Provide filtering and search capabilities\n" +
+			"- Integrate with the existing issue management system"
+		
+		currentBehavior = "Currently, the application can manage GitHub issues but has no integration with GitHub Projects. Users need to use the GitHub website to manage project boards."
+		
+		possibleSolution = "Implement GitHub Projects integration by:\n" +
+			"- Extending the GitHub API client to support Projects API endpoints\n" +
+			"- Creating models for Project boards, columns, and cards\n" +
+			"- Adding commands for viewing and managing projects\n" +
+			"- Implementing local caching of project data\n" +
+			"- Creating a TUI interface for visualizing project boards"
+		
+		stepsToReproduce = "1. Extend the GitHub API client with Projects API support\n" +
+			"2. Create data models for projects in `internal/github`\n" +
+			"3. Implement commands for project management\n" +
+			"4. Add project visualization in the CLI\n" +
+			"5. Integrate with existing issue commands\n" +
+			"6. Add tests for the new functionality"
+	} else if isLocalCache {
+		expectedBehavior = "When implemented, the Local Cache and Syncing system should:\n" +
+			"- Store GitHub issues and related data in a local SQLite database\n" +
+			"- Provide faster access to issue data without API calls\n" +
+			"- Periodically sync with GitHub to keep data fresh\n" +
+			"- Support offline operation with later synchronization\n" +
+			"- Handle conflict resolution when local and remote data diverge"
+		
+		currentBehavior = "Currently, the application makes API calls to GitHub for each operation, which can be slow and requires constant internet connectivity. No data is cached locally between sessions."
+		
+		possibleSolution = "Implement the local cache by:\n" +
+			"- Creating a new `internal/db` package for database operations\n" +
+			"- Using SQLite as the storage backend\n" +
+			"- Implementing models and schema for issues, comments, and projects\n" +
+			"- Adding a synchronization service that runs periodically\n" +
+			"- Modifying the GitHub service to use local data first\n" +
+			"- Adding conflict detection and resolution mechanisms"
+		
+		stepsToReproduce = "1. Design the database schema for issues and related entities\n" +
+			"2. Implement the database access layer in `internal/db`\n" +
+			"3. Create the sync service to keep local and remote data in sync\n" +
+			"4. Modify the GitHub service to use the cache\n" +
+			"5. Add conflict resolution logic\n" +
+			"6. Create tests for the caching and syncing functionality"
+	} else if isWorkflow {
+		expectedBehavior = "When implemented, the Workflow integration should:\n" +
+			"- Create branches with standardized naming based on issues\n" +
+			"- Automatically transition issues when branches are created/merged\n" +
+			"- Link commits to related issues\n" +
+			"- Update issue status based on commit messages\n" +
+			"- Provide a seamless workflow from issue creation to closure"
+		
+		currentBehavior = "Currently, there's no automated workflow between Git operations and GitHub issues. Users must manually create branches, reference issues, and update issue status."
+		
+		possibleSolution = "Implement the workflow integration by:\n" +
+			"- Creating a new `internal/workflow` package\n" +
+			"- Implementing branch naming conventions and generators\n" +
+			"- Adding Git hooks for commit message validation and issue linking\n" +
+			"- Creating a state machine for issue transitions\n" +
+			"- Enhancing the commit hook to detect issue references\n" +
+			"- Adding workflow commands to the CLI"
+		
+		stepsToReproduce = "1. Design the workflow state machine and transitions\n" +
+			"2. Implement branch naming and creation in `internal/workflow`\n" +
+			"3. Create Git hooks for commit message processing\n" +
+			"4. Add issue transition logic\n" +
+			"5. Implement commands for workflow management\n" +
+			"6. Add tests for the workflow functionality"
+	} else if isVersioning {
+		expectedBehavior = "When implemented, the Semantic Versioning system should:\n" +
+			"- Follow semantic versioning principles (MAJOR.MINOR.PATCH)\n" +
+			"- Automate version bumps based on commit types\n" +
+			"- Generate changelogs from commit messages\n" +
+			"- Create proper release tags\n" +
+			"- Display version information in the CLI\n" +
+			"- Add version badges to documentation"
+		
+		currentBehavior = "Currently, there's no standardized versioning system in place. Version numbers are manually updated and there's no automated changelog generation."
+		
+		possibleSolution = "Implement the semantic versioning by:\n" +
+			"- Creating version parsing and manipulation utilities\n" +
+			"- Adding commit message conventions (possibly using Conventional Commits)\n" +
+			"- Implementing changelog generation from Git history\n" +
+			"- Adding release commands to the CLI\n" +
+			"- Creating GitHub Actions for automated releases\n" +
+			"- Adding version display to the CLI"
+		
+		stepsToReproduce = "1. Define commit message conventions\n" +
+			"2. Implement version parsing and bumping logic\n" +
+			"3. Create changelog generation functionality\n" +
+			"4. Add release commands to the CLI\n" +
+			"5. Implement GitHub Actions workflows for releases\n" +
+			"6. Add tests for versioning functionality"
+	} else if isBug {
+		expectedBehavior = "The system should function correctly without the issues described in the description."
+		currentBehavior = "The system currently exhibits problems as described in the description."
+		stepsToReproduce = "1. Identify the root cause of the issue\n" +
+			"2. Implement a fix that addresses the core problem\n" +
+			"3. Add tests to prevent regression\n" +
+			"4. Submit for review"
+	}
+	
+	// Generate template with sections
 	body := fmt.Sprintf(`## Description
 
 %s
 
 ## Expected Behavior
 
-[What should happen]
+%s
 
 ## Current Behavior
 
-[What happens instead]
+%s
 
 ## Possible Solution
 
-[Ideas for implementing this feature or fixing the issue]
+%s
 
 ## Steps to Reproduce
 
-1. [Step one]
-2. [Step two]
-3. [Step three]
+%s
 
 ## Environment
 
 - Repository: %s/%s
-- Generated with noidea CLI`, description, repo.Owner, repo.Name)
+- Generated with noidea CLI`, description, expectedBehavior, currentBehavior, possibleSolution, stepsToReproduce, repo.Owner, repo.Name)
 	
 	return title, body
-}
-
-// formatTimeAgo formats a time.Time as a human-readable "time ago" string
-func formatTimeAgo(t time.Time) string {
-	duration := time.Since(t)
-	
-	if duration < time.Minute {
-		return "just now"
-	} else if duration < time.Hour {
-		minutes := int(duration.Minutes())
-		if minutes == 1 {
-			return "1 minute ago"
-		}
-		return fmt.Sprintf("%d minutes ago", minutes)
-	} else if duration < 24*time.Hour {
-		hours := int(duration.Hours())
-		if hours == 1 {
-			return "1 hour ago"
-		}
-		return fmt.Sprintf("%d hours ago", hours)
-	} else if duration < 30*24*time.Hour {
-		days := int(duration.Hours() / 24)
-		if days == 1 {
-			return "1 day ago"
-		}
-		return fmt.Sprintf("%d days ago", days)
-	} else if duration < 365*24*time.Hour {
-		months := int(duration.Hours() / 24 / 30)
-		if months == 1 {
-			return "1 month ago"
-		}
-		return fmt.Sprintf("%d months ago", months)
-	} else {
-		years := int(duration.Hours() / 24 / 365)
-		if years == 1 {
-			return "1 year ago"
-		}
-		return fmt.Sprintf("%d years ago", years)
-	}
 }
 
 // formatDuration formats a time.Duration as a human-readable string

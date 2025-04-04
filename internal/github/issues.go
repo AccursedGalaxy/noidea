@@ -260,11 +260,15 @@ func (s *IssueService) CreateIssueWithCodeRefs(owner, repo, title, body string, 
 			// Format the code with proper reference
 			fileExt := getFileExtension(ref)
 			var replacement string
-			if fileExt != "" {
-				replacement = fmt.Sprintf("Reference to file `%s`\n\n```%s\n// File: %s (extracted relevant portion)\n// NOTE: Large file - showing extracted portions only\n\n%s\n```", 
+			
+			// Special handling for markdown files
+			if fileExt == "md" || fileExt == "markdown" {
+				replacement = fmt.Sprintf("**Referenced file: `%s`**\n\n%s", ref, trimmedContent)
+			} else if fileExt != "" {
+				replacement = fmt.Sprintf("**Referenced file: `%s`**\n\n```%s\n// File: %s (extracted relevant portion)\n// NOTE: Large file - showing extracted portions only\n\n%s\n```", 
 					ref, fileExt, ref, trimmedContent)
 			} else {
-				replacement = fmt.Sprintf("Reference to file `%s`\n\n```\n// File: %s (extracted relevant portion)\n// NOTE: Large file - showing extracted portions only\n\n%s\n```", 
+				replacement = fmt.Sprintf("**Referenced file: `%s`**\n\n```\n// File: %s (extracted relevant portion)\n// NOTE: Large file - showing extracted portions only\n\n%s\n```", 
 					ref, ref, trimmedContent)
 			}
 			
@@ -290,11 +294,15 @@ func (s *IssueService) AddCommentWithCodeRefs(owner, repo string, number int, bo
 			// Format the code with proper reference and language hint
 			fileExt := getFileExtension(ref)
 			var replacement string
-			if fileExt != "" {
-				replacement = fmt.Sprintf("Reference to file `%s`\n\n```%s\n// File: %s (extracted relevant portion)\n// NOTE: Large file - showing extracted portions only\n\n%s\n```", 
+			
+			// Special handling for markdown files
+			if fileExt == "md" || fileExt == "markdown" {
+				replacement = fmt.Sprintf("**Referenced file: `%s`**\n\n%s", ref, trimmedContent)
+			} else if fileExt != "" {
+				replacement = fmt.Sprintf("**Referenced file: `%s`**\n\n```%s\n// File: %s (extracted relevant portion)\n// NOTE: Large file - showing extracted portions only\n\n%s\n```", 
 					ref, fileExt, ref, trimmedContent)
 			} else {
-				replacement = fmt.Sprintf("Reference to file `%s`\n\n```\n// File: %s (extracted relevant portion)\n// NOTE: Large file - showing extracted portions only\n\n%s\n```", 
+				replacement = fmt.Sprintf("**Referenced file: `%s`**\n\n```\n// File: %s (extracted relevant portion)\n// NOTE: Large file - showing extracted portions only\n\n%s\n```", 
 					ref, ref, trimmedContent)
 			}
 			
@@ -320,6 +328,11 @@ func trimCodeContent(content, filePath string) string {
 	
 	// Extract file extension to determine language-specific handling
 	fileExt := getFileExtension(filePath)
+	
+	// For Markdown files, use special extraction
+	if fileExt == "md" || fileExt == "markdown" {
+		return extractMarkdownContent(lines, maxLines)
+	}
 	
 	// For Go files, try to extract functions/structs/interfaces
 	if fileExt == "go" {
@@ -642,4 +655,237 @@ func extractGeneralCodeSample(lines []string, maxLines int) string {
 	}
 	
 	return strings.Join(result, "\n")
+}
+
+// extractMarkdownContent extracts important sections from a Markdown file
+func extractMarkdownContent(lines []string, maxLines int) string {
+	var result []string
+	var sections [][]string
+	var currentSection []string
+	var inSection bool = false
+	
+	// Find sections defined by headings
+	for i, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+		
+		// Check for headings (# style)
+		if strings.HasPrefix(trimmedLine, "#") {
+			// Count heading level
+			level := 0
+			for _, c := range trimmedLine {
+				if c == '#' {
+					level++
+				} else {
+					break
+				}
+			}
+			
+			// If we were in a section, save it
+			if inSection && len(currentSection) > 0 {
+				sections = append(sections, currentSection)
+			}
+			
+			// Start a new section
+			currentSection = []string{line}
+			inSection = true
+			continue
+		}
+		
+		// If we're in a section, add lines to it
+		if inSection {
+			// Check if this line starts a new section with a different style
+			if i > 0 && trimmedLine != "" && (strings.HasPrefix(trimmedLine, "=====") || strings.HasPrefix(trimmedLine, "-----")) {
+				prevLine := strings.TrimSpace(lines[i-1])
+				if prevLine != "" && !strings.HasPrefix(prevLine, "#") {
+					// This is an alternate heading style (underlined)
+					// End the current section and start a new one
+					if len(currentSection) > 0 {
+						sections = append(sections, currentSection)
+					}
+					currentSection = []string{lines[i-1], line}
+					continue
+				}
+			}
+			
+			currentSection = append(currentSection, line)
+		} else {
+			// If we see text before any heading, start a default section
+			if trimmedLine != "" {
+				inSection = true
+				currentSection = []string{line}
+			}
+		}
+	}
+	
+	// Add the last section if there is one
+	if len(currentSection) > 0 {
+		sections = append(sections, currentSection)
+	}
+	
+	// If we couldn't identify sections, return a sample
+	if len(sections) == 0 {
+		return strings.Join(extractGeneralSample(lines, maxLines), "\n")
+	}
+	
+	// Prioritize sections:
+	// 1. First get level 1 headings (main sections)
+	// 2. Then get level 2 headings that seem important
+	
+	// Get important section keywords to look for
+	importantKeywords := []string{
+		"overview", "introduction", "summary", "vision", "roadmap", "task", "goal", 
+		"feature", "plan", "implementation", "plugin", "architecture", "design",
+		"workflow", "installation", "usage", "api", "reference",
+	}
+	
+	// Collect important sections first
+	var importantSections [][]string
+	var otherSections [][]string
+	
+	totalLines := 0
+	maxImportantSections := 3 // Limit to avoid overly large content
+	
+	for _, section := range sections {
+		if len(section) == 0 {
+			continue
+		}
+		
+		isImportant := false
+		heading := strings.ToLower(section[0])
+		
+		// Check if this is a high-level heading or contains important keywords
+		for _, keyword := range importantKeywords {
+			if strings.Contains(heading, keyword) {
+				isImportant = true
+				break
+			}
+		}
+		
+		if isImportant {
+			importantSections = append(importantSections, section)
+			totalLines += len(section)
+			
+			if len(importantSections) >= maxImportantSections {
+				break
+			}
+		} else {
+			otherSections = append(otherSections, section)
+		}
+	}
+	
+	// If we didn't find enough important sections, add some other sections
+	if totalLines < maxLines && len(otherSections) > 0 {
+		// Add the first section if it's not already included
+		if len(importantSections) == 0 || !slicesEqual(importantSections[0], sections[0]) {
+			importantSections = append(importantSections, sections[0])
+			totalLines += len(sections[0])
+		}
+		
+		// Add the last section if it's different
+		if len(importantSections) <= maxImportantSections && totalLines < maxLines && 
+		   len(sections) > 1 && !slicesEqual(importantSections[len(importantSections)-1], sections[len(sections)-1]) {
+			importantSections = append(importantSections, sections[len(sections)-1])
+			totalLines += len(sections[len(sections)-1])
+		}
+	}
+	
+	// If we still don't have enough content, add middle sections
+	if totalLines < maxLines && len(sections) > len(importantSections) + 2 {
+		middleIndex := len(sections) / 2
+		importantSections = append(importantSections, sections[middleIndex])
+		totalLines += len(sections[middleIndex])
+	}
+	
+	// Ensure sections are in the original document order
+	sort.Slice(importantSections, func(i, j int) bool {
+		iIndex := findSectionIndex(sections, importantSections[i])
+		jIndex := findSectionIndex(sections, importantSections[j])
+		return iIndex < jIndex
+	})
+	
+	// Combine the sections
+	for i, section := range importantSections {
+		// Add a separator between sections
+		if i > 0 {
+			result = append(result, "")
+			result = append(result, "...")
+			result = append(result, "")
+		}
+		
+		result = append(result, section...)
+	}
+	
+	// Add indicator if we haven't included everything
+	if len(importantSections) < len(sections) {
+		result = append(result, "")
+		result = append(result, fmt.Sprintf("... (and %d more sections)", len(sections) - len(importantSections)))
+	}
+	
+	return strings.Join(result, "\n")
+}
+
+// slicesEqual checks if two string slices are equal
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// findSectionIndex finds the index of a section in a list of sections
+func findSectionIndex(sections [][]string, target []string) int {
+	for i, section := range sections {
+		if slicesEqual(section, target) {
+			return i
+		}
+	}
+	return -1
+}
+
+// extractGeneralSample gets a representative sample from any text file
+func extractGeneralSample(lines []string, maxLines int) []string {
+	var result []string
+	
+	// Calculate sections to include
+	totalLines := len(lines)
+	headerLines := maxLines / 3
+	middleLines := maxLines / 3
+	footerLines := maxLines - headerLines - middleLines
+	
+	// Add header section (first part of file)
+	for i := 0; i < headerLines && i < totalLines; i++ {
+		result = append(result, lines[i])
+	}
+	
+	// Add middle section if the file is large enough
+	if totalLines > headerLines+footerLines+10 {
+		middleStart := totalLines/2 - middleLines/2
+		if len(result) > 0 {
+			result = append(result, "...")
+		}
+		for i := 0; i < middleLines && middleStart+i < totalLines; i++ {
+			result = append(result, lines[middleStart+i])
+		}
+	}
+	
+	// Add footer section (end of file)
+	if totalLines > headerLines+10 {
+		if len(result) > 0 {
+			result = append(result, "...")
+		}
+		startIdx := totalLines - footerLines
+		if startIdx < 0 {
+			startIdx = 0
+		}
+		for i := startIdx; i < totalLines; i++ {
+			result = append(result, lines[i])
+		}
+	}
+	
+	return result
 } 
