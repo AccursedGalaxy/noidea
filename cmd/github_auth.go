@@ -22,36 +22,32 @@ func init() {
 var configGitHubAuthCmd = &cobra.Command{
 	Use:   "github-auth",
 	Short: "Configure GitHub authentication",
-	Long: `Set up GitHub authentication for the noidea CLI.
-This command helps you configure a GitHub Personal Access Token (PAT) that will
-be securely stored for accessing GitHub APIs.`,
+	Long:  `Configure GitHub authentication for issue management and other API features.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(color.CyanString("GitHub Authentication Setup"))
-		fmt.Println("A GitHub token is required to interact with GitHub issues and projects.")
-		fmt.Println()
-		fmt.Println("You will need to create a Personal Access Token (PAT) with the following scopes:")
-		fmt.Println("  - repo (Full control of private repositories)")
-		fmt.Println("  - read:org (Read organization information)")
+		fmt.Println("This will configure your GitHub authentication for issue management and other API features.")
 		fmt.Println()
 		
-		// Check if GitHub CLI is installed
+		// Check if GitHub CLI is installed and use it if available
 		if hasGitHubCLI() {
 			fmt.Println(color.YellowString("GitHub CLI detected!"))
-			fmt.Print("Would you like to use GitHub CLI authentication? [Y/n]: ")
+			fmt.Print("Would you like to use GitHub CLI for authentication? [Y/n]: ")
 			
 			reader := bufio.NewReader(os.Stdin)
 			answer, _ := reader.ReadString('\n')
 			answer = strings.TrimSpace(strings.ToLower(answer))
 			
 			if answer != "n" && answer != "no" {
-				fmt.Println(color.CyanString("Using GitHub CLI authentication..."))
-				configureWithGitHubCLI()
-				return
+				fmt.Println(color.CyanString("Using GitHub CLI for authentication..."))
+				if configureWithGitHubCLI() {
+					return
+				}
 			}
 		}
 		
-		// Manual token entry
-		fmt.Println("Please create a token at: https://github.com/settings/tokens/new")
+		// Token setup
+		fmt.Println("\nPlease create a Personal Access Token at: https://github.com/settings/tokens/new")
+		fmt.Println("Token needs at least 'repo' scope for GitHub issue integration.")
 		fmt.Println()
 		
 		// Read token from user
@@ -117,7 +113,7 @@ var configGitHubAuthStatusCmd = &cobra.Command{
 			return
 		}
 		
-		fmt.Println(color.GreenString("Authenticated with GitHub"))
+		fmt.Println(color.GreenString("Authenticated with GitHub using token"))
 		fmt.Println("User:", color.YellowString(user))
 		
 		// Show masked token
@@ -133,13 +129,13 @@ func hasGitHubCLI() bool {
 }
 
 // configureWithGitHubCLI uses the GitHub CLI to get a token
-func configureWithGitHubCLI() {
+func configureWithGitHubCLI() bool {
 	// Check if already logged in
 	cmd := exec.Command("gh", "auth", "status")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Println(color.RedString("GitHub CLI not authenticated. Please run 'gh auth login' first."))
-		return
+		return false
 	}
 	
 	fmt.Println(string(output))
@@ -149,31 +145,32 @@ func configureWithGitHubCLI() {
 	tokenBytes, err := cmd.Output()
 	if err != nil {
 		fmt.Println(color.RedString("Error:"), "Failed to get token from GitHub CLI:", err)
-		return
+		return false
 	}
 	
 	token := strings.TrimSpace(string(tokenBytes))
 	if token == "" {
 		fmt.Println(color.RedString("Error:"), "Empty token received from GitHub CLI")
-		return
+		return false
 	}
 	
 	// Store token
 	auth := github.NewAuthenticator()
 	if err := auth.SetToken(token); err != nil {
 		fmt.Println(color.RedString("Error:"), "Failed to store token:", err)
-		return
+		return false
 	}
 	
 	// Get authenticated user
 	user, err := auth.GetAuthenticatedUser()
 	if err != nil {
 		fmt.Println(color.RedString("Error:"), "Failed to get user information:", err)
-		return
+		return false
 	}
 	
 	fmt.Println(color.GreenString("\nAuthentication successful!"))
 	fmt.Println("Authenticated as:", color.YellowString(user))
+	return true
 }
 
 // readSecureInput reads a password from stdin without echoing

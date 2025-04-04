@@ -75,6 +75,29 @@ find_noidea() {
     return 1
 }
 
+# Extract issue references from branch name or staged files
+detect_issue_references() {
+    # Check for issue references in branch name
+    BRANCH_NAME=$(git symbolic-ref --short HEAD 2>/dev/null)
+    
+    # Extract issue numbers from common branch naming patterns:
+    # issue/123, feature/123-description, fix/123_bug, #123-fix, etc.
+    BRANCH_ISSUES=$(echo "$BRANCH_NAME" | grep -o -E '(issue|fix|feature|hotfix)[/_-]?#?([0-9]+)' | grep -o -E '[0-9]+' | sort -u)
+    
+    # Also try the pattern #123 in the branch name
+    BRANCH_HASH_ISSUES=$(echo "$BRANCH_NAME" | grep -o -E '#([0-9]+)' | grep -o -E '[0-9]+' | sort -u)
+    
+    # Look at the first line of the existing commit message for references
+    # This handles cases where the user has already manually added a reference
+    MSG_ISSUES=""
+    if [ -s "$COMMIT_MSG_FILE" ]; then
+        MSG_ISSUES=$(head -n 1 "$COMMIT_MSG_FILE" | grep -o -E '(#|issue |fixes |closes )[0-9]+' | grep -o -E '[0-9]+' | sort -u)
+    fi
+    
+    # Combine all detected issues and remove duplicates
+    echo "$BRANCH_ISSUES $BRANCH_HASH_ISSUES $MSG_ISSUES" | tr ' ' '\n' | grep -v '^$' | sort -u
+}
+
 # Find the noidea binary
 NOIDEA_BIN=$(find_noidea)
 if [ -z "$NOIDEA_BIN" ]; then
@@ -84,13 +107,20 @@ if [ -z "$NOIDEA_BIN" ]; then
 fi
 
 # Check if the commit message already has content
+COMMIT_HAS_CONTENT=0
 if [ -s "$COMMIT_MSG_FILE" ]; then
     # Has content already - user may have specified a message with -m
     # Skip if the file already has content beyond comments
     if grep -v "^#" "$COMMIT_MSG_FILE" | grep -q "[^[:space:]]"; then
-        exit 0
+        COMMIT_HAS_CONTENT=1
     fi
 fi
+
+# Check for GitHub issue integration
+GITHUB_ISSUES_ENABLED=$(git config --get noidea.github-issues)
+
+# Prepare for issue references
+ISSUE_REFS=$(detect_issue_references)
 
 # Always use non-interactive mode for hooks to prevent stdin issues
 # The user can still edit the message in their editor after suggestion
@@ -111,6 +141,64 @@ if [ "$FULL_DIFF" = "false" ]; then
 else
     # Default to using full diff for better commit messages
     DIFF_FLAG="--full-diff"
+fi
+
+# If we're not generating a message, but we have issue references and a message already exists
+if [ "$COMMIT_HAS_CONTENT" -eq 1 ] && [ -n "$ISSUE_REFS" ] && [ "$GITHUB_ISSUES_ENABLED" = "true" ]; then
+    # Add issue references to the existing commit message if not already present
+    print_divider
+    echo "${CYAN}🔗 Checking for GitHub issue references...${RESET}"
+    
+    # Create a temporary file
+    TEMP_FILE=$(mktemp)
+    
+    # Process each issue reference
+    MODIFIED=0
+    for ISSUE_NUM in $ISSUE_REFS; do
+        # Skip if this issue number is already referenced in the message
+        if grep -q -E "(#|issue |fixes |closes )$ISSUE_NUM" "$COMMIT_MSG_FILE"; then
+            echo "${YELLOW}Issue #${ISSUE_NUM} already referenced in commit message${RESET}"
+            continue
+        fi
+        
+        # Prepare to add reference
+        echo "${GREEN}Adding reference to issue #${ISSUE_NUM}${RESET}"
+        MODIFIED=1
+    done
+    
+    if [ "$MODIFIED" -eq 1 ]; then
+        # Create a new message with issue references
+        {
+            # Get the first line of commit message
+            head -n 1 "$COMMIT_MSG_FILE" | sed 's/$//'
+            
+            # Add issue references
+            for ISSUE_NUM in $ISSUE_REFS; do
+                if ! grep -q -E "(#|issue |fixes |closes )$ISSUE_NUM" "$COMMIT_MSG_FILE"; then
+                    echo -n " #$ISSUE_NUM"
+                fi
+            done
+            
+            # Add a newline
+            echo ""
+            
+            # Add the rest of the message
+            tail -n +2 "$COMMIT_MSG_FILE"
+        } > "$TEMP_FILE"
+        
+        # Replace original message file
+        cat "$TEMP_FILE" > "$COMMIT_MSG_FILE"
+        rm -f "$TEMP_FILE"
+        
+        print_divider
+        echo "${GREEN}✅ Added GitHub issue references to commit message${RESET}"
+        exit 0
+    else
+        # No modifications needed
+        echo "${GREEN}✅ Commit message already contains issue references${RESET}"
+        print_divider
+        exit 0
+    fi
 fi
 
 # Print a divider at the start
@@ -135,6 +223,44 @@ if [ -s "$COMMIT_MSG_FILE" ] && [ "$ORIGINAL_SIZE" -gt 5 ]; then
         PREVIEW=$(echo "$PREVIEW" | cut -c 1-60)"..."
     fi
     
+    # Add issue references to the generated message if available
+    if [ -n "$ISSUE_REFS" ] && [ "$GITHUB_ISSUES_ENABLED" = "true" ]; then
+        # Create a temporary file
+        TEMP_FILE=$(mktemp)
+        
+        # Build new message with issue references
+        {
+            # Get the first line of commit message
+            head -n 1 "$COMMIT_MSG_FILE" | sed 's/$//'
+            
+            # Add issue references if they don't already exist
+            for ISSUE_NUM in $ISSUE_REFS; do
+                if ! grep -q -E "(#|issue |fixes |closes )$ISSUE_NUM" "$COMMIT_MSG_FILE"; then
+                    echo -n " #$ISSUE_NUM"
+                fi
+            done
+            
+            # Add a newline
+            echo ""
+            
+            # Add the rest of the message
+            tail -n +2 "$COMMIT_MSG_FILE"
+        } > "$TEMP_FILE"
+        
+        # Replace original message file
+        cat "$TEMP_FILE" > "$COMMIT_MSG_FILE"
+        rm -f "$TEMP_FILE"
+        
+        # Update preview to show issue references
+        PREVIEW=$(head -n 1 "$COMMIT_MSG_FILE")
+        PREVIEW_LEN=$(echo "$PREVIEW" | wc -c)
+        
+        # Truncate preview if too long (POSIX compatible way)
+        if [ "$PREVIEW_LEN" -gt 60 ]; then
+            PREVIEW=$(echo "$PREVIEW" | cut -c 1-60)"..."
+        fi
+    fi
+    
     print_divider
     echo "${GREEN}✅ Commit message suggestion applied:${RESET}"
     echo "${PREVIEW}"
@@ -142,6 +268,11 @@ if [ -s "$COMMIT_MSG_FILE" ] && [ "$ORIGINAL_SIZE" -gt 5 ]; then
     # Indicate if there's more content in the message
     if [ "$LINE_COUNT" -gt 1 ]; then
         echo "${CYAN}(+ additional details in commit message)${RESET}"
+    fi
+    
+    # Mention issue linking if applicable
+    if [ -n "$ISSUE_REFS" ] && [ "$GITHUB_ISSUES_ENABLED" = "true" ]; then
+        echo "${GREEN}✅ Linked to GitHub issue(s): ${ISSUE_REFS}${RESET}"
     fi
     
     print_divider

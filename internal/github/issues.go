@@ -165,8 +165,13 @@ func (s *IssueService) CreateIssue(owner, repo, title, body string, labels []str
 	
 	// Call GitHub API
 	ctx := context.Background()
-	ghIssue, _, err := client.Issues.Create(ctx, owner, repo, req)
+	ghIssue, resp, err := client.Issues.Create(ctx, owner, repo, req)
 	if err != nil {
+		if resp != nil {
+			// Show detailed API error information
+			return nil, fmt.Errorf("failed to create issue: %w (Status: %d, URL: %s)", 
+				err, resp.StatusCode, resp.Request.URL)
+		}
 		return nil, fmt.Errorf("failed to create issue: %w", err)
 	}
 	
@@ -178,11 +183,26 @@ func (s *IssueService) CreateIssue(owner, repo, title, body string, labels []str
 }
 
 // CloseIssue closes an issue
-func (s *IssueService) CloseIssue(owner, repo string, number int) error {
+func (s *IssueService) CloseIssue(owner, repo string, number int, comment string) error {
 	// Get authenticated client
 	client, err := s.auth.Client()
 	if err != nil {
 		return err
+	}
+	
+	// If a comment is provided, add it first
+	if comment != "" {
+		// Create comment
+		commentObj := &github.IssueComment{
+			Body: github.String(comment),
+		}
+		
+		// Call GitHub API to add comment
+		ctx := context.Background()
+		_, _, err = client.Issues.CreateComment(ctx, owner, repo, number, commentObj)
+		if err != nil {
+			return fmt.Errorf("failed to add closing comment to issue #%d: %w", number, err)
+		}
 	}
 	
 	// Create close request

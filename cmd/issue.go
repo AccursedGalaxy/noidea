@@ -8,7 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AccursedGalaxy/noidea/internal/config"
+	"github.com/AccursedGalaxy/noidea/internal/feedback"
 	"github.com/AccursedGalaxy/noidea/internal/github"
+	"github.com/AccursedGalaxy/noidea/internal/personality"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -23,6 +26,7 @@ var (
 	issueOnlyOpenFlag    bool
 	issueOnlyClosedFlag  bool
 	issueTitleFlag       string
+	issuePersonalityFlag string
 )
 
 func init() {
@@ -32,6 +36,7 @@ func init() {
 	issueCmd.AddCommand(issueListCmd)
 	issueCmd.AddCommand(issueViewCmd)
 	issueCmd.AddCommand(issueCreateCmd)
+	issueCmd.AddCommand(issueCloseCmd)
 
 	// Add flags to issue list command
 	issueListCmd.Flags().StringVarP(&issueStateFlag, "state", "s", "open", "Filter issues by state (open, closed, all)")
@@ -44,6 +49,11 @@ func init() {
 	issueCreateCmd.Flags().StringVarP(&issueBodyFlag, "body", "b", "", "Issue body")
 	issueCreateCmd.Flags().StringSliceVarP(&issueLabelsFlag, "labels", "l", []string{}, "Labels to apply to the issue")
 	issueCreateCmd.Flags().BoolVarP(&issueWithAIFlag, "ai", "a", false, "Use AI to help create the issue")
+	issueCreateCmd.Flags().StringVarP(&issuePersonalityFlag, "personality", "p", "", "Personality to use for AI issue creation")
+
+	// Add flags to issue close command
+	issueCloseCmd.Flags().BoolP("quiet", "q", false, "Suppress output (for use in scripts)")
+	issueCloseCmd.Flags().StringP("comment", "c", "", "Add a closing comment")
 }
 
 var issueCmd = &cobra.Command{
@@ -78,10 +88,10 @@ var issueListCmd = &cobra.Command{
 		// Create GitHub authenticator
 		auth := github.NewAuthenticator()
 		
-		// Check if we have a token
-		_, err = auth.GetToken()
+		// Check authentication - we need API access for issue operations
+		_, err = auth.Client()
 		if err != nil {
-			fmt.Println(color.RedString("Error:"), "GitHub token not found. Please configure it with 'noidea config github-auth'")
+			fmt.Println(color.RedString("Error:"), "GitHub authentication not configured. Please configure it with 'noidea config github-auth'")
 			return
 		}
 		
@@ -99,37 +109,42 @@ var issueListCmd = &cobra.Command{
 			return
 		}
 		
-		fmt.Printf("%s for %s/%s:\n\n", 
-			color.CyanString("Issues"), 
-			color.YellowString(repo.Owner), 
+		fmt.Printf("%s for %s/%s:\n\n",
+			color.CyanString("Issues (%s)", issueStateFlag),
+			color.YellowString(repo.Owner),
 			color.YellowString(repo.Name))
 		
+		// Calculate column widths for consistent formatting
+		maxNumWidth := len(fmt.Sprintf("%d", issues[0].Number))
 		for _, issue := range issues {
-			// Format issue number and title
-			prefix := fmt.Sprintf("#%-4d", issue.Number)
-			
-			// Colorize state
+			width := len(fmt.Sprintf("%d", issue.Number))
+			if width > maxNumWidth {
+				maxNumWidth = width
+			}
+		}
+		
+		for _, issue := range issues {
+			// Format state
 			stateColor := color.New(color.FgGreen)
 			if issue.State == "closed" {
 				stateColor = color.New(color.FgRed)
 			}
 			
 			// Format date
-			timeAgo := formatTimeAgo(issue.UpdatedAt)
-			
-			// Format labels
-			labelStr := ""
-			if len(issue.Labels) > 0 {
-				labelStr = " [" + strings.Join(issue.Labels, ", ") + "]"
+			var timeAgo string
+			if time.Since(issue.UpdatedAt) < 24*time.Hour {
+				timeAgo = fmt.Sprintf("%s ago", formatDuration(time.Since(issue.UpdatedAt)))
+			} else {
+				timeAgo = issue.UpdatedAt.Format("Jan 2")
 			}
 			
-			// Print summary
-			fmt.Printf("%s %s %s%s %s\n",
-				color.YellowString(prefix),
+			// Display issue
+			fmt.Printf("#%-*d %s %s %s\n",
+				maxNumWidth,
+				issue.Number,
+				truncateString(issue.Title, 60),
 				stateColor.Sprint(issue.State),
-				issue.Title,
-				color.CyanString(labelStr),
-				color.WhiteString("(updated %s)", timeAgo))
+				color.New(color.FgBlue).Sprint(timeAgo))
 		}
 	},
 }
@@ -157,10 +172,10 @@ var issueViewCmd = &cobra.Command{
 		// Create GitHub authenticator
 		auth := github.NewAuthenticator()
 		
-		// Check if we have a token
-		_, err = auth.GetToken()
+		// Check authentication - we need API access for issue operations
+		_, err = auth.Client()
 		if err != nil {
-			fmt.Println(color.RedString("Error:"), "GitHub token not found. Please configure it with 'noidea config github-auth'")
+			fmt.Println(color.RedString("Error:"), "GitHub authentication not configured. Please configure it with 'noidea config github-auth'")
 			return
 		}
 		
@@ -201,7 +216,6 @@ var issueViewCmd = &cobra.Command{
 		}
 		
 		// Display body
-		fmt.Println(color.CyanString("\nDescription:"))
 		fmt.Println(issue.Body)
 		
 		// Display URL
@@ -224,10 +238,10 @@ var issueCreateCmd = &cobra.Command{
 		// Create GitHub authenticator
 		auth := github.NewAuthenticator()
 		
-		// Check if we have a token
-		_, err = auth.GetToken()
+		// Check authentication - we need API access for issue operations
+		_, err = auth.Client()
 		if err != nil {
-			fmt.Println(color.RedString("Error:"), "GitHub token not found. Please configure it with 'noidea config github-auth'")
+			fmt.Println(color.RedString("Error:"), "GitHub authentication not configured. Please configure it with 'noidea config github-auth'")
 			return
 		}
 		
@@ -294,6 +308,58 @@ var issueCreateCmd = &cobra.Command{
 	},
 }
 
+var issueCloseCmd = &cobra.Command{
+	Use:   "close [issue number]",
+	Short: "Close a GitHub issue",
+	Long:  `Close a specific GitHub issue.`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		// Parse issue number
+		issueNumber, err := strconv.Atoi(args[0])
+		if err != nil {
+			fmt.Println(color.RedString("Error:"), "Invalid issue number")
+			return
+		}
+		
+		// Get current repository
+		repo, err := github.GetCurrentRepo()
+		if err != nil {
+			fmt.Println(color.RedString("Error:"), err)
+			return
+		}
+		
+		// Create GitHub authenticator
+		auth := github.NewAuthenticator()
+		
+		// Check authentication - we need API access for issue operations
+		_, err = auth.Client()
+		if err != nil {
+			fmt.Println(color.RedString("Error:"), "GitHub authentication not configured. Please configure it with 'noidea config github-auth'")
+			return
+		}
+		
+		// Create issue service and close issue
+		issueService := github.NewIssueService(auth)
+		quiet, _ := cmd.Flags().GetBool("quiet")
+		comment, _ := cmd.Flags().GetString("comment")
+		
+		// Add comment if provided
+		if comment != "" && !quiet {
+			fmt.Println(color.CyanString("Adding closing comment..."))
+		}
+		
+		err = issueService.CloseIssue(repo.Owner, repo.Name, issueNumber, comment)
+		if err != nil {
+			fmt.Println(color.RedString("Error:"), err)
+			return
+		}
+		
+		if !quiet {
+			fmt.Println(color.GreenString("Issue #%d closed successfully", issueNumber))
+		}
+	},
+}
+
 // createIssueWithAI helps create an issue using AI
 func createIssueWithAI(repo *github.RepoInfo) {
 	fmt.Println(color.CyanString("Creating issue with AI assistance"))
@@ -321,8 +387,7 @@ func createIssueWithAI(repo *github.RepoInfo) {
 	// Use AI to generate a well-formed issue
 	fmt.Println(color.CyanString("Generating issue..."))
 	
-	// TODO: Replace with actual AI implementation
-	// For now, we'll use a simple prompt
+	// Generate issue using our existing AI system
 	aiTitle, aiBody := generateIssueWithAI(userDescription, repo)
 	
 	// Display generated issue
@@ -343,6 +408,13 @@ func createIssueWithAI(repo *github.RepoInfo) {
 	
 	// Create GitHub authenticator
 	auth := github.NewAuthenticator()
+	
+	// Check token authentication
+	_, err := auth.GetToken()
+	if err != nil {
+		fmt.Println(color.RedString("Error:"), "GitHub authentication not configured. Please configure it with 'noidea config github-auth'")
+		return
+	}
 	
 	// Create issue service and create issue
 	issueService := github.NewIssueService(auth)
@@ -365,9 +437,85 @@ func createIssueWithAI(repo *github.RepoInfo) {
 
 // generateIssueWithAI creates a well-formed issue from a user description
 func generateIssueWithAI(description string, repo *github.RepoInfo) (string, string) {
-	// In a real implementation, this would call the LLM service
+	// Load configuration
+	cfg := config.LoadConfig()
+	
+	// Check if LLM is enabled
+	if !cfg.LLM.Enabled {
+		// Fallback to template if AI is not enabled
+		return generateSimpleIssueTemplate(description, repo)
+	}
+	
+	// Get personality name from flag or default
+	personalityName := cfg.Moai.Personality
+	if issuePersonalityFlag != "" {
+		personalityName = issuePersonalityFlag
+	}
+	
+	// Create feedback engine using existing system
+	// Note: We're intentionally not using the default engine here since we need specific formatting
+	_ = feedback.NewFeedbackEngine(
+		cfg.LLM.Provider,
+		cfg.LLM.Model,
+		cfg.LLM.APIKey,
+		personalityName,
+		cfg.Moai.PersonalityFile,
+	)
+	
+	// Define custom personality for issue creation if needed
+	issuePersonality := personality.Personality{
+		Name:             "issue_creator",
+		Description:      "GitHub Issue Creator",
+		SystemPrompt:     "You are a helpful assistant that creates well-structured GitHub issues from user descriptions. Format the issue in a clear, professional way with appropriate sections like Description, Expected Behavior, Steps to Reproduce, etc.",
+		UserPromptFormat: "Create a GitHub issue for the following description:\n\n{{.Message}}\n\nFor repository: {{.Username}}/{{.RepoName}}\n\nProvide both a concise title and a detailed body with proper Markdown formatting. Separate the title and body with '---' on its own line.",
+		MaxTokens:        800,
+		Temperature:      0.7,
+	}
+	
+	// Create a specialized engine with the issue personality
+	issueEngine := feedback.NewFeedbackEngineWithCustomPersonality(
+		cfg.LLM.Provider,
+		cfg.LLM.Model,
+		cfg.LLM.APIKey,
+		issuePersonality,
+	)
+	
+	// Create commit context with the description
+	ctx := feedback.CommitContext{
+		Message:   description,
+		Timestamp: time.Now(),
+	}
+	
+	// Try to get repo details to provide context
+	ctx.CommitHistory = []string{} // Empty array for no history
+	
+	// Generate AI response
+	aiResponse, err := issueEngine.GenerateFeedback(ctx)
+	if err != nil {
+		fmt.Println(color.YellowString("AI generation failed:"), err)
+		fmt.Println(color.YellowString("Falling back to template..."))
+		return generateSimpleIssueTemplate(description, repo)
+	}
+	
+	// Split response into title and body at the delimiter
+	parts := strings.Split(aiResponse, "---")
+	if len(parts) < 2 {
+		// If response doesn't follow the format, fall back to template
+		return generateSimpleIssueTemplate(description, repo)
+	}
+	
+	title := strings.TrimSpace(parts[0])
+	body := strings.TrimSpace(parts[1])
+	
+	// Add reference to noidea CLI
+	body += "\n\n---\n_Generated with noidea CLI_"
+	
+	return title, body
+}
 
-	// For now, just use a simple template
+// generateSimpleIssueTemplate creates a basic issue template without AI
+func generateSimpleIssueTemplate(description string, repo *github.RepoInfo) (string, string) {
+	// Create a simple title from the first line
 	title := fmt.Sprintf("Issue from description: %s", strings.Split(description, "\n")[0])
 	if len(title) > 60 {
 		title = title[:57] + "..."
@@ -440,4 +588,49 @@ func formatTimeAgo(t time.Time) string {
 		}
 		return fmt.Sprintf("%d years ago", years)
 	}
+}
+
+// formatDuration formats a time.Duration as a human-readable string
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%d seconds", int(d.Seconds()))
+	} else if d < time.Hour {
+		minutes := int(d.Minutes())
+		if minutes == 1 {
+			return "1 minute"
+		}
+		return fmt.Sprintf("%d minutes", minutes)
+	} else if d < 24*time.Hour {
+		hours := int(d.Hours())
+		if hours == 1 {
+			return "1 hour"
+		}
+		return fmt.Sprintf("%d hours", hours)
+	} else if d < 30*24*time.Hour {
+		days := int(d.Hours() / 24)
+		if days == 1 {
+			return "1 day"
+		}
+		return fmt.Sprintf("%d days", days)
+	} else if d < 365*24*time.Hour {
+		months := int(d.Hours() / 24 / 30)
+		if months == 1 {
+			return "1 month"
+		}
+		return fmt.Sprintf("%d months", months)
+	} else {
+		years := int(d.Hours() / 24 / 365)
+		if years == 1 {
+			return "1 year"
+		}
+		return fmt.Sprintf("%d years", years)
+	}
+}
+
+// truncateString truncates a string to a specified length
+func truncateString(s string, maxLength int) string {
+	if len(s) > maxLength {
+		return s[:maxLength] + "..."
+	}
+	return s
 } 
