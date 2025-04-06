@@ -438,114 +438,152 @@ func formatSummary(stats, commits, aiInsights string, days int, showHistory bool
 	return result.String()
 }
 
-// Format the stats sections in a more visually appealing way
+// formatStatsForDisplay converts the statistics map into a formatted string for console output
 func formatStatsForDisplay(stats map[string]interface{}) string {
 	var result strings.Builder
 
-	// Basic stats with highlighted numbers - with nil checks
-	totalCommits := safeGetValue(stats, "totalCommits", "0")
-	timeSpan := safeGetValue(stats, "timeSpan", "0")
-	uniqueAuthors := safeGetValue(stats, "uniqueAuthors", "0")
-
-	result.WriteString(fmt.Sprintf("Total Commits: %s\n", color.New(color.FgHiGreen, color.Bold).Sprint(totalCommits)))
-	result.WriteString(fmt.Sprintf("Time Span: %s hours\n", color.New(color.FgHiGreen, color.Bold).Sprint(timeSpan)))
-	result.WriteString(fmt.Sprintf("Unique Authors: %s\n\n", color.New(color.FgHiGreen, color.Bold).Sprint(uniqueAuthors)))
-
-	// File changes with highlighted numbers - with nil checks
-	filesChanged := safeGetValue(stats, "filesChanged", "0")
-	linesAdded := safeGetValue(stats, "linesAdded", "0")
-	linesRemoved := safeGetValue(stats, "linesRemoved", "0")
-
-	result.WriteString(fmt.Sprintf("Files Changed: %s\n", color.New(color.FgHiYellow, color.Bold).Sprint(filesChanged)))
-	result.WriteString(fmt.Sprintf("Lines Added: %s\n", color.New(color.FgGreen, color.Bold).Sprint(linesAdded)))
-	result.WriteString(fmt.Sprintf("Lines Removed: %s\n", color.New(color.FgRed, color.Bold).Sprint(linesRemoved)))
-
-	netChange := 0
-	if val, ok := stats["netChange"]; ok && val != nil {
-		if intVal, ok := val.(int); ok {
-			netChange = intVal
-		}
+	// Terminal width detection
+	width := 80
+	if w, _, err := term.GetSize(0); err == nil && w > 0 {
+		width = w
 	}
 
-	netChangeColor := color.New(color.Bold)
-	if netChange > 0 {
-		netChangeColor = color.New(color.FgGreen, color.Bold)
-	} else if netChange < 0 {
-		netChangeColor = color.New(color.FgRed, color.Bold)
+	// Header
+	fmt.Fprintf(&result, "\n%s\n", color.New(color.Bold).Sprintf("📊 Git Repository Statistics"))
+	fmt.Fprintf(&result, "%s\n\n", strings.Repeat("─", width/2))
+
+	// Basic statistics
+	fmt.Fprintf(&result, "  %s %s\n",
+		color.New(color.Bold).Sprintf("Total Commits:"),
+		color.CyanString("%v", stats["totalCommits"]))
+
+	fmt.Fprintf(&result, "  %s %s\n",
+		color.New(color.Bold).Sprintf("Unique Authors:"),
+		color.CyanString("%v", stats["uniqueAuthors"]))
+
+	// Average commits
+	if avg, ok := stats["averageCommitsPerDay"].(float64); ok {
+		fmt.Fprintf(&result, "  %s %s\n",
+			color.New(color.Bold).Sprintf("Average Commits Per Day:"),
+			color.CyanString("%.2f", avg))
 	}
 
-	result.WriteString(fmt.Sprintf("Net Change: %s\n\n", netChangeColor.Sprint(netChange)))
+	// Activity patterns
+	if commitsByDay, ok := stats["commitsByDay"].(map[string]int); ok && len(commitsByDay) > 0 {
+		fmt.Fprintf(&result, "\n  %s\n", color.New(color.Bold).Sprintf("Activity by Day of Week:"))
 
-	// Commits by day section
-	result.WriteString(color.New(color.FgHiMagenta, color.Bold).Sprint("📅 Commits by Day:\n"))
-
-	if commitsByDay, ok := stats["commitsByDay"].(map[string]int); ok && commitsByDay != nil {
-		maxDay := 0
+		// Find the maximum commits for scaling
+		maxCommits := 0
 		for _, count := range commitsByDay {
-			if count > maxDay {
-				maxDay = count
+			if count > maxCommits {
+				maxCommits = count
 			}
 		}
 
-		// Days of week in order
-		daysOrder := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
-
-		for _, day := range daysOrder {
-			if count, exists := commitsByDay[day]; exists && count > 0 {
-				barLength := int(float64(count) / float64(maxDay) * 50)
-				if maxDay == 0 {
-					barLength = 0
+		// Display commits by day with bar charts
+		days := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+		for _, day := range days {
+			count := commitsByDay[day]
+			if count > 0 {
+				// Calculate bar length based on percentage of max
+				barLength := (count * 20) / maxCommits
+				if barLength < 1 {
+					barLength = 1
 				}
-				bar := strings.Repeat("█", barLength)
-				dayFormatted := fmt.Sprintf("%-10s", day)
-				result.WriteString(fmt.Sprintf("%s : %s %s\n",
-					color.New(color.FgHiWhite).Sprint(dayFormatted),
-					color.New(color.FgBlue).Sprint(bar),
-					color.New(color.FgHiBlue).Sprintf("(%d)", count)))
+
+				bar := color.HiBlueString(strings.Repeat("█", barLength))
+				fmt.Fprintf(&result, "    %s %s %s (%d)\n",
+					color.New(color.Bold).Sprintf("%-9s:", day),
+					bar,
+					color.HiBlackString(""),
+					count)
 			}
 		}
-		result.WriteString("\n")
 	}
 
-	// Commits by hour with emoji
-	result.WriteString(color.New(color.FgHiCyan, color.Bold).Sprint("🕒 Commits by Hour:\n"))
+	// Time activity
+	if commitsByHour, ok := stats["commitsByHourRange"].(map[string]int); ok && len(commitsByHour) > 0 {
+		fmt.Fprintf(&result, "\n  %s\n", color.New(color.Bold).Sprintf("Activity by Time of Day:"))
 
-	if commitsByHour, ok := stats["commitsByHourRange"].(map[string]int); ok && commitsByHour != nil {
-		maxHour := 0
+		// Find the maximum commits for scaling
+		maxCommits := 0
 		for _, count := range commitsByHour {
-			if count > maxHour {
-				maxHour = count
+			if count > maxCommits {
+				maxCommits = count
 			}
 		}
 
-		// Hour ranges in chronological order
-		hourRanges := []string{"Morning (4-8)", "Work Hours (8-12)", "Afternoon (12-16)", "Evening (16-20)", "Late PM (20-24)", "Night (0-4)"}
+		// Define the time ranges in order
+		timeRanges := []string{
+			"Early Morning (4-8)",
+			"Morning (8-12)",
+			"Afternoon (12-16)",
+			"Evening (16-20)",
+			"Night (20-24)",
+			"Late Night (0-4)",
+		}
 
-		for _, hourRange := range hourRanges {
-			if count, exists := commitsByHour[hourRange]; exists && count > 0 {
-				barLength := int(float64(count) / float64(maxHour) * 50)
-				if maxHour == 0 {
-					barLength = 0
+		for _, timeRange := range timeRanges {
+			if count, ok := commitsByHour[timeRange]; ok && count > 0 {
+				// Calculate bar length based on percentage of max
+				barLength := (count * 20) / maxCommits
+				if barLength < 1 {
+					barLength = 1
 				}
-				bar := strings.Repeat("█", barLength)
-				rangeFormatted := fmt.Sprintf("%-16s", hourRange)
-				result.WriteString(fmt.Sprintf("%s : %s %s\n",
-					color.New(color.FgHiWhite).Sprint(rangeFormatted),
-					color.New(color.FgCyan).Sprint(bar),
-					color.New(color.FgHiCyan).Sprintf("(%d)", count)))
+
+				bar := color.HiGreenString(strings.Repeat("█", barLength))
+				fmt.Fprintf(&result, "    %s %s %s (%d)\n",
+					color.New(color.Bold).Sprintf("%-20s:", timeRange),
+					bar,
+					color.HiBlackString(""),
+					count)
 			}
+		}
+	}
+
+	// File statistics
+	if fileStats, ok := stats["fileChanges"].(map[string]int); ok && len(fileStats) > 0 {
+		total := fileStats["added"] + fileStats["modified"] + fileStats["deleted"]
+		if total > 0 {
+			fmt.Fprintf(&result, "\n  %s\n", color.New(color.Bold).Sprintf("File Changes:"))
+			fmt.Fprintf(&result, "    %s %s\n",
+				color.New(color.Bold).Sprintf("Added:"),
+				color.GreenString("%d", fileStats["added"]))
+			fmt.Fprintf(&result, "    %s %s\n",
+				color.New(color.Bold).Sprintf("Modified:"),
+				color.YellowString("%d", fileStats["modified"]))
+			fmt.Fprintf(&result, "    %s %s\n",
+				color.New(color.Bold).Sprintf("Deleted:"),
+				color.RedString("%d", fileStats["deleted"]))
+		}
+	}
+
+	// Line changes
+	if lineChanges, ok := stats["linesChanged"].(map[string]int); ok {
+		additions := lineChanges["additions"]
+		deletions := lineChanges["deletions"]
+		if additions > 0 || deletions > 0 {
+			fmt.Fprintf(&result, "\n  %s\n", color.New(color.Bold).Sprintf("Line Changes:"))
+			fmt.Fprintf(&result, "    %s %s\n",
+				color.New(color.Bold).Sprintf("Additions:"),
+				color.GreenString("+%d", additions))
+			fmt.Fprintf(&result, "    %s %s\n",
+				color.New(color.Bold).Sprintf("Deletions:"),
+				color.RedString("-%d", deletions))
+
+			// Net change
+			net := additions - deletions
+			netColor := color.GreenString
+			if net < 0 {
+				netColor = color.RedString
+			}
+			fmt.Fprintf(&result, "    %s %s\n",
+				color.New(color.Bold).Sprintf("Net Change:"),
+				netColor("%+d", net))
 		}
 	}
 
 	return result.String()
-}
-
-// safeGetValue safely extracts a value from a map, returning defaultValue if nil or not found
-func safeGetValue(m map[string]interface{}, key string, defaultValue string) string {
-	if val, ok := m[key]; ok && val != nil {
-		return fmt.Sprintf("%v", val)
-	}
-	return defaultValue
 }
 
 // exportSummary exports the summary to a file in the requested format

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -97,8 +98,9 @@ var moaiCmd = &cobra.Command{
 			personalityName = personalityFlag
 		}
 
-		// Display the commit message
-		fmt.Printf("%s  %s\n", face, commitMsg)
+		// Display the commit message with better formatting
+		bold := color.New(color.Bold).SprintFunc()
+		fmt.Printf("  %s  %s\n\n", color.HiMagentaString(face), bold(commitMsg))
 
 		// Generate feedback based on AI flag
 		if useAI {
@@ -129,39 +131,53 @@ var moaiCmd = &cobra.Command{
 			)
 
 			// Generate AI feedback
+			fmt.Printf("  %s", color.HiBlackString("Generating AI feedback..."))
 			aiResponse, err := engine.GenerateFeedback(commitContext)
+			fmt.Print("\r\033[K") // Clear the "Generating" message
+
 			if err != nil {
 				// On error, fallback to local feedback
-				fmt.Println(color.YellowString(moai.GetRandomFeedback(commitMsg)))
-				fmt.Println(color.RedString("AI Error:"), err)
+				feedbackMsg := moai.GetRandomFeedback(commitMsg)
+				fmt.Printf("  %s\n\n", color.YellowString(feedbackMsg))
+				fmt.Printf("  %s %v\n", color.New(color.FgRed, color.Bold).Sprint("❌ AI Error:"), err)
 
 				// If debug mode is enabled, show more details
 				if debugMode {
-					fmt.Println(color.CyanString("\nDebug information:"))
-					fmt.Printf("Provider: %s\n", cfg.LLM.Provider)
-					fmt.Printf("Model: %s\n", cfg.LLM.Model)
+					fmt.Println("\n  " + color.New(color.FgCyan, color.Bold).Sprint("🔍 Debug information:"))
+					fmt.Printf("    Provider: %s\n", color.CyanString(cfg.LLM.Provider))
+					fmt.Printf("    Model: %s\n", color.CyanString(cfg.LLM.Model))
 					apiKeyLength := 0
 					if cfg.LLM.APIKey != "" {
 						apiKeyLength = len(cfg.LLM.APIKey)
-						fmt.Printf("API key length: %d\n", apiKeyLength)
+						fmt.Printf("    API key length: %s\n", color.CyanString(strconv.Itoa(apiKeyLength)))
 
 						// Show a short prefix of the API key for debugging
 						prefixLen := 10
 						if apiKeyLength < prefixLen {
 							prefixLen = apiKeyLength
 						}
-						fmt.Printf("API key prefix: %s\n", cfg.LLM.APIKey[:prefixLen])
+						fmt.Printf("    API key prefix: %s\n", color.CyanString(cfg.LLM.APIKey[:prefixLen]))
 					} else {
-						fmt.Printf("API key length: 0 (no API key found)\n")
+						fmt.Printf("    API key length: %s (no API key found)\n", color.RedString("0"))
 					}
 				}
 			} else {
-				// Display AI-generated feedback
-				fmt.Println(color.CyanString(aiResponse))
+				// Display AI-generated feedback with a box or indentation
+				aiLines := strings.Split(aiResponse, "\n")
+				fmt.Println()
+				for _, line := range aiLines {
+					if line != "" {
+						fmt.Printf("  %s\n", color.New(color.FgCyan).Sprint(line))
+					} else {
+						fmt.Println()
+					}
+				}
+				fmt.Println()
 			}
 		} else {
 			// Use local feedback
-			fmt.Println(color.YellowString(moai.GetRandomFeedback(commitMsg)))
+			feedbackMsg := moai.GetRandomFeedback(commitMsg)
+			fmt.Printf("  %s\n\n", color.YellowString(feedbackMsg))
 		}
 	},
 }

@@ -154,16 +154,19 @@ func Execute() {
 	// This is a simple test comment to check commit message generation
 	err := rootCmd.Execute()
 	if err != nil {
-		fmt.Println(color.RedString("Error:"), err)
+		fmt.Fprintf(os.Stderr, "%s %v\n", color.RedString("Error:"), err)
 		os.Exit(1)
 	}
 }
 
 // printVersion prints detailed version information
 func printVersion() {
-	fmt.Printf("noidea version %s\n", Version)
-	fmt.Printf("Build date: %s\n", BuildDate)
-	fmt.Printf("Git commit: %s\n", Commit)
+	bold := color.New(color.Bold).SprintFunc()
+	cyan := color.New(color.FgCyan).SprintFunc()
+
+	fmt.Printf("📦 %s %s\n", bold("noidea version:"), cyan(Version))
+	fmt.Printf("🔨 %s %s\n", bold("Build date:"), cyan(BuildDate))
+	fmt.Printf("🔖 %s %s\n", bold("Git commit:"), cyan(Commit))
 }
 
 // validateApiKeyOnStartup checks API key validity on startup and warns if there are issues
@@ -176,12 +179,16 @@ func validateApiKeyOnStartup() {
 		// Try to validate the API key
 		isValid, err := secure.ValidateAPIKey(cfg.LLM.Provider, cfg.LLM.APIKey)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "\n%s API key validation error: %v\n", color.YellowString("Warning:"), err)
-			fmt.Fprintf(os.Stderr, "You may want to check your API key with 'noidea config apikey-status'\n\n")
+			yellow := color.New(color.FgYellow, color.Bold).SprintFunc()
+			fmt.Fprintf(os.Stderr, "\n%s %v\n", yellow("⚠️  Warning:"), err)
+			fmt.Fprintf(os.Stderr, "      You may want to check your API key with '%s'\n\n",
+				color.CyanString("noidea config apikey-status"))
 		} else if !isValid {
+			red := color.New(color.FgRed, color.Bold).SprintFunc()
 			fmt.Fprintf(os.Stderr, "\n%s Your API key for %s appears to be invalid.\n",
-				color.RedString("Warning:"), cfg.LLM.Provider)
-			fmt.Fprintf(os.Stderr, "Please update it with 'noidea config apikey'\n\n")
+				red("❌ Warning:"), color.CyanString(cfg.LLM.Provider))
+			fmt.Fprintf(os.Stderr, "      Please update it with '%s'\n\n",
+				color.CyanString("noidea config apikey"))
 		}
 	}
 }

@@ -26,6 +26,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/AccursedGalaxy/noidea/internal/config"
 	"github.com/AccursedGalaxy/noidea/internal/feedback"
@@ -41,7 +42,7 @@ var (
 	quietFlag         bool // Flag for machine-readable output without UI elements
 
 	// Add divider constant here, grouped with other constants
-	divider = "------------------------------------------------------"
+	divider = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 )
 
 func init() {
@@ -102,23 +103,6 @@ Example:
 		collector, _ := history.NewHistoryCollector()
 		stats := collector.CalculateStats(commits)
 
-		// Print a divider
-		fmt.Println(color.HiBlackString(divider))
-
-		// Print analysis info
-		fmt.Printf("%s %s\n",
-			color.CyanString("🧠 Analyzing staged changes and"),
-			color.CyanString(fmt.Sprintf("%d recent commits", len(commitMessages))))
-
-		fmt.Printf("%s\n",
-			color.CyanString("Generating professional commit message suggestion..."))
-
-		// If using full diff, indicate that we're doing detailed code analysis
-		if fullDiffFlag {
-			fmt.Printf("%s\n",
-				color.CyanString("Performing detailed code analysis to identify specific changes..."))
-		}
-
 		// Create feedback engine based on config
 		engineProvider := cfg.LLM.Provider
 		engineModel := cfg.LLM.Model
@@ -140,6 +124,35 @@ Example:
 		if !fullDiffFlag {
 			// Create a summarized version of the diff for conciseness
 			ctx.Diff = summarizeDiff(diff)
+		}
+
+		// Get width of terminal
+		width := 80
+		if w, _, err := term.GetSize(0); err == nil && w > 0 {
+			width = w
+		}
+
+		// Print a header with divider
+		fmt.Println()
+		fmt.Println(color.New(color.Bold).Sprintf("🔮 Commit Message Suggestion"))
+		fmt.Println(color.HiBlackString(strings.Repeat("━", width/2)))
+
+		// Print analysis info with spinner-like prefix
+		fmt.Printf("  %s %s %s\n",
+			color.HiMagentaString("◉"),
+			color.New(color.Bold).Sprintf("Analyzing:"),
+			color.CyanString("staged changes and %d recent commits", len(commitMessages)))
+
+		// Progress indication
+		fmt.Printf("  %s %s\n",
+			color.HiBlueString("◉"),
+			color.New(color.Bold).Sprintf("Generating commit message..."))
+
+		// If using full diff, indicate that we're doing detailed code analysis
+		if fullDiffFlag {
+			fmt.Printf("  %s %s\n",
+				color.HiCyanString("◉"),
+				color.New(color.Bold).Sprintf("Performing detailed code analysis"))
 		}
 
 		// Generate suggested commit message
@@ -164,7 +177,9 @@ Example:
 			}
 		} else {
 			// Standard output with UI elements
-			fmt.Println(color.HiBlackString(divider))
+			fmt.Println()
+			fmt.Println(color.New(color.Bold).Sprintf("✨ Suggested Commit Message"))
+			fmt.Println(color.HiBlackString(strings.Repeat("━", width/2)))
 
 			if interactiveFlag {
 				// Handle interactive mode
@@ -176,14 +191,12 @@ Example:
 				// Only print the message preview when NOT called from a git hook
 				// or if called directly by the user
 				if !isFromGitHook {
-					// Just print the suggestion
-					fmt.Println(color.GreenString("✨ Suggested commit message:"))
-
 					// Handle multi-line commit messages with better formatting
 					lines := strings.Split(suggestion, "\n")
 					if len(lines) > 1 {
-						// Print the first line (subject) in white
-						fmt.Println(color.HiWhiteString(lines[0]))
+						// Print the first line (subject) in bold cyan
+						fmt.Println(color.New(color.FgHiCyan, color.Bold).Sprintf("  %s", lines[0]))
+						fmt.Println()
 
 						// Print the rest with proper formatting
 						for i := 1; i < len(lines); i++ {
@@ -191,50 +204,18 @@ Example:
 								// Print empty lines as is
 								fmt.Println()
 							} else {
-								// Print content lines in white but not highlighted
-								fmt.Println(color.WhiteString(lines[i]))
+								// Print content lines indented
+								fmt.Println(color.CyanString("  %s", lines[i]))
 							}
 						}
 					} else {
 						// Single line message
-						fmt.Println(color.HiWhiteString(suggestion))
+						fmt.Println(color.New(color.FgHiCyan, color.Bold).Sprintf("  %s", suggestion))
 					}
 
-					fmt.Println(color.HiBlackString(divider))
-				}
-
-				// If we have a commit message file, write to it
-				if commitMsgFileFlag != "" {
-					err := writeToCommitMsgFile(suggestion, commitMsgFileFlag)
-					if err != nil {
-						fmt.Println(color.RedString("❌ Error:"), "Failed to write commit message:", err)
-						return
-					}
-					// Success message with the complete commit message
-					fmt.Println(color.GreenString("✅ Commit message suggestion applied:"))
-
-					// Show the full message in the success notification
-					lines := strings.Split(suggestion, "\n")
-					if len(lines) > 1 {
-						// Print the first line (subject) in white
-						fmt.Println(color.HiWhiteString(lines[0]))
-
-						// Print the rest with proper formatting
-						for i := 1; i < len(lines); i++ {
-							if lines[i] == "" {
-								// Print empty lines as is
-								fmt.Println()
-							} else {
-								// Print content lines in white but not highlighted
-								fmt.Println(color.WhiteString(lines[i]))
-							}
-						}
-					} else {
-						// Single line message
-						fmt.Println(color.HiWhiteString(suggestion))
-					}
-
-					fmt.Println(color.HiBlackString(divider))
+					fmt.Println()
+					fmt.Println(color.HiBlackString("  To use: ") + color.WhiteString("git commit -m \"") +
+						color.HiCyanString("%s", suggestion) + color.WhiteString("\""))
 				}
 			}
 		}
