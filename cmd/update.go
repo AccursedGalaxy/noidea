@@ -51,8 +51,8 @@ func runUpdate(force bool) {
 	fmt.Printf("Current version: %s\n", Version)
 	fmt.Printf("Latest version: %s\n", latestVersion)
 
-	// Compare versions with our improved version checker
-	latestIsNewer := isNewerVersion(latestVersion, Version)
+	// Compare versions to determine if latest is newer
+	var latestIsNewer bool = latestVersion != Version
 
 	// If already on latest version and not forcing update, exit
 	if !latestIsNewer && !force {
