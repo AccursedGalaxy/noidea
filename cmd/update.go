@@ -52,7 +52,15 @@ func runUpdate(force bool) {
 	fmt.Printf("Latest version: %s\n", latestVersion)
 
 	// Compare versions to determine if latest is newer
-	var latestIsNewer bool = latestVersion != Version
+	var latestIsNewer bool
+	if strings.Contains(Version, "-") {
+		// If current is a development version based on the same release version,
+		// then the release version is not newer
+		latestIsNewer = !strings.HasPrefix(Version, latestVersion)
+	} else {
+		// For regular versions, just check if they're different
+		latestIsNewer = latestVersion != Version
+	}
 
 	// If already on latest version and not forcing update, exit
 	if !latestIsNewer && !force {
