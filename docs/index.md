@@ -99,7 +99,8 @@ hide:
   <div class="terminal">
   ```
   ───────────────────────────────────────────────────
-  🧠 Analyzing staged changes...
+  🧠 Analyzing staged changes and 10 recent commits
+  Generating professional commit message suggestion...
   ───────────────────────────────────────────────────
   ✨ Suggested commit message:
   feat(user-auth): implement password reset functionality with email verification
@@ -128,6 +129,9 @@ hide:
   ```bash
   # Generate a summary of the last 30 days
   noidea summary --days 30
+  
+  # Include AI insights
+  noidea summary --ai
   ```
   </div>
 
@@ -204,6 +208,9 @@ hide:
   
   # Bump minor version (0.x.0)
   ./scripts/version.sh minor
+  
+  # Bump major version (x.0.0)
+  ./scripts/version.sh major
   ```
   </div>
 </div>
@@ -228,8 +235,20 @@ hide:
         <td>Get commit message suggestions</td>
       </tr>
       <tr>
+        <td><code>noidea suggest -i</code></td>
+        <td>Interactive mode to approve/reject suggestions</td>
+      </tr>
+      <tr>
+        <td><code>noidea suggest -f</code></td>
+        <td>Use full diff analysis for more detailed suggestions</td>
+      </tr>
+      <tr>
         <td><code>noidea moai</code></td>
         <td>Display Moai feedback for the last commit</td>
+      </tr>
+      <tr>
+        <td><code>noidea moai --ai</code></td>
+        <td>Use AI-powered feedback analysis</td>
       </tr>
       <tr>
         <td><code>noidea moai --personality supportive_mentor</code></td>
@@ -244,12 +263,28 @@ hide:
         <td>Generate summary of recent Git activity</td>
       </tr>
       <tr>
-        <td><code>noidea feedback [--count 5]</code></td>
-        <td>Analyze specific commits</td>
+        <td><code>noidea summary --show-commits</code></td>
+        <td>Include detailed commit history in summary</td>
+      </tr>
+      <tr>
+        <td><code>noidea summary --export markdown</code></td>
+        <td>Export summary in markdown format</td>
       </tr>
       <tr>
         <td><code>noidea config</code></td>
         <td>Configure noidea</td>
+      </tr>
+      <tr>
+        <td><code>noidea config --init</code></td>
+        <td>Interactive configuration setup</td>
+      </tr>
+      <tr>
+        <td><code>noidea config apikey</code></td>
+        <td>Set up your API key securely</td>
+      </tr>
+      <tr>
+        <td><code>noidea config apikey-status</code></td>
+        <td>Check your API key validity</td>
       </tr>
       <tr>
         <td><code>noidea github auth</code></td>
@@ -287,30 +322,30 @@ hide:
 
   # Add your API key (for AI-powered features)
   noidea config apikey
+  
+  # Check API key validity
+  noidea config apikey-status
   ```
   </div>
 
   <h3>Advanced Configuration</h3>
 
-  <p>For more advanced setup, you can create a <code>~/.noidea/config.json</code> file:</p>
+  <p>For more advanced setup, you can edit your configuration file at <code>~/.noidea/config.toml</code>:</p>
 
   <div class="terminal">
-  ```json
-  {
-    "llm": {
-      "enabled": true,
-      "provider": "xai",
-      "api_key": "",
-      "model": "grok-2-1212",
-      "temperature": 0.7
-    },
-    "moai": {
-      "use_lint": false,
-      "faces_mode": "random",
-      "personality": "snarky_reviewer",
-      "personality_file": "~/.noidea/personalities.toml"
-    }
-  }
+  ```toml
+  [llm]
+  enabled = true
+  provider = "xai"
+  api_key = ""
+  model = "grok-2-1212"
+  temperature = 0.7
+
+  [moai]
+  use_lint = false
+  faces_mode = "random"
+  personality = "snarky_reviewer"
+  personality_file = "~/.noidea/personalities.toml"
   ```
   </div>
 </div>
@@ -324,6 +359,7 @@ hide:
     <li>API keys are stored securely on your local machine</li>
     <li>No data is sent to our servers - all AI processing happens via your own API keys</li>
     <li>Your commit history and code never leaves your system without your explicit permission</li>
+    <li>Legacy .env files are being deprecated in favor of secure storage</li>
   </ul>
 
   <div class="admonition note">
@@ -407,6 +443,10 @@ hide:
       </tr>
       <tr>
         <td>POSIX-compatible hooks</td>
+        <td>✅ Done</td>
+      </tr>
+      <tr>
+        <td>Secure API key storage</td>
         <td>✅ Done</td>
       </tr>
       <tr>
