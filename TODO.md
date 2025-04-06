@@ -31,7 +31,7 @@
 - [x] Fix handling of multi-line commit messages
 - [x] Implement proper command feedback when API calls fail
 - [x] Add clear error messages for common configuration issues
-- [ ] Make personality system more customizable
+- [x] Make personality system more customizable
 - [ ] Improve Terminal Output formatting where possible
 - [x] Scripts for versioning and others currently still have very messy logs/output.
       -> Make sure to cleanup spammy logs from any scripts
