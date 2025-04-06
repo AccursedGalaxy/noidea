@@ -2,9 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -195,30 +199,240 @@ func updateViaGo() {
 func updateViaBinary(releaseURL string) {
 	fmt.Printf("  %s %s\n",
 		color.HiYellowString("◉"),
-		color.New(color.Bold).Sprintf("Manual update required"))
-	fmt.Printf("  Please download the latest version from:\n  %s\n",
-		color.CyanString(releaseURL))
-	fmt.Printf("  %s\n\n",
-		color.HiBlackString("And replace your current binary."))
+		color.New(color.Bold).Sprintf("Automatic update starting..."))
 
-	// TODO: Implement automatic binary replacement when secure downloading is implemented
+	// Get current executable path
+	currentExe, err := os.Executable()
+	if err != nil {
+		fmt.Printf("  %s %s: %s\n",
+			color.New(color.FgRed, color.Bold).Sprint("❌"),
+			color.New(color.Bold).Sprint("Error finding current executable"),
+			err)
+		fmt.Printf("  Please download manually from: %s\n\n", color.CyanString(releaseURL))
+		return
+	}
+
+	// Get release info to find download URL for appropriate binary
+	client, err := github.NewClient()
+	if err != nil {
+		client = github.NewClientWithoutAuth()
+	}
+
+	// Get latest release with assets
+	owner := "AccursedGalaxy"
+	repo := "noidea"
+	release, err := client.GetLatestRelease(owner, repo)
+	if err != nil {
+		fmt.Printf("  %s %s: %s\n",
+			color.New(color.FgRed, color.Bold).Sprint("❌"),
+			color.New(color.Bold).Sprint("Error fetching release assets"),
+			err)
+		fmt.Printf("  Please download manually from: %s\n\n", color.CyanString(releaseURL))
+		return
+	}
+
+	// Find appropriate asset for this OS/arch
+	assetURL, err := findAppropriateAsset(release)
+	if err != nil {
+		fmt.Printf("  %s %s: %s\n",
+			color.New(color.FgRed, color.Bold).Sprint("❌"),
+			color.New(color.Bold).Sprint("Error finding appropriate binary"),
+			err)
+		fmt.Printf("  Please download manually from: %s\n\n", color.CyanString(releaseURL))
+		return
+	}
+
+	// Download binary to temporary file
+	fmt.Printf("  %s %s\n",
+		color.HiBlueString("◉"),
+		color.New(color.Bold).Sprintf("Downloading new version..."))
+
+	tempFile, err := downloadBinary(assetURL)
+	if err != nil {
+		fmt.Printf("  %s %s: %s\n",
+			color.New(color.FgRed, color.Bold).Sprint("❌"),
+			color.New(color.Bold).Sprint("Error downloading binary"),
+			err)
+		fmt.Printf("  Please download manually from: %s\n\n", color.CyanString(releaseURL))
+		return
+	}
+	defer os.Remove(tempFile) // Clean up temp file
+
+	// Make temporary file executable
+	err = os.Chmod(tempFile, 0755)
+	if err != nil {
+		fmt.Printf("  %s %s: %s\n",
+			color.New(color.FgRed, color.Bold).Sprint("❌"),
+			color.New(color.Bold).Sprint("Error setting executable permissions"),
+			err)
+		return
+	}
+
+	// Get permissions from original file
+	fileInfo, err := os.Stat(currentExe)
+	if err == nil {
+		// Try to preserve original file permissions
+		err = os.Chmod(tempFile, fileInfo.Mode())
+		if err != nil {
+			// Just warn, not critical
+			fmt.Printf("  %s %s\n",
+				color.New(color.FgYellow, color.Bold).Sprint("⚠️"),
+				color.New(color.Bold).Sprint("Could not preserve file permissions"))
+		}
+	}
+
+	// Replace current executable with new one
+	fmt.Printf("  %s %s\n",
+		color.HiBlueString("◉"),
+		color.New(color.Bold).Sprintf("Replacing current binary..."))
+
+	// On Windows, we need to rename to a temporary location first, as we can't replace the running file
+	// For Unix systems, we can directly replace the file as the inode is still in use by the current process
+	backupFile := currentExe + ".backup"
+
+	// Backup current executable first
+	err = os.Rename(currentExe, backupFile)
+	if err != nil {
+		fmt.Printf("  %s %s: %s\n",
+			color.New(color.FgRed, color.Bold).Sprint("❌"),
+			color.New(color.Bold).Sprint("Error backing up current executable"),
+			err)
+		return
+	}
+
+	// Move new executable to the original location
+	err = os.Rename(tempFile, currentExe)
+	if err != nil {
+		// Try to restore backup as the replacement failed
+		restoreErr := os.Rename(backupFile, currentExe)
+		if restoreErr != nil {
+			fmt.Printf("  %s %s\n",
+				color.New(color.FgRed, color.Bold).Sprint("❌"),
+				color.New(color.Bold).Sprint("Critical error: Failed to replace executable AND restore backup"))
+			fmt.Printf("    Original binary located at: %s\n", color.CyanString(backupFile))
+			fmt.Printf("    Downloaded binary located at: %s\n", color.CyanString(tempFile))
+			return
+		}
+
+		fmt.Printf("  %s %s: %s\n",
+			color.New(color.FgRed, color.Bold).Sprint("❌"),
+			color.New(color.Bold).Sprint("Error replacing executable"),
+			err)
+		return
+	}
+
+	// Remove backup file once successful
+	os.Remove(backupFile)
+
+	fmt.Printf("  %s %s\n",
+		color.New(color.FgGreen, color.Bold).Sprint("✓"),
+		color.New(color.Bold).Sprint("Successfully updated noidea!"))
+	fmt.Printf("  %s\n\n",
+		color.HiBlackString("Restart any running sessions to use the new version."))
 }
 
-// updateViaPackageManager shows instructions for updating via package managers
-func updateViaPackageManager() {
-	fmt.Printf("  %s %s\n",
-		color.HiYellowString("◉"),
-		color.New(color.Bold).Sprintf("Please update using your package manager:"))
-
-	if _, err := exec.LookPath("apt"); err == nil {
-		fmt.Printf("    %s\n\n", color.CyanString("sudo apt update && sudo apt upgrade noidea"))
-	} else if _, err := exec.LookPath("yum"); err == nil {
-		fmt.Printf("    %s\n\n", color.CyanString("sudo yum update noidea"))
-	} else if _, err := exec.LookPath("brew"); err == nil {
-		fmt.Printf("    %s\n\n", color.CyanString("brew upgrade noidea"))
-	} else {
-		fmt.Printf("    %s\n\n", color.HiBlackString("Please use your system's package manager to update"))
+// findAppropriateAsset determines which asset to download based on the current OS/architecture
+func findAppropriateAsset(release map[string]interface{}) (string, error) {
+	assets, ok := release["assets"].([]interface{})
+	if !ok || len(assets) == 0 {
+		return "", fmt.Errorf("no assets found in release")
 	}
+
+	// Determine current OS and architecture
+	osName := strings.ToLower(os.Getenv("GOOS"))
+	if osName == "" {
+		osName = strings.ToLower(runtime.GOOS)
+	}
+
+	arch := strings.ToLower(os.Getenv("GOARCH"))
+	if arch == "" {
+		arch = strings.ToLower(runtime.GOARCH)
+	}
+
+	// Normalize architecture names
+	if arch == "x86_64" || arch == "amd64" {
+		arch = "x86_64"
+	} else if arch == "aarch64" || arch == "arm64" {
+		arch = "arm64"
+	}
+
+	// Normalize OS names
+	if osName == "darwin" {
+		osName = "macos"
+	}
+
+	// Look for asset that matches our platform
+	var downloadURL string
+	for _, asset := range assets {
+		assetMap, ok := asset.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		name, ok := assetMap["name"].(string)
+		if !ok {
+			continue
+		}
+
+		name = strings.ToLower(name)
+		if strings.Contains(name, osName) && strings.Contains(name, arch) {
+			browserURL, ok := assetMap["browser_download_url"].(string)
+			if ok && browserURL != "" {
+				downloadURL = browserURL
+				break
+			}
+		}
+	}
+
+	if downloadURL == "" {
+		return "", fmt.Errorf("no suitable binary found for %s/%s", osName, arch)
+	}
+
+	return downloadURL, nil
+}
+
+// downloadBinary downloads the file at url to a temporary file and returns the path
+func downloadBinary(url string) (string, error) {
+	// Create temporary file
+	tempFile, err := os.CreateTemp("", "noidea-update-*.tmp")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer tempFile.Close()
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 5 * time.Minute,
+	}
+
+	// Create request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add user agent
+	req.Header.Set("User-Agent", "noidea-updater/"+Version)
+
+	// Download the file
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to download file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check if request was successful
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to download file, status: %s", resp.Status)
+	}
+
+	// Write to temp file
+	_, err = io.Copy(tempFile, resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to write temp file: %w", err)
+	}
+
+	return tempFile.Name(), nil
 }
 
 // getLatestVersionFromGitHub checks GitHub releases for the latest version
@@ -256,4 +470,21 @@ func getLatestVersionFromGitHub() (string, string, error) {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// updateViaPackageManager shows instructions for updating via package managers
+func updateViaPackageManager() {
+	fmt.Printf("  %s %s\n",
+		color.HiYellowString("◉"),
+		color.New(color.Bold).Sprintf("Please update using your package manager:"))
+
+	if _, err := exec.LookPath("apt"); err == nil {
+		fmt.Printf("    %s\n\n", color.CyanString("sudo apt update && sudo apt upgrade noidea"))
+	} else if _, err := exec.LookPath("yum"); err == nil {
+		fmt.Printf("    %s\n\n", color.CyanString("sudo yum update noidea"))
+	} else if _, err := exec.LookPath("brew"); err == nil {
+		fmt.Printf("    %s\n\n", color.CyanString("brew upgrade noidea"))
+	} else {
+		fmt.Printf("    %s\n\n", color.HiBlackString("Please use your system's package manager to update"))
+	}
 }
