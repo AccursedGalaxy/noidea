@@ -196,23 +196,6 @@ hide:
     <p class="admonition-title">Workflow Awareness</p>
     <p>The <code>--wait-for-workflows</code> flag makes NoIdea monitor GitHub Actions status and automatically generate notes once workflows complete, preserving GitHub's generated content while enhancing it with AI.</p>
   </div>
-
-  <h3>Version Management</h3>
-
-  <p>Manage version numbers and create releases with one command:</p>
-
-  <div class="terminal">
-  ```bash
-  # Bump patch version (0.0.x)
-  ./scripts/version.sh patch
-  
-  # Bump minor version (0.x.0)
-  ./scripts/version.sh minor
-  
-  # Bump major version (x.0.0)
-  ./scripts/version.sh major
-  ```
-  </div>
 </div>
 
 <div class="content-section">
