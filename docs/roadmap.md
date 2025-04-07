@@ -77,38 +77,6 @@ hide:
 </div>
 
 <div class="content-section">
-  <h2>🎯 Key Focus Areas</h2>
-
-  <div class="grid cards" markdown>
-
-- :material-brain: AI Enhancements
-    
-    Planned improvements to AI capabilities and features
-    
-    [:octicons-arrow-right-24: Details](#ai-enhancements)
-
-- :material-git: Git Integration
-    
-    Enhanced Git workflow integrations and features
-    
-    [:octicons-arrow-right-24: Details](#git-integration)
-
-- :material-api: API & Extensibility
-    
-    API improvements and extension capabilities
-    
-    [:octicons-arrow-right-24: Details](#api-extensibility)
-
-- :material-application: User Experience
-    
-    UI/UX improvements and new user-facing features
-    
-    [:octicons-arrow-right-24: Details](#user-experience)
-
-  </div>
-</div>
-
-<div class="content-section">
   <h2 id="ai-enhancements">🤖 AI Enhancements</h2>
 
   <h3>Planned Improvements</h3>
