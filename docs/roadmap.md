@@ -81,29 +81,29 @@ hide:
 
   <div class="grid cards" markdown>
 
-* :material-brain: __AI Enhancements__
-
+* :material-brain: AI Enhancements
+    
     Planned improvements to AI capabilities and features
+    
+    [Details :octicons-arrow-right-24:](#ai-enhancements)
 
-    [:octicons-arrow-right-24: Details](#ai-enhancements)
-
-* :material-git: __Git Integration__
-
+* :material-git: Git Integration
+    
     Enhanced Git workflow integrations and features
+    
+    [Details :octicons-arrow-right-24:](#git-integration)
 
-    [:octicons-arrow-right-24: Details](#git-integration)
-
-* :material-api: __API & Extensibility__
-
+* :material-api: API & Extensibility
+    
     API improvements and extension capabilities
+    
+    [Details :octicons-arrow-right-24:](#api-extensibility)
 
-    [:octicons-arrow-right-24: Details](#api-extensibility)
-
-* :material-application: __User Experience__
-
+* :material-application: User Experience
+    
     UI/UX improvements and new user-facing features
-
-    [:octicons-arrow-right-24: Details](#user-experience)
+    
+    [Details :octicons-arrow-right-24:](#user-experience)
 
   </div>
 </div>
