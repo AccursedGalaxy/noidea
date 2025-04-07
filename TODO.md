@@ -41,7 +41,7 @@
 - [x] Set up proper release workflow with changelogs
 - [x] Add version badges to README
 - [x] Set up project discussions on GitHub
-- [ ] Create project roadmap visible to community
+- [x] Create project roadmap visible to community
 
 ## 🧩 Plugin System Foundation (Future)
 - [x] Document initial architecture for plugins
