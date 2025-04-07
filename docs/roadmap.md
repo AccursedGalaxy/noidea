@@ -19,7 +19,7 @@ hide:
 
   <div class="timeline">
     <div class="timeline-item">
-      <h3>Q2 2024</h3>
+      <h3>Q1 2025</h3>
       <div class="timeline-content">
         <h4>Core Enhancements</h4>
         <ul>
@@ -30,7 +30,7 @@ hide:
     </div>
 
     <div class="timeline-item">
-      <h3>Q3 2024</h3>
+      <h3>Q2 2025</h3>
       <div class="timeline-content">
         <h4>Advanced Features</h4>
         <ul>
@@ -41,7 +41,17 @@ hide:
     </div>
 
     <div class="timeline-item">
-      <h3>Q4 2024</h3>
+      <h3>Q3 2025</h3>
+      <div class="timeline-content">
+        <h4>Integration & Expansion</h4>
+        <ul>
+          <li>Your planned items here</li>
+          <li>Your planned items here</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <h3>Q4 2025</h3>
       <div class="timeline-content">
         <h4>Integration & Expansion</h4>
         <ul>
@@ -87,7 +97,7 @@ hide:
 
 <div class="content-section">
   <h2 id="ai-enhancements">🤖 AI Enhancements</h2>
-  
+
   <h3>Planned Improvements</h3>
   <ul>
     <li>Your planned AI improvements here</li>
@@ -103,7 +113,7 @@ hide:
 
 <div class="content-section">
   <h2 id="git-integration">🔗 Git Integration</h2>
-  
+
   <h3>Core Git Features</h3>
   <ul>
     <li>Your planned Git features here</li>
@@ -119,7 +129,7 @@ hide:
 
 <div class="content-section">
   <h2 id="api-extensibility">🔌 API & Extensibility</h2>
-  
+
   <h3>API Improvements</h3>
   <ul>
     <li>Your planned API improvements here</li>
@@ -135,7 +145,7 @@ hide:
 
 <div class="content-section">
   <h2 id="user-experience">✨ User Experience</h2>
-  
+
   <h3>Interface Improvements</h3>
   <ul>
     <li>Your planned UI improvements here</li>
@@ -151,9 +161,9 @@ hide:
 
 <div class="content-section">
   <h2>📊 Success Metrics</h2>
-  
+
   <p>We'll measure our progress through the following key metrics:</p>
-  
+
   <ul>
     <li>Your success metrics here</li>
     <li>Your success metrics here</li>
@@ -204,4 +214,4 @@ hide:
   margin-top: 0;
   color: var(--md-primary-fg-color);
 }
-</style> 
+</style>
