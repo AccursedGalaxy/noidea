@@ -1,0 +1,383 @@
+/* NoIdea Custom Theme Colors */
+
+/* Light and Dark Mode Theme Variables */
+:root {
+  --moai-color: #475569;
+  --moai-face-color: #1E293B;
+}
+
+/* Header and Navigation */
+.md-header__source {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  margin-right: 0.5rem;
+  padding: 0 8px;
+}
+
+.md-header__source .md-source__icon {
+  padding-right: 8px;
+}
+
+.md-header__source .md-source__repository {
+  opacity: 1;
+  color: var(--md-primary-bg-color);
+  font-weight: 500;
+}
+
+.md-nav__item .md-nav__link--active {
+  font-weight: bold;
+  color: var(--md-accent-fg-color);
+}
+
+/* Homepage Hero Section */
+.hero {
+  margin-bottom: 1rem;
+  padding: 3rem 2rem;
+  text-align: center;
+  background: linear-gradient(45deg, var(--md-primary-fg-color--dark), var(--md-primary-fg-color));
+  border-radius: 8px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffffff' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  color: white !important;
+}
+
+.hero p {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+  opacity: 0.9;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.hero .md-button {
+  margin-top: 0;
+  font-weight: bold;
+}
+
+.hero .md-button--primary {
+  background-color: white !important;
+  color: var(--md-primary-fg-color) !important;
+  border-color: white !important;
+}
+
+/* Improve visibility of the secondary (GitHub) button in the hero section */
+.hero .md-button:not(.md-button--primary) {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.hero .md-button:not(.md-button--primary):hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Feature Cards */
+.grid.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.grid.cards > * {
+  border-radius: 0.25rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 1.5rem;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  background-color: var(--md-default-bg-color);
+  border-top: 4px solid var(--md-primary-fg-color);
+}
+
+.grid.cards > *:hover {
+  transform: translateY(-0.2rem);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* GitHub card section */
+.github-card {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+/* Buttons */
+.md-button--primary {
+  background-color: var(--md-primary-fg-color) !important;
+  border-color: var(--md-primary-fg-color) !important;
+  color: var(--md-primary-bg-color) !important;
+}
+
+/* Tables */
+.md-typeset table:not([class]) {
+  border-radius: 4px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+}
+
+/* Code blocks */
+.highlight code {
+  border-radius: 4px;
+}
+
+.md-typeset pre {
+  margin: 1em 0;
+  padding: 0.5em;
+}
+
+/* Installation section specific styling */
+#installation + pre {
+  margin-top: 1em;
+  margin-bottom: 1.5em;
+}
+
+/* Terminal-style code blocks */
+.terminal .highlight {
+  background-color: #1a1b26;
+  border-radius: 0.5rem;
+}
+
+.terminal .highlight pre {
+  padding: 1rem;
+  color: #a9b1d6;
+  margin: 0;
+}
+
+/* Animated emoji */
+.animated-emoji {
+  display: inline-block;
+  animation: float 3s ease-in-out infinite;
+  margin-right: 0.25rem;
+}
+
+@keyframes float {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-0.25rem); }
+  100% { transform: translateY(0); }
+}
+
+/* Admonitions (callouts) */
+.md-typeset .admonition,
+.md-typeset details {
+  border-width: 0;
+  border-left-width: 4px;
+  border-radius: 4px;
+}
+
+/* Footer */
+.md-footer-nav {
+  background-color: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+}
+
+.md-footer-nav__link {
+  padding-top: 1.4rem;
+  padding-bottom: 0.8rem;
+}
+
+.md-copyright::before {
+  content: "🗿 ";
+}
+
+/* Feature status table */
+.feature-status {
+  margin: 2rem 0;
+}
+
+.feature-status table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.feature-status table th {
+  background-color: var(--md-primary-fg-color);
+  color: white;
+  font-weight: bold;
+  text-align: left;
+  padding: 0.75rem 1rem;
+}
+
+.feature-status table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.feature-status table tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Content layout improvements */
+.md-content__inner {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 0 0.5rem;
+}
+
+/* Section styling with minimal vertical spacing */
+.md-typeset h2 {
+  margin-top: 1.2rem;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  font-size: 1.7rem;
+}
+
+.md-typeset h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+[data-md-color-scheme="noidea-dark"] .md-typeset h2 {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Content section styling */
+.content-section {
+  margin: 0.8rem 0;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  background-color: var(--md-default-bg-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+[data-md-color-scheme="noidea-dark"] .content-section {
+  background-color: rgba(255, 255, 255, 0.02);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Ultra compact grid cards */
+.grid.cards {
+  margin: 1rem auto;
+  gap: 0.8rem;
+}
+
+.grid.cards > * {
+  margin-bottom: 1rem;
+}
+
+/* Code blocks - improve visual consistency */
+.md-typeset pre {
+  border-radius: 6px;
+  margin: 1.5em 0;
+}
+
+.highlight {
+  background-color: var(--md-code-bg-color);
+  border-radius: 6px;
+}
+
+/* Terminal code blocks - better styling */
+.terminal {
+  margin: 1rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Add better visual hierarchy to bullet points */
+.md-typeset ul li {
+  margin-bottom: 0.3rem;
+}
+
+.md-typeset ul li p {
+  margin: 0;
+}
+
+/* Highlight important text */
+.highlight-text {
+  font-weight: 500;
+  color: var(--md-primary-fg-color);
+}
+
+/* Tighten up spacing after paragraphs */
+.md-typeset p {
+  margin-bottom: 0.6rem;
+}
+
+/* Further reduce spacing for lists and paragraphs */
+.md-typeset ul {
+  margin-top: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+/* Reduce table margins */
+.md-typeset table {
+  margin: 0.8rem 0;
+}
+
+/* First major heading after hero - reduce top space */
+.hero + h2, 
+.hero + .content-section h2:first-child {
+  margin-top: 0.5rem;
+}
+
+/* First content section after hero - minimize space completely */
+.hero + .content-section {
+  margin-top: 0.25rem;
+}
+
+/* Empty space element for h2 with icon - make it less pronounced */
+h2 .twemoji, 
+h2 .md-icon,
+h2 .emoji {
+  vertical-align: middle;
+  margin-right: 0.3rem;
+}
+
+/* Reduce global spacing between all related sections */
+.md-content__inner > * + * {
+  margin-top: 0.5rem;
+}
+
+/* Address space above h2 in content sections */
+.md-content__inner h2[id]:not(:first-child) {
+  margin-top: 0.9rem;
+}
+
+/* Add spacing between feedback section and footer */
+.md-feedback {
+  margin-bottom: 1rem !important;
+}
+
+/* Alternative selector if the above doesn't work */
+.md-typeset > .md-feedback {
+  margin-bottom: 1rem !important;
+}
+
+/* Final fallback for feedback area */
+.md-main__inner > .md-content > .md-content__inner > :last-child {
+  margin-bottom: 2rem;
+} 
