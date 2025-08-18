@@ -64,6 +64,11 @@ func InstallPostCommitHook(hooksDir string) error {
 		return fmt.Errorf("failed to create hooks directory: %w", err)
 	}
 
+	// If this looks like a Husky hooks directory, delegate to the Husky installer
+	if isLikelyHuskyDir(hooksDir) {
+		return InstallHuskyPostCommitHook(hooksDir)
+	}
+
 	// Get the absolute path to the noidea executable
 	execPath, err := os.Executable()
 	if err != nil {
@@ -94,7 +99,7 @@ func InstallPostCommitHook(hooksDir string) error {
 # to show a Moai face with feedback about your commit.
 
 # Get the last commit message
-COMMIT_MSG=$(git log -1 --pretty=%%B)
+COMMIT_MSG=$(git log -1 --pretty=%B)
 
 # Call noidea with the commit message (using absolute path)
 %s moai %s"$COMMIT_MSG"
@@ -121,6 +126,11 @@ func InstallPrepareCommitMsgHook(hooksDir string) error {
 	// Create hooks directory if it doesn't exist
 	if err := os.MkdirAll(hooksDir, 0755); err != nil {
 		return fmt.Errorf("failed to create hooks directory: %w", err)
+	}
+
+	// If this looks like a Husky hooks directory, delegate to the Husky installer
+	if isLikelyHuskyDir(hooksDir) {
+		return InstallHuskyPrepareCommitMsgHook(hooksDir)
 	}
 
 	// Get the absolute path to the noidea executable
@@ -202,4 +212,204 @@ exit 0
 
 	fmt.Println("Installed prepare-commit-msg hook at:", hookPath)
 	return nil
+}
+
+// GetEffectiveHooksDir returns the directory where hooks should be installed.
+// It respects `core.hooksPath` (e.g., Husky's .husky directory). When unset, it
+// falls back to <gitDir>/hooks.
+func GetEffectiveHooksDir() (string, error) {
+	// Check if Git is available and in a repo
+	gitDir, err := FindGitDir()
+	if err != nil {
+		return "", err
+	}
+
+	// Read core.hooksPath
+	cmd := exec.Command("git", "config", "--get", "core.hooksPath")
+	out, _ := cmd.Output()
+	hooksPath := strings.TrimSpace(string(out))
+	if hooksPath == "" {
+		return filepath.Join(gitDir, "hooks"), nil
+	}
+
+	if filepath.IsAbs(hooksPath) {
+		return hooksPath, nil
+	}
+
+	// Relative path -> resolve from repo root
+	repoRoot, err := FindRepoRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(repoRoot, hooksPath), nil
+}
+
+// FindRepoRoot returns the absolute path to the repository root (work tree)
+func FindRepoRoot() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("not in a git repository: %w", err)
+	}
+	repoRoot := strings.TrimSpace(string(output))
+	if repoRoot == "" {
+		return "", fmt.Errorf("unable to determine repository root")
+	}
+	return repoRoot, nil
+}
+
+// InstallHuskyPrepareCommitMsgHook installs or augments a Husky prepare-commit-msg hook
+// without overwriting existing Husky logic. It appends a noidea block if not already present.
+func InstallHuskyPrepareCommitMsgHook(huskyDir string) error {
+	hookPath := filepath.Join(huskyDir, "prepare-commit-msg")
+
+	// Ensure directory exists
+	if err := os.MkdirAll(huskyDir, 0755); err != nil {
+		return fmt.Errorf("failed to create husky directory: %w", err)
+	}
+
+	// Determine absolute executable path for reliability inside Husky envs
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	// Build the block we want to ensure is present
+	noideaBlock := fmt.Sprintf(`
+# noidea - prepare-commit-msg hook
+COMMIT_MSG_FILE="$1"
+COMMIT_SOURCE="$2"
+
+# Respect user's configuration
+if [ "$(git config --get noidea.suggest)" != "true" ]; then
+    exit 0
+fi
+
+# Skip for merges, squashes, and special commit sources
+if [ "$COMMIT_SOURCE" = "merge" ] || [ "$COMMIT_SOURCE" = "squash" ] || [ -n "$COMMIT_SOURCE" ]; then
+    exit 0
+fi
+
+# Skip if the commit message already has non-comment content
+if [ -s "$COMMIT_MSG_FILE" ] && grep -v "^#" "$COMMIT_MSG_FILE" | grep -q "[^[:space:]]"; then
+    exit 0
+fi
+
+# Determine diff flag from config
+FULL_DIFF=$(git config --get noidea.suggest.full-diff)
+if [ "$FULL_DIFF" = "true" ]; then
+    DIFF_FLAG="--full-diff"
+else
+    DIFF_FLAG=""
+fi
+
+HISTORY_FLAG="--history 10"
+
+echo "\033[0;36m🧠 Generating commit message suggestion...\033[0m"
+"%s" suggest $HISTORY_FLAG $DIFF_FLAG --quiet --file "$COMMIT_MSG_FILE" || true
+`, execPath)
+
+	// If hook file exists, append our block if not present
+	if data, err := os.ReadFile(hookPath); err == nil {
+		content := string(data)
+		if strings.Contains(content, "noidea - prepare-commit-msg hook") || strings.Contains(content, "noidea suggest") {
+			// Already present
+			return nil
+		}
+
+		// Append block with a separating newline
+		updated := content
+		if !strings.HasSuffix(updated, "\n") {
+			updated += "\n"
+		}
+		updated += noideaBlock
+		if err := os.WriteFile(hookPath, []byte(updated), 0755); err != nil {
+			return fmt.Errorf("failed to update Husky prepare-commit-msg hook: %w", err)
+		}
+		fmt.Println("Updated Husky prepare-commit-msg hook at:", hookPath)
+		return nil
+	}
+
+	// Create a new Husky hook with the standard husky shim then our block
+	content := fmt.Sprintf(`#!/usr/bin/env sh
+. "$(dirname "$0")/_/husky.sh"
+
+%s`, noideaBlock)
+	if err := os.WriteFile(hookPath, []byte(content), 0755); err != nil {
+		return fmt.Errorf("failed to write Husky prepare-commit-msg hook: %w", err)
+	}
+	fmt.Println("Installed Husky prepare-commit-msg hook at:", hookPath)
+	return nil
+}
+
+// InstallHuskyPostCommitHook installs or augments a Husky post-commit hook
+// without overwriting existing Husky logic.
+func InstallHuskyPostCommitHook(huskyDir string) error {
+	hookPath := filepath.Join(huskyDir, "post-commit")
+
+	if err := os.MkdirAll(huskyDir, 0755); err != nil {
+		return fmt.Errorf("failed to create husky directory: %w", err)
+	}
+
+	// Determine absolute executable path and flags
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	cfg := config.LoadConfig()
+	flags := ""
+	if cfg.LLM.Enabled {
+		flags += "--ai "
+	}
+	if cfg.Moai.Personality != "" {
+		flags += fmt.Sprintf("--personality=%s ", cfg.Moai.Personality)
+	}
+
+	noideaBlock := fmt.Sprintf(`
+# noidea - post-commit hook
+COMMIT_MSG=$(git log -1 --pretty=%B)
+"%s" moai %s"$COMMIT_MSG" || true
+`, execPath, flags)
+
+	if data, err := os.ReadFile(hookPath); err == nil {
+		content := string(data)
+		if strings.Contains(content, "noidea - post-commit hook") || strings.Contains(content, "moai") {
+			return nil
+		}
+		updated := content
+		if !strings.HasSuffix(updated, "\n") {
+			updated += "\n"
+		}
+		updated += noideaBlock
+		if err := os.WriteFile(hookPath, []byte(updated), 0755); err != nil {
+			return fmt.Errorf("failed to update Husky post-commit hook: %w", err)
+		}
+		fmt.Println("Updated Husky post-commit hook at:", hookPath)
+		return nil
+	}
+
+	content := fmt.Sprintf(`#!/usr/bin/env sh
+. "$(dirname "$0")/_/husky.sh"
+
+%s`, noideaBlock)
+	if err := os.WriteFile(hookPath, []byte(content), 0755); err != nil {
+		return fmt.Errorf("failed to write Husky post-commit hook: %w", err)
+	}
+	fmt.Println("Installed Husky post-commit hook at:", hookPath)
+	return nil
+}
+
+// isLikelyHuskyDir returns true if the provided hooks directory appears to be managed by Husky
+func isLikelyHuskyDir(hooksDir string) bool {
+	// Common Husky path is ".husky" at repo root, with "_/husky.sh" present
+	if strings.Contains(strings.ToLower(hooksDir), ".husky") {
+		if _, err := os.Stat(filepath.Join(hooksDir, "_", "husky.sh")); err == nil {
+			return true
+		}
+		if filepath.Base(hooksDir) == ".husky" {
+			return true
+		}
+	}
+	return false
 }
