@@ -540,6 +540,20 @@ func CreateDefaultTestSuites() error {
 				Description: "Suggestion for changes that include breaking changes",
 				Repetitions: 3,
 			},
+			{
+				Name:        "suggest_large_file",
+				Command:     "../../noidea",
+				Args:        []string{"suggest"},
+				Description: "Suggestion with a large file (10,000 lines)",
+				Repetitions: 2,
+			},
+			{
+				Name:        "suggest_non_english",
+				Command:     "../../noidea",
+				Args:        []string{"suggest"},
+				Description: "Suggestion with a Go file containing German comments",
+				Repetitions: 2,
+			},
 		},
 	}
 
@@ -1331,6 +1345,38 @@ func (f *Feature) HasTag(tag string) bool {
 		// Just create a file but don't add it
 		writeFile(filepath.Join(testRepoDir, "unstaged.txt"), "This file is intentionally not staged.")
 		fmt.Println("Not staging any changes for the 'suggest_no_staged_changes' test case...")
+
+	case "suggest_large_file":
+		// Large file test - create a large text file with 10,000 lines
+		largeContent := strings.Repeat("Line of dummy code for large file test: func dummy() { fmt.Println(\"test\"); }\n", 10000)
+		writeFile(filepath.Join(testRepoDir, "large_file.go"), largeContent)
+		// Stage the large file
+		cmd := exec.Command("git", "add", "large_file.go")
+		cmd.Dir = testRepoDir
+		cmd.Run()
+
+	case "suggest_non_english":
+		// Non-English comments - create a Go file with German comments
+		nonEnglishContent := `package main
+
+// Dies ist eine Testdatei mit deutschen Kommentaren
+// Funktion zum Testen der Sprachunterstützung
+func TestFunction() string {
+    // Diese Funktion gibt eine Begrüßung zurück
+    return "Hallo Welt"
+}
+
+// Eine weitere Funktion mit mehr Kommentaren
+// Um zu testen, ob die AI mit Nicht-Englisch umgehen kann
+func AnotherTest() {
+    // Dummy implementation
+    fmt.Println("Test")
+}`
+		writeFile(filepath.Join(testRepoDir, "non_english.go"), nonEnglishContent)
+		// Stage the file
+		cmd := exec.Command("git", "add", "non_english.go")
+		cmd.Dir = testRepoDir
+		cmd.Run()
 	}
 
 	fmt.Println("Test repository prepared with appropriate staged changes for:", testCaseName)

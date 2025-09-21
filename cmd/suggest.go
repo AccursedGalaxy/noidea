@@ -163,15 +163,14 @@ Example:
 		if err != nil {
 			fmt.Println(color.RedString("❌ Error:"), "Failed to generate suggestion:", err)
 
-			// Fallback to simple local suggestion if AI fails
-			suggestion = generateLocalFallbackSuggestion(ctx.Diff)
-			fmt.Println(color.YellowString("⚠️"), "Using local fallback suggestion due to AI error.")
-			return
+			// Fallback to history-based local suggestion if AI fails
+			suggestion = generateOfflineSuggestion(commits, ctx.Diff, stats)
+			fmt.Println(color.YellowString("⚠️"), "Using offline history-based suggestion due to API error.")
 		}
 
 		if strings.TrimSpace(suggestion) == "" {
-			fmt.Println(color.YellowString("⚠️"), "AI returned empty suggestion—using local fallback.")
-			suggestion = generateLocalFallbackSuggestion(ctx.Diff)
+			fmt.Println(color.YellowString("⚠️"), "AI returned empty suggestion—using offline fallback.")
+			suggestion = generateOfflineSuggestion(commits, ctx.Diff, stats)
 		}
 
 		// Handle output based on flags
@@ -450,4 +449,84 @@ func countDiffLines(diff string) int {
 	added := strings.Count(diff, "\n+")
 	removed := strings.Count(diff, "\n-")
 	return added + removed
+}
+
+func generateOfflineSuggestion(commits []history.CommitInfo, diff string, historyStats map[string]interface{}) string {
+	if len(commits) == 0 {
+		return generateLocalFallbackSuggestion(diff)
+	}
+
+	types := make(map[string]int)
+	numRecent := min(5, len(commits))
+	recentCommits := commits[:numRecent]
+	for _, c := range recentCommits {
+		msg := c.Message
+		if colonIdx := strings.Index(msg, ":"); colonIdx > 0 && colonIdx < 50 {
+			typ := strings.ToLower(strings.TrimSpace(msg[:colonIdx]))
+			if isValidCommitType(typ) {
+				types[typ]++
+			}
+		}
+	}
+
+	var mostCommon string
+	maxCount := 0
+	for t, count := range types {
+		if count > maxCount {
+			maxCount = count
+			mostCommon = t
+		}
+	}
+	if mostCommon == "" {
+		mostCommon = "chore"
+	}
+
+	files := extractChangedFiles(diff)
+	hasTests := false
+	for _, f := range files {
+		lowerF := strings.ToLower(f)
+		if strings.Contains(lowerF, "test") || strings.HasSuffix(lowerF, "_test") || strings.HasSuffix(lowerF, ".test") {
+			hasTests = true
+			break
+		}
+	}
+
+	if hasTests {
+		mostCommon = "test"
+	}
+
+	if len(files) == 0 {
+		return fmt.Sprintf("%s: apply changes", mostCommon)
+	}
+
+	var desc string
+	if len(files) == 1 {
+		desc = fmt.Sprintf("update %s", filepath.Base(files[0]))
+	} else {
+		desc = fmt.Sprintf("update %d files", len(files))
+	}
+
+	totalLines := countDiffLines(diff)
+	if totalLines > 0 {
+		desc += fmt.Sprintf(" (%d lines changed)", totalLines)
+	}
+
+	return fmt.Sprintf("%s: %s", mostCommon, desc)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func isValidCommitType(typ string) bool {
+	validTypes := []string{"feat", "fix", "docs", "style", "refactor", "test", "chore", "ci", "perf", "build", "revert"}
+	for _, v := range validTypes {
+		if typ == v {
+			return true
+		}
+	}
+	return false
 }

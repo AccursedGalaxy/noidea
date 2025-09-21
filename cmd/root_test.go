@@ -87,7 +87,7 @@ func TestVersionFlag(t *testing.T) {
 // TestEnvFilesLoading tests environment file loading
 func TestEnvFilesLoading(t *testing.T) {
 	// Create a temporary env file
-	tmpFile, err := os.CreateTemp("", "noidea-test-env")
+	tmpFile, err := os.CreateTemp(".", "noidea-test-env")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}

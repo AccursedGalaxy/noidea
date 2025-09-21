@@ -101,6 +101,25 @@
       ],
       "description": "Suggestion for changes that include breaking changes",
       "repetitions": 3
+    },
+    {
+      "name": "suggest_large_file",
+      "command": "../../noidea",
+      "args": [
+        "suggest",
+        "--full-diff"
+      ],
+      "description": "Test suggestion with a very large staged file to check diff handling and token limits",
+      "repetitions": 1
+    },
+    {
+      "name": "suggest_non_english",
+      "command": "../../noidea",
+      "args": [
+        "suggest"
+      ],
+      "description": "Test suggestion with non-English comments in code to check language handling",
+      "repetitions": 3
     }
   ]
 }
