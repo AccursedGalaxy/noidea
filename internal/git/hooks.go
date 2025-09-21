@@ -99,7 +99,7 @@ func InstallPostCommitHook(hooksDir string) error {
 # to show a Moai face with feedback about your commit.
 
 # Get the last commit message
-COMMIT_MSG=$(git log -1 --pretty=%B)
+COMMIT_MSG=$(git log -1 --pretty=%%B)
 
 # Call noidea with the commit message (using absolute path)
 %s moai %s"$COMMIT_MSG"
@@ -368,7 +368,7 @@ func InstallHuskyPostCommitHook(huskyDir string) error {
 
 	noideaBlock := fmt.Sprintf(`
 # noidea - post-commit hook
-COMMIT_MSG=$(git log -1 --pretty=%B)
+COMMIT_MSG=$(git log -1 --pretty=%%B)
 "%s" moai %s"$COMMIT_MSG" || true
 `, execPath, flags)
 
