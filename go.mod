@@ -2,7 +2,9 @@ module github.com/AccursedGalaxy/noidea
 
 go 1.23.0
 
-toolchain go1.23.8
+// Version v0.3.0: Enhanced setup, debug flag, prompt optimizations for Grok-4-fast-reasoning
+
+toolchain go1.24.6
 
 require (
 	github.com/BurntSushi/toml v1.5.0

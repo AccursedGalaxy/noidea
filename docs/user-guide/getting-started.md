@@ -1,6 +1,41 @@
-# Getting Started with noidea
+# Getting Started
 
-Welcome to noidea, the Git assistant that adds a fun twist to your workflow! This guide will help you get up and running quickly.
+## Smooth Setup
+
+noidea is designed for instant value—install, init, commit.
+
+### Step 1: Install
+Download or clone, then:
+```bash
+./install.sh  # Sets up binary and ~/.noidea/config (AI off by default)
+```
+
+### Step 2: Init in Repo
+```bash
+cd your-repo
+noidea init  # Installs hooks: suggestions on commit, Moai faces after
+```
+- Prompts: Enable suggestions? (Yes for editor magic). Interactive/full-diff optional.
+
+### Step 3: Try It
+```bash
+git add .
+git commit  # Opens editor with suggestion (local/AI)—edit/save!
+# After: Moai face appears (no text by default).
+```
+
+**Defaults**:
+- Suggestions: Always (editor pre-fill on commit).
+- Moai: Faces always (text optional via AI).
+- AI: Off (enable with `noidea config --init` for smarter everything).
+
+### Enable AI (Optional)
+```bash
+noidea config --init  # Set provider/key/model (grok-4-fast-reasoning default)
+```
+Suggestions get context-aware; Moai adds text feedback.
+
+Troubleshooting? See [Troubleshooting](../troubleshooting.md).
 
 ## Introduction
 

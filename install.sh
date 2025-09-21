@@ -151,8 +151,9 @@ setup_config() {
 }
 EOF
 
-    # LLM Settings
+    # LLM Settings - Enhanced prompt
     echo -e "\n${CYAN}📚 AI Integration${NC}"
+    echo -e "${YELLOW}Note:${NC} Commit suggestions work out-of-the-box (local mode). Enable AI for smarter, context-aware suggestions."
     read -p "Enable AI-powered features? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -205,6 +206,8 @@ EOF
         if [ -n "$temperature" ]; then
             sed -i "s/\"temperature\": 0.7/\"temperature\": $temperature/g" "$CONFIG_FILE"
         fi
+    else
+        echo -e "${YELLOW}Note:${NC} AI disabled (local suggestions still work). Enable anytime with 'noidea config --init'."
     fi
     
     # Personality Settings
@@ -261,6 +264,11 @@ EOF
     fi
     
     echo -e "${GREEN}✓${NC} Configuration saved to $CONFIG_FILE"
+    echo -e "\n${GREEN}🎉 Setup complete!${NC}"
+    echo "Suggestions are ready in any repo with 'noidea init'."
+    echo "Moai faces show after commits (no text by default)."
+    echo "For AI-powered suggestions/feedback: 'noidea config --init' anytime."
+    return
 }
 
 # Create scripts directory in the config directory

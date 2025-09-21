@@ -148,6 +148,17 @@ var initCmd = &cobra.Command{
 			fmt.Println(color.BlueString("💡 Tip:"), "For better commit message suggestions, enable AI integration:")
 			fmt.Println("     Run 'noidea config --init' to configure AI settings.")
 		}
+
+		// Final summary for smooth onboarding
+		fmt.Println()
+		fmt.Println(color.GreenString("🎉 noidea ready in this repo!"))
+		fmt.Println(color.BlueString("Hooks installed:"))
+		fmt.Println("  - prepare-commit-msg: Auto-suggests messages on 'git commit' (opens in editor)")
+		fmt.Println("  - post-commit: Shows Moai face after commits (no text by default)")
+		fmt.Println()
+		fmt.Println(color.YellowString("Next: Try 'git commit' (no -m) for a suggestion!"))
+		fmt.Println(color.BlueString("For AI-powered suggestions/feedback: 'noidea config --init'"))
+		fmt.Println(color.BlueString("Disable suggestions: 'git config noidea.suggest false'"))
 	},
 }
 

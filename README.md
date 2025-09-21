@@ -34,28 +34,42 @@
 - 🔒 **Secure API Key Management** - Keep your AI provider keys safe
 - 🚀 **GitHub Integration** - Manage GitHub releases with AI-enhanced release notes and smart workflow awareness
 
-## 🚀 Quick Start
+## Quick Start
 
-```bash
-# Install noidea
-git clone https://github.com/AccursedGalaxy/noidea
-cd noidea
-./install.sh # (might require sudo)
+Get up and running in seconds—no complex config needed.
 
-# Set up in your Git repo
-cd /path/to/your/repo
-noidea init
+1. **Install**:
+   ```bash
+   cd /path/to/noidea  # Or clone: git clone <repo> noidea && cd noidea
+   ./install.sh  # Builds binary, sets up ~/.noidea/config (AI disabled by default)
+   ```
 
-# Enable auto commit suggestions (optional)
-git config noidea.suggest true
+2. **Initialize in a Repo** (the magic happens here):
+   ```bash
+   cd your-project
+   noidea init  # Installs hooks: suggestions on commit, Moai faces after
+   ```
 
-# Add your API key for AI features
-noidea config apikey
+3. **Try It** (your favorite flow):
+   ```bash
+   git add .
+   git commit  # No -m: Opens editor with AI/local suggestion pre-filled!
+   # Edit/save to commit. Moai face appears after (fun, no text by default).
+   ```
 
-# Set up GitHub integration (optional)
-noidea github auth
-noidea github hook-install
-```
+**Defaults Explained**:
+- **Suggestions**: Always on after init—tries local first (fast, no API), falls back from AI if enabled.
+- **Moai Faces**: Always show after commits (random/mood mode, no text feedback to keep it light).
+- **AI Features**: Disabled by default (no API key needed). Enable with `noidea config --init` for smarter suggestions/feedback.
+
+For full AI: Set your xAI/OpenAI key during install or later. See [Configuration](../docs/user-guide/configuration.md).
+
+## Why noidea?
+
+- **Seamless Editor Integration**: `git commit` auto-suggests messages in your editor—edit and go (no extra commands).
+- **Fun Without Overload**: Moai judges your commits with faces (opt-in text feedback).
+- **Smart Defaults**: Works out-of-box; AI optional for power users.
+- **Git-First**: Hooks respect your workflow—no CI bloat.
 
 ### 📝 Commit Workflow With noidea
 
