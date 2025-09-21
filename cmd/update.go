@@ -349,18 +349,6 @@ func findAppropriateAsset(release map[string]interface{}) (string, error) {
 		arch = strings.ToLower(runtime.GOARCH)
 	}
 
-	// Normalize architecture names
-	if arch == "x86_64" || arch == "amd64" {
-		arch = "x86_64"
-	} else if arch == "aarch64" || arch == "arm64" {
-		arch = "arm64"
-	}
-
-	// Normalize OS names
-	if osName == "darwin" {
-		osName = "macos"
-	}
-
 	// Look for asset that matches our platform
 	var downloadURL string
 	for _, asset := range assets {
