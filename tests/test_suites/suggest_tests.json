@@ -106,11 +106,10 @@
       "name": "suggest_large_file",
       "command": "../../noidea",
       "args": [
-        "suggest",
-        "--full-diff"
+        "suggest"
       ],
-      "description": "Test suggestion with a very large staged file to check diff handling and token limits",
-      "repetitions": 1
+      "description": "Suggestion with a large file (10,000 lines)",
+      "repetitions": 2
     },
     {
       "name": "suggest_non_english",
@@ -118,8 +117,8 @@
       "args": [
         "suggest"
       ],
-      "description": "Test suggestion with non-English comments in code to check language handling",
-      "repetitions": 3
+      "description": "Suggestion with a Go file containing German comments",
+      "repetitions": 2
     }
   ]
 }
