@@ -18,8 +18,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("Expected default provider to be 'xai', got %s", cfg.LLM.Provider)
 	}
 
-	if cfg.LLM.Model != "grok-2-1212" {
-		t.Errorf("Expected default model to be 'grok-2-1212', got %s", cfg.LLM.Model)
+	if cfg.LLM.Model != "grok-4-fast-reasoning" {
+		t.Errorf("Expected default model to be 'grok-4-fast-reasoning', got %s", cfg.LLM.Model)
 	}
 
 	if cfg.LLM.Temperature != 0.7 {

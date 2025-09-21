@@ -41,7 +41,7 @@ The configuration file is located at `~/.noidea/config.json`. Here's an example:
     "enabled": true,
     "provider": "xai",
     "api_key": "",
-    "model": "grok-2-1212",
+    "model": "grok-4-fast-reasoning",
     "temperature": 0.7
   },
   "moai": {
@@ -59,7 +59,7 @@ The configuration file is located at `~/.noidea/config.json`. Here's an example:
 |---------|-------------|---------|
 | `enabled` | Enable/disable AI features | `true` |
 | `provider` | AI provider to use (xai, openai, deepseek) | `xai` |
-| `model` | Model to use with the provider | `grok-2-1212` |
+| `model` | Model to use with the provider | `grok-4-fast-reasoning` |
 | `temperature` | Randomness of responses (0.0-1.0) | `0.7` |
 
 ### Moai Settings

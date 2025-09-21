@@ -373,6 +373,7 @@ Provide CONCISE terminal-friendly insights focusing on patterns, quality, and ac
 		cfg.LLM.Model,
 		cfg.LLM.APIKey,
 		customPersonality,
+		false, // Default no debug for summary
 	)
 
 	// Generate AI insights

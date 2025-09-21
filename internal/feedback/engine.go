@@ -44,7 +44,7 @@ const (
 )
 
 // NewFeedbackEngine creates a new feedback engine based on the provided configuration
-func NewFeedbackEngine(provider string, model string, apiKey string, personalityName string, personalityFile string) FeedbackEngine {
+func NewFeedbackEngine(provider string, model string, apiKey string, personalityName string, personalityFile string, debug bool) FeedbackEngine {
 	// No API key means we have to use the local engine
 	if apiKey == "" {
 		log.Println("No API key provided, falling back to local feedback engine")
@@ -55,7 +55,7 @@ func NewFeedbackEngine(provider string, model string, apiKey string, personality
 	switch strings.ToLower(provider) {
 	case "xai", "openai", "deepseek":
 		// Use the unified engine with the appropriate provider
-		return NewUnifiedFeedbackEngine(provider, model, apiKey, personalityName, personalityFile)
+		return NewUnifiedFeedbackEngine(provider, model, apiKey, personalityName, personalityFile, debug)
 	default:
 		// If provider not recognized, fallback to local
 		log.Printf("Unknown provider %s, falling back to local feedback engine", provider)
@@ -64,7 +64,7 @@ func NewFeedbackEngine(provider string, model string, apiKey string, personality
 }
 
 // NewFeedbackEngineWithCustomPersonality creates a feedback engine using a custom personality configuration
-func NewFeedbackEngineWithCustomPersonality(provider string, model string, apiKey string, customPersonality personality.Personality) FeedbackEngine {
+func NewFeedbackEngineWithCustomPersonality(provider string, model string, apiKey string, customPersonality personality.Personality, debug bool) FeedbackEngine {
 	// No API key means we have to use the local engine
 	if apiKey == "" {
 		log.Println("No API key provided, falling back to local feedback engine")
@@ -75,7 +75,7 @@ func NewFeedbackEngineWithCustomPersonality(provider string, model string, apiKe
 	switch strings.ToLower(provider) {
 	case "xai", "openai", "deepseek":
 		// Use the unified engine with the custom personality
-		return NewUnifiedFeedbackEngineWithCustomPersonality(provider, model, apiKey, customPersonality)
+		return NewUnifiedFeedbackEngineWithCustomPersonality(provider, model, apiKey, customPersonality, debug)
 	default:
 		// If provider not recognized, fallback to local
 		log.Printf("Unknown provider %s, falling back to local feedback engine", provider)

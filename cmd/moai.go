@@ -28,7 +28,7 @@ var (
 	listPersonalities bool
 	// Flag to include commit history context
 	includeHistory bool
-	// Flag to enable debug mode
+	// Flag to enable debug mode (now includes logging and API info)
 	debugMode bool
 )
 
@@ -41,7 +41,7 @@ func init() {
 	moaiCmd.Flags().StringVarP(&personalityFlag, "personality", "p", "", "Personality to use for feedback (default: from config)")
 	moaiCmd.Flags().BoolVarP(&listPersonalities, "list-personalities", "l", false, "List available personalities")
 	moaiCmd.Flags().BoolVarP(&includeHistory, "history", "H", false, "Include recent commit history context")
-	moaiCmd.Flags().BoolVarP(&debugMode, "debug", "D", false, "Enable debug mode to show detailed API information")
+	moaiCmd.Flags().BoolVarP(&debugMode, "debug", "D", false, "Enable debug mode (API info + logging)")
 }
 
 var moaiCmd = &cobra.Command{
@@ -121,14 +121,15 @@ var moaiCmd = &cobra.Command{
 				}
 			}
 
+			// Create feedback engine based on configuration with debug flag
+			engineProvider := cfg.LLM.Provider
+			engineModel := cfg.LLM.Model
+			apiKey := cfg.LLM.APIKey
+			personalityName := personalityName
+			personalityFile := cfg.Moai.PersonalityFile
+
 			// Create feedback engine based on configuration
-			engine := feedback.NewFeedbackEngine(
-				cfg.LLM.Provider,
-				cfg.LLM.Model,
-				cfg.LLM.APIKey,
-				personalityName,
-				cfg.Moai.PersonalityFile,
-			)
+			engine := feedback.NewFeedbackEngine(engineProvider, engineModel, apiKey, personalityName, personalityFile, debugMode)
 
 			// Generate AI feedback
 			fmt.Printf("  %s", color.HiBlackString("Generating AI feedback..."))
@@ -175,9 +176,8 @@ var moaiCmd = &cobra.Command{
 				fmt.Println()
 			}
 		} else {
-			// Use local feedback
-			feedbackMsg := moai.GetRandomFeedback(commitMsg)
-			fmt.Printf("  %s\n\n", color.YellowString(feedbackMsg))
+			// No feedback when AI is disabled - just show face and message
+			fmt.Println()
 		}
 	},
 }

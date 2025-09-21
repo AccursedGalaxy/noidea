@@ -40,7 +40,7 @@ func DefaultConfig() Config {
 	// LLM settings
 	cfg.LLM.Enabled = false
 	cfg.LLM.Provider = "xai"
-	cfg.LLM.Model = "grok-2-1212"
+	cfg.LLM.Model = "grok-4-fast-reasoning"
 	cfg.LLM.Temperature = 0.7
 
 	// Moai settings

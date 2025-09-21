@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -40,6 +41,7 @@ var (
 	interactiveFlag   bool
 	commitMsgFileFlag string
 	quietFlag         bool // Flag for machine-readable output without UI elements
+	debugFlag         bool // Flag for debug logging
 
 	// Add divider constant here, grouped with other constants
 	divider = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -54,6 +56,7 @@ func init() {
 	suggestCmd.Flags().BoolVarP(&interactiveFlag, "interactive", "i", false, "Interactive mode to approve/reject suggestions")
 	suggestCmd.Flags().StringVarP(&commitMsgFileFlag, "file", "F", "", "Path to commit message file (for prepare-commit-msg hook)")
 	suggestCmd.Flags().BoolVarP(&quietFlag, "quiet", "q", false, "Output only the message without UI elements (for scripts)")
+	suggestCmd.Flags().BoolVarP(&debugFlag, "debug", "d", false, "Enable debug logging for API interactions")
 }
 
 // suggestCmd represents the suggest command
@@ -103,14 +106,14 @@ Example:
 		collector, _ := history.NewHistoryCollector()
 		stats := collector.CalculateStats(commits)
 
-		// Create feedback engine based on config
+		// Create feedback engine based on config with debug flag
 		engineProvider := cfg.LLM.Provider
 		engineModel := cfg.LLM.Model
 		apiKey := cfg.LLM.APIKey
 		personality := cfg.Moai.Personality
 		personalityFile := cfg.Moai.PersonalityFile
 
-		engine := feedback.NewFeedbackEngine(engineProvider, engineModel, apiKey, personality, personalityFile)
+		engine := feedback.NewFeedbackEngine(engineProvider, engineModel, apiKey, personality, personalityFile, debugFlag)
 
 		// Create commit context for the suggestion
 		ctx := feedback.CommitContext{
@@ -159,7 +162,16 @@ Example:
 		suggestion, err := engine.GenerateCommitSuggestion(ctx)
 		if err != nil {
 			fmt.Println(color.RedString("❌ Error:"), "Failed to generate suggestion:", err)
+
+			// Fallback to simple local suggestion if AI fails
+			suggestion = generateLocalFallbackSuggestion(ctx.Diff)
+			fmt.Println(color.YellowString("⚠️"), "Using local fallback suggestion due to AI error.")
 			return
+		}
+
+		if strings.TrimSpace(suggestion) == "" {
+			fmt.Println(color.YellowString("⚠️"), "AI returned empty suggestion—using local fallback.")
+			suggestion = generateLocalFallbackSuggestion(ctx.Diff)
 		}
 
 		// Handle output based on flags
@@ -397,4 +409,45 @@ func editSuggestion(suggestion string) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func generateLocalFallbackSuggestion(diff string) string {
+	// Simple heuristic-based suggestion from diff
+	files := extractChangedFiles(diff)
+	totalLines := countDiffLines(diff)
+
+	if len(files) == 0 {
+		return "chore: apply changes"
+	}
+
+	if strings.Contains(diff, "test") || strings.Contains(strings.ToLower(diff), "_test") {
+		return "test: update test cases"
+	}
+
+	if len(files) > 3 || totalLines > 50 {
+		return fmt.Sprintf("refactor: update %d files (%d lines changed)", len(files), totalLines)
+	}
+
+	return fmt.Sprintf("chore: update %s", filepath.Base(files[0]))
+}
+
+func extractChangedFiles(diff string) []string {
+	files := []string{}
+	lines := strings.Split(diff, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "diff --git") {
+			parts := strings.Fields(line)
+			if len(parts) >= 3 {
+				file := strings.TrimPrefix(parts[2], "a/")
+				files = append(files, file)
+			}
+		}
+	}
+	return files
+}
+
+func countDiffLines(diff string) int {
+	added := strings.Count(diff, "\n+")
+	removed := strings.Count(diff, "\n-")
+	return added + removed
 }

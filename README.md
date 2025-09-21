@@ -170,7 +170,7 @@ Create a `~/.noidea/config.json` file:
     "enabled": true,
     "provider": "xai",
     "api_key": "",
-    "model": "grok-2-1212",
+    "model": "grok-4-fast-reasoning",
     "temperature": 0.7
   },
   "moai": {

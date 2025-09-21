@@ -139,7 +139,7 @@ setup_config() {
     "enabled": false,
     "provider": "xai",
     "api_key": "",
-    "model": "grok-2-1212",
+    "model": "grok-4-fast-reasoning",
     "temperature": 0.7
   },
   "moai": {
@@ -170,15 +170,15 @@ EOF
         case $provider_choice in
             1)
                 sed -i 's/"provider": "xai"/"provider": "xai"/g' "$CONFIG_FILE"
-                sed -i 's/"model": "grok-2-1212"/"model": "grok-2-1212"/g' "$CONFIG_FILE"
+                sed -i 's/"model": "grok-4-fast-reasoning"/"model": "grok-4-fast-reasoning"/g' "$CONFIG_FILE"
                 ;;
             2)
                 sed -i 's/"provider": "xai"/"provider": "openai"/g' "$CONFIG_FILE"
-                sed -i 's/"model": "grok-2-1212"/"model": "gpt-3.5-turbo"/g' "$CONFIG_FILE"
+                sed -i 's/"model": "grok-4-fast-reasoning"/"model": "gpt-3.5-turbo"/g' "$CONFIG_FILE"
                 ;;
             3)
                 sed -i 's/"provider": "xai"/"provider": "deepseek"/g' "$CONFIG_FILE"
-                sed -i 's/"model": "grok-2-1212"/"model": "deepseek-chat"/g' "$CONFIG_FILE"
+                sed -i 's/"model": "grok-4-fast-reasoning"/"model": "deepseek-chat"/g' "$CONFIG_FILE"
                 ;;
             *)
                 # Default case, keep xAI
