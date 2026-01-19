@@ -18,6 +18,7 @@ var (
 	enableSuggestions bool
 	enableInteractive bool
 	enableFullDiff    bool
+	enableFeedback    bool
 	forceFlag         bool
 )
 
@@ -25,6 +26,7 @@ func init() {
 	initCmd.Flags().BoolVarP(&enableSuggestions, "suggest", "s", true, "Enable commit message suggestions")
 	initCmd.Flags().BoolVarP(&enableInteractive, "interactive", "i", false, "Enable interactive mode for direct command usage")
 	initCmd.Flags().BoolVarP(&enableFullDiff, "full-diff", "f", false, "Include full diffs in commit message analysis")
+	initCmd.Flags().BoolVarP(&enableFeedback, "feedback", "b", false, "Enable AI feedback in post-commit hook (makes extra API call)")
 	initCmd.Flags().BoolVarP(&forceFlag, "force", "F", false, "Force installation even if checks fail")
 
 	rootCmd.AddCommand(initCmd)
@@ -128,6 +130,16 @@ var initCmd = &cobra.Command{
 			}
 		}
 
+		// Set feedback configuration
+		if err := gitConfigRunner("noidea.feedback", fmt.Sprintf("%t", enableFeedback)); err != nil {
+			fmt.Println(color.YellowString("Warning:"), "Failed to set feedback config:", err)
+		}
+		if enableFeedback {
+			fmt.Println(color.GreenString("✓"), "AI feedback enabled in post-commit hook")
+		} else {
+			fmt.Println(color.GreenString("✓"), "AI feedback disabled (use --feedback to enable)")
+		}
+
 		// Check if noidea is properly available
 		execPath, _ := os.Executable()
 		fmt.Println(color.GreenString("Success!"), "noidea hooks installed - executable at:", execPath)
@@ -154,11 +166,12 @@ var initCmd = &cobra.Command{
 		fmt.Println(color.GreenString("🎉 noidea ready in this repo!"))
 		fmt.Println(color.BlueString("Hooks installed:"))
 		fmt.Println("  - prepare-commit-msg: Auto-suggests messages on 'git commit' (opens in editor)")
-		fmt.Println("  - post-commit: Shows Moai face after commits (no text by default)")
+		fmt.Println("  - post-commit: Shows Moai face after commits (AI feedback if enabled)")
 		fmt.Println()
 		fmt.Println(color.YellowString("Next: Try 'git commit' (no -m) for a suggestion!"))
 		fmt.Println(color.BlueString("For AI-powered suggestions/feedback: 'noidea config --init'"))
-		fmt.Println(color.BlueString("Disable suggestions: 'git config noidea.suggest false'"))
+		fmt.Println(color.BlueString("Toggle suggestions: 'git config noidea.suggest [true|false]'"))
+		fmt.Println(color.BlueString("Toggle AI feedback: 'git config noidea.feedback [true|false]'"))
 	},
 }
 

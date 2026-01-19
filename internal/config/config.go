@@ -30,6 +30,7 @@ type Config struct {
 		FacesMode       string `json:"faces_mode"`       // "random", "sequential", "mood"
 		Personality     string `json:"personality"`      // Selected personality
 		PersonalityFile string `json:"personality_file"` // Custom personality definitions
+		Feedback        bool   `json:"feedback"`         // Enable AI feedback in post-commit hook
 	} `json:"moai"`
 }
 
@@ -47,6 +48,7 @@ func DefaultConfig() Config {
 	cfg.Moai.UseLint = false
 	cfg.Moai.FacesMode = "random"
 	cfg.Moai.Personality = "professional_sass"
+	cfg.Moai.Feedback = false // Disabled by default to avoid extra API calls
 
 	// Get home directory for default personality file path
 	homeDir, err := os.UserHomeDir()
@@ -211,6 +213,10 @@ func applyEnvironmentOverrides(cfg Config) Config {
 
 	if val := os.Getenv("NOIDEA_PERSONALITY_FILE"); val != "" {
 		cfg.Moai.PersonalityFile = val
+	}
+
+	if val := os.Getenv("NOIDEA_FEEDBACK"); val != "" {
+		cfg.Moai.Feedback = val == "true" || val == "1" || val == "yes"
 	}
 
 	return cfg
