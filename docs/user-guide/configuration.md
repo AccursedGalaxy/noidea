@@ -7,8 +7,8 @@ Learn how to configure noidea to suit your workflow and preferences.
 noidea can be configured through:
 
 1. **Command line options**: Temporary settings for individual commands
-2. **Git config**: Repository-specific settings
-3. **Configuration file**: Global settings in `~/.noidea/config.json`
+2. **Configuration file**: Global settings in `~/.noidea/config.json`
+3. **Git config**: Repository-specific settings (mostly set by `noidea init`)
 4. **Environment variables**: For API keys and global settings
 
 ## Initial Setup
@@ -48,7 +48,7 @@ The configuration file is located at `~/.noidea/config.json`. Here's an example:
     "use_lint": false,
     "faces_mode": "random",
     "personality": "snarky_reviewer",
-    "personality_file": "~/.noidea/personalities.json"
+    "personality_file": "~/.noidea/personalities.toml"
   }
 }
 ```
@@ -73,17 +73,16 @@ The configuration file is located at `~/.noidea/config.json`. Here's an example:
 
 ## Git Config Settings
 
-Configure noidea through Git:
+Most Git config settings are automatically configured when you run `noidea init`. However, you can customize them:
 
 ```bash
-# Enable commit message suggestions
-git config noidea.suggest true
-
 # Set personality for feedback
 git config noidea.personality supportive_mentor
 
 # Use full diff analysis for better suggestions
 git config noidea.suggest.full-diff true
+
+# Note: Commit message suggestions are enabled automatically by `noidea init`
 ```
 
 ## Environment Variables

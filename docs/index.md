@@ -21,7 +21,8 @@ hide:
 
   <ul>
     <li><span class="highlight-text">Get smart commit messages</span> based on your changes</li>
-    <li><span class="highlight-text">Receive sassy feedback</span> from a judgmental Moai after each commit</li>
+    <li><span class="highlight-text">See a moai face</span> after each commit (instant, no API calls)</li>
+    <li><span class="highlight-text">Get AI feedback on demand</span> when you want detailed insights</li>
     <li><span class="highlight-text">Analyze your Git history</span> for insights and patterns</li>
   </ul>
 </div>
@@ -34,9 +35,9 @@ hide:
 
     [:octicons-arrow-right-24: Learn more](user-guide/features/api-key-management.md)
 
-- :material-message-text: __Sassy Feedback__
+- :material-message-text: __Moai Feedback__
 
-    Receive witty, personalized feedback from our judgmental Moai after each commit, with multiple AI personalities to choose from
+    Get instant moai faces after each commit (no API delays), with optional AI-powered feedback on demand using multiple personalities
 
     [:octicons-arrow-right-24: Features](#features)
 
@@ -62,26 +63,30 @@ hide:
   # Clone and install
   git clone https://github.com/AccursedGalaxy/noidea.git
   cd noidea
-  ./install.sh
+  ./install.sh  # Builds binary, sets up ~/.noidea/config (AI disabled by default)
   ```
   </div>
 
   <h3>Repository Setup</h3>
 
-  <p>After installation, you need to set up NoIdea in your Git repository:</p>
+  <p>After installation, initialize NoIdea in your Git repository:</p>
 
   <div class="terminal">
   ```bash
   # Navigate to your repository
   cd /path/to/your/repo
 
-  # Initialize NoIdea
+  # Initialize NoIdea (installs hooks for suggestions on commit, Moai faces after)
   noidea init
-
-  # Enable auto commit suggestions (optional)
-  git config noidea.suggest true
   ```
   </div>
+
+  <p><strong>What happens after init:</strong></p>
+  <ul>
+    <li><strong>Suggestions:</strong> Always on after init—tries local first (fast, no API), uses AI if enabled</li>
+    <li><strong>Moai Faces:</strong> Always show after commits instantly (no AI calls, keeps workflow fast)</li>
+    <li><strong>AI Feedback:</strong> Manual only—run <code>noidea moai --ai</code> when you want detailed feedback</li>
+  </ul>
 
   <div class="admonition tip">
     <p class="admonition-title">Pro Tip</p>
@@ -108,16 +113,26 @@ hide:
   ```
   </div>
 
-  <h3>Post-commit Feedback</h3>
+  <h3>Post-commit Moai Faces</h3>
 
-  <p>After each commit, the Moai will judge your work with witty commentary:</p>
+  <p>After each commit, you'll see an instant moai face (no API delays):</p>
 
   <div class="terminal">
   ```
   ───────────────────────────────────────────────────
-  🗿  (ಠ_ಠ) Your commit message was 'fix final final pls real'
-  "You've entered the 2AM hotfix arc. A legendary time."
+  🗿  (ಠ_ಠ)
   ───────────────────────────────────────────────────
+  ```
+  </div>
+
+  <p>Want AI-powered feedback? Use the <code>--ai</code> flag when you want detailed insights:</p>
+
+  <div class="terminal">
+  ```bash
+  noidea moai --ai
+  # Output:
+  # 🗿  (ಠ_ಠ) Your commit message was 'fix final final pls real'
+  # "You've entered the 2AM hotfix arc. A legendary time."
   ```
   </div>
 
@@ -313,22 +328,25 @@ hide:
 
   <h3>Advanced Configuration</h3>
 
-  <p>For more advanced setup, you can edit your configuration file at <code>~/.noidea/config.toml</code>:</p>
+  <p>For more advanced setup, you can edit your configuration file at <code>~/.noidea/config.json</code>:</p>
 
   <div class="terminal">
-  ```toml
-  [llm]
-  enabled = true
-  provider = "xai"
-  api_key = ""
-  model = "grok-4-fast-reasoning"
-  temperature = 0.7
-
-  [moai]
-  use_lint = false
-  faces_mode = "random"
-  personality = "snarky_reviewer"
-  personality_file = "~/.noidea/personalities.toml"
+  ```json
+  {
+    "llm": {
+      "enabled": true,
+      "provider": "xai",
+      "api_key": "",
+      "model": "grok-4-fast-reasoning",
+      "temperature": 0.7
+    },
+    "moai": {
+      "use_lint": false,
+      "faces_mode": "random",
+      "personality": "snarky_reviewer",
+      "personality_file": "~/.noidea/personalities.toml"
+    }
+  }
   ```
   </div>
 </div>
@@ -433,11 +451,11 @@ hide:
         <td>✅ Done</td>
       </tr>
       <tr>
-        <td>Lint feedback</td>
-        <td>🛠️ In progress</td>
+        <td>AI Release notes</td>
+        <td>✅ Done</td>
       </tr>
       <tr>
-        <td>Commit streak insights</td>
+        <td>AI GitHub issue management</td>
         <td>🔜 Coming Soon</td>
       </tr>
     </tbody>

@@ -16,7 +16,7 @@ The config command provides several functions:
 - Manage API keys for AI providers
 - Validate your configuration
 
-By default, noidea stores configuration in `~/.noidea/config.toml`.
+By default, noidea stores configuration in `~/.noidea/config.json`.
 
 ## Base Options
 
@@ -25,7 +25,7 @@ By default, noidea stores configuration in `~/.noidea/config.toml`.
 | `--show` | `-s` | `false` | Show current configuration |
 | `--init` | `-i` | `false` | Initialize a new config file interactively |
 | `--validate` | `-v` | `false` | Validate the current configuration |
-| `--path` | `-p` | | Path to config file (default: ~/.noidea/config.toml) |
+| `--path` | `-p` | | Path to config file (default: ~/.noidea/config.json) |
 
 ## Subcommands
 

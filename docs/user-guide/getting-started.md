@@ -1,41 +1,43 @@
 # Getting Started
 
-## Smooth Setup
+## Quick Setup
 
-noidea is designed for instant value—install, init, commit.
+noidea is designed for instant value—install, init, commit. Get up and running in seconds.
 
 ### Step 1: Install
-Download or clone, then:
 ```bash
-./install.sh  # Sets up binary and ~/.noidea/config (AI off by default)
+cd /path/to/noidea  # Or clone: git clone <repo> noidea && cd noidea
+./install.sh  # Builds binary, sets up ~/.noidea/config (AI disabled by default)
 ```
 
-### Step 2: Init in Repo
+### Step 2: Initialize in Your Repository
+The magic happens here:
 ```bash
-cd your-repo
+cd your-project
 noidea init  # Installs hooks: suggestions on commit, Moai faces after
 ```
-- Prompts: Enable suggestions? (Yes for editor magic). Interactive/full-diff optional.
 
-### Step 3: Try It
+### Step 3: Try Your Favorite Flow
 ```bash
 git add .
-git commit  # Opens editor with suggestion (local/AI)—edit/save!
-# After: Moai face appears (no text by default).
+git commit  # No -m: Opens editor with AI/local suggestion pre-filled!
+# Edit/save to commit. Moai face appears after (fun, no text by default).
 ```
 
-**Defaults**:
-- Suggestions: Always (editor pre-fill on commit).
-- Moai: Faces always (text optional via AI).
-- AI: Off (enable with `noidea config --init` for smarter everything).
+**Defaults Explained**:
+- **Suggestions**: Always on after init—tries local first (fast, no API), uses AI if enabled
+- **Moai Faces**: Always show after commits instantly (no AI calls, keeps workflow fast)
+- **AI Feedback**: Manual only—run `noidea moai --ai` when you want detailed feedback
+- **AI Features**: Disabled by default (no API key needed). Enable with `noidea config --init` for smarter suggestions
 
 ### Enable AI (Optional)
+For AI-powered features, configure your API key:
 ```bash
 noidea config --init  # Set provider/key/model (grok-4-fast-reasoning default)
 ```
-Suggestions get context-aware; Moai adds text feedback.
+With AI enabled: Suggestions get context-aware, and you can get detailed Moai feedback via `noidea moai --ai`.
 
-Troubleshooting? See [Troubleshooting](../troubleshooting.md).
+For full details, see [Configuration](configuration.md). Troubleshooting? See [Troubleshooting](troubleshooting.md).
 
 ## Introduction
 
