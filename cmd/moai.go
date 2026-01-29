@@ -87,11 +87,6 @@ var moaiCmd = &cobra.Command{
 		// Get the Moai face
 		face := moai.GetRandomFace()
 
-		// Override AI flag from config if set
-		if !useAI && cfg.LLM.Enabled {
-			useAI = true
-		}
-
 		// Get personality name, using flag if provided, otherwise from config
 		personalityName := cfg.Moai.Personality
 		if personalityFlag != "" {

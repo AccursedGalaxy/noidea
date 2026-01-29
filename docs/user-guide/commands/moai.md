@@ -10,7 +10,7 @@ noidea moai [options] [commit message]
 
 ## Description
 
-After making a commit, this command analyzes your commit message and displays a Moai character with personality-driven feedback. By default, it uses locally generated feedback, but with the `--ai` flag, it leverages AI to provide more contextual and intelligent responses.
+This command displays a Moai character with your commit message. When used without flags, it simply shows the moai face and message instantly. With the `--ai` flag, it leverages AI to provide contextual, personality-driven feedback about your commit.
 
 ## Options
 
@@ -88,6 +88,8 @@ You can create custom personalities by creating a `personalities.toml` file in y
 
 ## Post-Commit Hook
 
-When you run `noidea init` in a repository, it sets up a post-commit hook that automatically runs the `moai` command after each commit, providing immediate feedback.
+When you run `noidea init` in a repository, it sets up a post-commit hook that automatically displays a moai face (without AI) after each commit. This provides instant, fun feedback without any API calls.
 
-You can disable this behavior by editing the `.git/hooks/post-commit` file in your repository. 
+**To get AI-powered feedback**, run `noidea moai --ai` manually when you want deeper insights about your commit.
+
+You can disable the post-commit hook entirely by removing or editing the `.git/hooks/post-commit` file in your repository. 
