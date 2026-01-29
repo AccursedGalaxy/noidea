@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -133,25 +134,51 @@ func runUpdate(force bool) {
 
 // detectInstallMethod tries to determine how noidea was installed
 func detectInstallMethod() string {
-	// Check if executable path contains Go path
+	// Get the executable path
 	execPath, err := os.Executable()
+	if err != nil {
+		// If we can't determine the path, default to binary method
+		return "binary"
+	}
+
+	// Resolve any symlinks to get the actual binary location
+	realPath, err := filepath.EvalSymlinks(execPath)
 	if err == nil {
-		if strings.Contains(execPath, "go/bin") {
-			return "go"
+		execPath = realPath
+	}
+
+	// Check if executable is in Go's bin directory
+	// This is the most reliable indicator of a Go installation
+	if strings.Contains(execPath, "go/bin") || strings.Contains(execPath, "go"+string(filepath.Separator)+"bin") {
+		return "go"
+	}
+
+	// Check if in common system binary directories (likely from make install or binary download)
+	systemDirs := []string{
+		"/usr/local/bin",
+		"/usr/bin",
+		"/bin",
+	}
+	for _, dir := range systemDirs {
+		if strings.HasPrefix(execPath, dir) {
+			return "binary"
 		}
 	}
 
-	// Check if go is available
-	_, err = exec.LookPath("go")
-	if err == nil {
-		// Try to run go list to check if this package is installed via go
-		cmd := exec.Command("go", "list", "-m", "github.com/AccursedGalaxy/noidea")
-		if err := cmd.Run(); err == nil {
-			return "go"
+	// Check if in user's bin directory (also likely from make install)
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		userBinDirs := []string{
+			filepath.Join(homeDir, "bin"),
+			filepath.Join(homeDir, ".local", "bin"),
+		}
+		for _, dir := range userBinDirs {
+			if strings.HasPrefix(execPath, dir) {
+				return "binary"
+			}
 		}
 	}
 
-	// Try to detect package manager
+	// Try to detect package manager installation
 	if _, err := exec.LookPath("apt"); err == nil && fileExists("/var/lib/dpkg/info/noidea.list") {
 		return "package"
 	}
@@ -166,7 +193,28 @@ func detectInstallMethod() string {
 		}
 	}
 
-	// Default to binary
+	// As a last resort, check if installed via go install
+	// Only do this if we haven't matched any of the above
+	_, err = exec.LookPath("go")
+	if err == nil {
+		// Check if the binary is in GOPATH/bin or GOBIN
+		gopath := os.Getenv("GOPATH")
+		if gopath == "" {
+			if homeDir, err := os.UserHomeDir(); err == nil {
+				gopath = filepath.Join(homeDir, "go")
+			}
+		}
+		gobin := os.Getenv("GOBIN")
+
+		if gobin != "" && strings.HasPrefix(execPath, gobin) {
+			return "go"
+		}
+		if gopath != "" && strings.HasPrefix(execPath, filepath.Join(gopath, "bin")) {
+			return "go"
+		}
+	}
+
+	// Default to binary method for manual installations
 	return "binary"
 }
 
