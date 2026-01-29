@@ -21,7 +21,8 @@
 **noidea** is a Git companion that makes your commits better and funnier:
 
 - **Get smart commit messages** based on your changes
-- **Receive sassy feedback** from a judgmental Moai after each commit
+- **See a moai face** after each commit (instant, no API calls)
+- **Get AI feedback on demand** when you want detailed insights
 - **Analyze your Git history** for insights and patterns
 - **Seamless integration** with Git workflows
 
@@ -58,16 +59,17 @@ Get up and running in seconds—no complex config needed.
    ```
 
 **Defaults Explained**:
-- **Suggestions**: Always on after init—tries local first (fast, no API), falls back from AI if enabled.
-- **Moai Faces**: Always show after commits (random/mood mode, no text feedback to keep it light).
-- **AI Features**: Disabled by default (no API key needed). Enable with `noidea config --init` for smarter suggestions/feedback.
+- **Suggestions**: Always on after init—tries local first (fast, no API), uses AI if enabled.
+- **Moai Faces**: Always show after commits instantly (no AI calls, keeps workflow fast).
+- **AI Feedback**: Manual only—run `noidea moai --ai` when you want detailed feedback.
+- **AI Features**: Disabled by default (no API key needed). Enable with `noidea config --init` for smarter suggestions.
 
 For full AI: Set your xAI/OpenAI key during install or later. See [Configuration](../docs/user-guide/configuration.md).
 
 ## Why noidea?
 
 - **Seamless Editor Integration**: `git commit` auto-suggests messages in your editor—edit and go (no extra commands).
-- **Fun Without Overload**: Moai judges your commits with faces (opt-in text feedback).
+- **Fast & Fun**: Instant moai faces after commits, no API delays (AI feedback on-demand).
 - **Smart Defaults**: Works out-of-box; AI optional for power users.
 - **Git-First**: Hooks respect your workflow—no CI bloat.
 

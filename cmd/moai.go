@@ -87,11 +87,6 @@ var moaiCmd = &cobra.Command{
 		// Get the Moai face
 		face := moai.GetRandomFace()
 
-		// Override AI flag from config if set
-		if !useAI && cfg.LLM.Enabled {
-			useAI = true
-		}
-
 		// Get personality name, using flag if provided, otherwise from config
 		personalityName := cfg.Moai.Personality
 		if personalityFlag != "" {
@@ -121,15 +116,8 @@ var moaiCmd = &cobra.Command{
 				}
 			}
 
-			// Create feedback engine based on configuration with debug flag
-			engineProvider := cfg.LLM.Provider
-			engineModel := cfg.LLM.Model
-			apiKey := cfg.LLM.APIKey
-			personalityName := personalityName
-			personalityFile := cfg.Moai.PersonalityFile
-
 			// Create feedback engine based on configuration
-			engine := feedback.NewFeedbackEngine(engineProvider, engineModel, apiKey, personalityName, personalityFile, debugMode)
+			engine := feedback.NewFeedbackEngine(cfg.LLM.Provider, cfg.LLM.Model, cfg.LLM.APIKey, personalityName, cfg.Moai.PersonalityFile, debugMode)
 
 			// Generate AI feedback
 			fmt.Printf("  %s", color.HiBlackString("Generating AI feedback..."))

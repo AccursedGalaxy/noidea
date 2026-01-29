@@ -54,11 +54,6 @@ func TestExtractRepoInfo_SSH(t *testing.T) {
 // TestExtractRepoInfo_Empty (skipped, requires exec mock)
 func TestExtractRepoInfo_Empty(t *testing.T) {
 	t.Skip("Requires git repo setup or exec mock")
-	// owner, repo, err := ExtractRepoInfo("")
-	// if err != nil {
-	// 	t.Skipf("Skipping due to git error: %v", err)
-	// }
-	// // Assertions based on test repo
 }
 
 // TestExtractRepoInfo_Invalid
@@ -79,13 +74,10 @@ func TestIsAuthenticated(t *testing.T) {
 
 // TestGetLatestRelease (skipped, requires HTTP mock)
 func TestGetLatestRelease(t *testing.T) {
-	// client := NewClientWithoutAuth()
 	t.Skip("Requires HTTP mock")
 }
 
 // TestDoRequest (skipped, requires HTTP mock)
 func TestDoRequest(t *testing.T) {
-	// client := &Client{token: "test"}
-	// req, _ := http.NewRequest("GET", "/test", nil)
 	t.Skip("Requires HTTP mock for client.httpClient.Do")
 }

@@ -87,7 +87,7 @@ func InstallPostCommitHook(hooksDir string) error {
 	}
 
 	// Create the post-commit hook content
-	// The hook checks git config noidea.feedback at runtime to determine whether to use --ai
+	// NOTE: AI feedback is intentionally NOT run automatically (no extra LLM call).
 	hookContent := fmt.Sprintf(`#!/bin/sh
 #
 # noidea - Post-commit hook
@@ -97,14 +97,8 @@ func InstallPostCommitHook(hooksDir string) error {
 # Get the last commit message
 COMMIT_MSG=$(git log -1 --pretty=%%B)
 
-# Check if AI feedback is enabled
-AI_FLAG=""
-if [ "$(git config --get noidea.feedback)" = "true" ]; then
-    AI_FLAG="--ai "
-fi
-
 # Call noidea with the commit message (using absolute path)
-%s moai %s$AI_FLAG"$COMMIT_MSG"
+%s moai %s"$COMMIT_MSG"
 
 # Always exit with success so git continues normally
 exit 0
@@ -365,18 +359,12 @@ func InstallHuskyPostCommitHook(huskyDir string) error {
 		flags += fmt.Sprintf("--personality=%s ", cfg.Moai.Personality)
 	}
 
-	// The hook checks git config noidea.feedback at runtime to determine whether to use --ai
+	// NOTE: AI feedback is intentionally NOT run automatically (no extra LLM call).
 	noideaBlock := fmt.Sprintf(`
 # noidea - post-commit hook
 COMMIT_MSG=$(git log -1 --pretty=%%B)
 
-# Check if AI feedback is enabled
-AI_FLAG=""
-if [ "$(git config --get noidea.feedback)" = "true" ]; then
-    AI_FLAG="--ai "
-fi
-
-"%s" moai %s$AI_FLAG"$COMMIT_MSG" || true
+"%s" moai %s"$COMMIT_MSG" || true
 `, execPath, flags)
 
 	if data, err := os.ReadFile(hookPath); err == nil {

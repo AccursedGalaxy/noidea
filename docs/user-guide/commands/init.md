@@ -70,6 +70,16 @@ git config noidea.suggest.interactive true
 git config noidea.suggest.full-diff true
 ```
 
+## AI Feedback
+
+The post-commit hook displays a moai face instantly (without AI) to keep your workflow fast. When you want detailed AI-powered feedback about a commit, run:
+
+```bash
+noidea moai --ai
+```
+
+This gives you control over when to make LLM API calls, keeping your regular commit workflow quick and responsive.
+
 ## API Key Configuration
 
 For the best experience with commit suggestions, configure an API key:

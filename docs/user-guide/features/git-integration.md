@@ -20,9 +20,11 @@ This makes it easy to create consistent, descriptive commit messages without ext
 
 After each commit, this hook:
 
-- Runs the `noidea moai` command
-- Displays a Moai face with feedback about your commit
-- Optionally uses AI to analyze your commit and provide intelligent feedback
+- Runs the `noidea moai` command (without AI)
+- Instantly displays a Moai face with your commit message
+- Provides a fun, visual confirmation without making API calls
+
+**Note:** AI-powered feedback is not automatic. Run `noidea moai --ai` manually when you want detailed, AI-generated analysis of your commit.
 
 ## Git Command Extension
 
