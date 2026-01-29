@@ -7,7 +7,7 @@ go 1.24.0
 toolchain go1.24.6
 
 require (
-	github.com/BurntSushi/toml v1.5.0
+	github.com/BurntSushi/toml v1.6.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/fatih/color v1.18.0
 	github.com/sashabaranov/go-openai v1.41.1
