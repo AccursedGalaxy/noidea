@@ -1,29 +1,44 @@
-# Noidea
+# noidea
 
-Simple llm powered commit suggestions that integrate with git hooks
+AI-powered commit message suggestions via git hooks. Stages a diff, sends it to Claude, and pre-fills your commit editor.
 
-## Architecture
-config.py -> Load TOML config + env var overrides
-git.py -> Run git diff --staged, return the diff string
-provider.py -> Take (diff, system_prompt) -> return commit message string
-cli.py -> Orchestrate the above, handle flags
+## Install
 
+```bash
+pip install noidea  # or: poetry install
+export ANTHROPIC_API_KEY=sk-ant-...
+noidea init
+```
+
+`noidea init` installs a `prepare-commit-msg` hook in your repo. From then on, every `git commit` opens your editor with a suggested message pre-filled.
 
 ## Commands
 
-noidea suggest
-1. Run git diff --staged
-2. If empty → error + exit
-3. Load config (env vars override optional TOML file)
-4. Parse diff metadata (file list, +/- counts)
-5. Truncate diff to ~12,000 chars
-6. Call LLM provider → get commit message
-7. Print to stdout (or write to --file path for hook use)
-Flags: --file / -F (write to file, for hook), --quiet / -q (raw output only)
+### `noidea init`
+Installs the git hook. Backs up any existing `prepare-commit-msg` as `.bak`. Respects `core.hooksPath`.
 
-noidea init
-1. Verify inside git repo
-2. Find hooks dir (respect core.hooksPath)
-3. Back up existing prepare-commit-msg if present
-4. Write simple ~15-line shell hook script
-5. chmod +x
+### `noidea suggest`
+Generates a commit message from the current staged diff and prints it.
+
+```
+Options:
+  -F, --file TEXT   Write message to file instead of stdout (used by the hook)
+```
+
+## Config
+
+Optional config at `~/.noidea/noidea.toml`:
+
+```toml
+[llm]
+model = "claude-sonnet-4-6"
+max_tokens = 1024
+system_prompt = "Your custom prompt here"
+```
+
+Falls back to built-in defaults if no config file exists.
+
+## Requirements
+
+- Python 3.13+
+- `ANTHROPIC_API_KEY` env var
