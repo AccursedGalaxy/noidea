@@ -11,7 +11,9 @@ client = Anthropic(
 )
 
 
-def get_commit_message(diff: str, system_prompt: str) -> str:
+def get_commit_message(
+    diff: str, system_prompt: str, model: str, max_tokens: int
+) -> str:
     message = client.messages.create(
         model="claude-sonnet-4-6",
         system=system_prompt,

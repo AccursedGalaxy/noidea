@@ -4,7 +4,7 @@ import tomllib
 config_path = os.path.expanduser("~/.noidea/noidea.toml")
 
 
-def load_config() -> object:
+def load_config() -> dict:
     if os.path.exists(config_path):
         with open(config_path, "rb") as f:
             config = tomllib.load(f)
