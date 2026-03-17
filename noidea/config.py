@@ -21,7 +21,7 @@ def load_config() -> dict:
                     "- If needed, blank line then body explaining *why*, not *what*\n"
                     "- Use conventional commits prefix if scope is clear (feat/fix/refactor/chore/docs/test)\n"
                     "- No filler, no praise, no explanation outside the commit message itself\n"
-                    "Output only the commit message."
+                    "Output only the commit message. No code block!"
                 ),
             }
         }
