@@ -1,0 +1,19 @@
+[project]
+name = "noidea"
+version = "0.1.0"
+description = "AI powered commit suggestions"
+authors = [
+    {name = "AccursedGalaxy",email = "robinbohrer7@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "anthropic (>=0.85.0,<0.86.0)",
+    "openai (>=2.29.0,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
