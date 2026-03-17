@@ -18,6 +18,7 @@ def suggest(file: str = typer.Option(None, "--file", "-F")):
     diff = get_diff()
     if diff == "none":
         print("No Changes have been detected")
+        return
     config = load_config()
     commit_message = get_commit_message(
         diff,
