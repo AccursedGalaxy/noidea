@@ -5,10 +5,12 @@ AI-powered commit message suggestions via git hooks. Stages a diff, sends it to 
 ## Install
 
 ```bash
-pip install noidea  # or: poetry install
+pipx install noidea
 export ANTHROPIC_API_KEY=sk-ant-...
 noidea init
 ```
+
+> Requires [pipx](https://pipx.pypa.io). Alternatively: `pip install noidea`
 
 `noidea init` installs a `prepare-commit-msg` hook in your repo. From then on, every `git commit` opens your editor with a suggested message pre-filled.
 
@@ -16,6 +18,9 @@ noidea init
 
 ### `noidea init`
 Installs the git hook. Backs up any existing `prepare-commit-msg` as `.bak`. Respects `core.hooksPath`.
+
+### `noidea update`
+Updates noidea to the latest version via `pipx upgrade noidea` (falls back to `pip install --upgrade noidea`).
 
 ### `noidea suggest`
 Generates a commit message from the current staged diff and prints it.
