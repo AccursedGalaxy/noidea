@@ -1,7 +1,9 @@
+import json
 import os
 import tomllib
 
 config_path = os.path.expanduser("~/.noidea/noidea.toml")
+keys_path = os.path.expanduser("~/.noidea/keys.json")
 
 
 def load_config() -> dict:
@@ -27,3 +29,36 @@ def load_config() -> dict:
         }
 
         return defaults
+
+
+def save_key(name: str):
+    if os.path.exists(keys_path):
+        with open(keys_path) as f:
+            keys = json.load(f)
+    else:
+        keys = []
+
+    keys.append(name)
+    with open(keys_path, "w") as f:
+        json.dump(keys, f)
+
+
+def remove_key(name: str):
+    if os.path.exists(keys_path):
+        with open(keys_path) as f:
+            keys = json.load(f)
+    else:
+        return
+
+    keys.remove(name)
+    with open(keys_path, "w") as f:
+        json.dump(keys, f)
+
+
+def list_keys():
+    if os.path.exists(keys_path):
+        with open(keys_path) as f:
+            keys = json.load(f)
+        print(keys)
+    else:
+        print("no keys saved yet.")

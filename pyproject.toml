@@ -11,7 +11,8 @@ requires-python = ">=3.13"
 dependencies = [
     "anthropic (>=0.85.0,<0.86.0)",
     "python-dotenv (>=1.2.2,<2.0.0)",
-    "typer (>=0.24.1,<0.25.0)"
+    "typer (>=0.24.1,<0.25.0)",
+    "keyring (>=25.7.0,<26.0.0)"
 ]
 
 [project.scripts]

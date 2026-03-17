@@ -1,19 +1,26 @@
 import os
 
+import keyring
 from anthropic import Anthropic
 from anthropic.types import TextBlock
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = Anthropic(
-    api_key=os.environ.get("ANTHROPIC_API_KEY"),
-)
+
+def get_api_key() -> str:
+    key = keyring.get_password(service_name="noidea", username="Anthropic")
+    if not key:
+        key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        raise SystemExit("No API key found. Run 'noidea setup'.")
+    return key
 
 
 def get_commit_message(
     diff: str, system_prompt: str, model: str, max_tokens: int
 ) -> str:
+    client = Anthropic(api_key=get_api_key())
     message = client.messages.create(
         model=model,
         system=system_prompt,
