@@ -9,7 +9,7 @@ from noidea.config import load_config
 from noidea.git import get_diff, install_hook
 from noidea.provider import get_commit_message
 
-app = typer.Typer()
+app = typer.Typer(help="AI-powered git commit messages.")
 
 
 def version_callback(value: bool):
@@ -29,12 +29,18 @@ def main(
 
 @app.command()
 def init():
+    """Install the git commit-msg hook into the current git repository"""
     install_hook()
     print("Git hook installed successfully.")
 
 
 @app.command()
-def suggest(file: str = typer.Option(None, "--file", "-F")):
+def suggest(
+    file: str = typer.Option(
+        None, "--file", "-F", help="Write output to a file instead of stdout"
+    )
+):
+    """Suggest a commit message for the current staged diff"""
     diff = get_diff()
     if diff == "none":
         print("No Changes have been detected")
