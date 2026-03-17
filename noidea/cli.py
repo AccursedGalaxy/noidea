@@ -1,7 +1,7 @@
 import typer
 
 from noidea.config import load_config
-from noidea.git import get_diff
+from noidea.git import get_diff, install_hook
 from noidea.provider import get_commit_message
 
 app = typer.Typer()
@@ -9,8 +9,8 @@ app = typer.Typer()
 
 @app.command()
 def init():
-    print("not implemented yet")
-    pass
+    install_hook()
+    print("Git hook installed successfully.")
 
 
 @app.command()
