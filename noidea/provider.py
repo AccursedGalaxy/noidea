@@ -15,10 +15,10 @@ def get_commit_message(
     diff: str, system_prompt: str, model: str, max_tokens: int
 ) -> str:
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=model,
         system=system_prompt,
         messages=[{"role": "user", "content": diff}],
-        max_tokens=1024,
+        max_tokens=max_tokens,
     )
     block = message.content[0]
     assert isinstance(block, TextBlock)

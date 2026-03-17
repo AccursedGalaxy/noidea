@@ -8,6 +8,12 @@ app = typer.Typer()
 
 
 @app.command()
+def init():
+    print("not implemented yet")
+    pass
+
+
+@app.command()
 def suggest(file: str = typer.Option(None, "--file", "-F")):
     diff = get_diff()
     config = load_config()
@@ -20,7 +26,8 @@ def suggest(file: str = typer.Option(None, "--file", "-F")):
     if file:
         with open(file, "w") as f:
             f.write(commit_message)
-    print(commit_message)
+    else:
+        print(commit_message)
 
 
 if __name__ == "__main__":
