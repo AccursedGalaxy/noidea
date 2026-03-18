@@ -5,7 +5,7 @@ from noidea.config import list_keys, load_config, remove_key, save_key
 
 
 def test_load_config_file_does_not_exist(tmp_path):
-    fake_path = str(tmp_path / "noidea.toml")
+    fake_path = str(tmp_path / "config.json")
 
     with patch("noidea.config.config_path", fake_path):
         result = load_config()
@@ -14,8 +14,8 @@ def test_load_config_file_does_not_exist(tmp_path):
 
 
 def test_load_config_file_exists(tmp_path):
-    config_file = tmp_path / "noidea.toml"
-    config_file.write_text("[llm]\nmax_tokens = 512\n")
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({"llm": {"max_tokens": 512}}))
 
     with patch("noidea.config.config_path", str(config_file)):
         result = load_config()
@@ -24,7 +24,7 @@ def test_load_config_file_exists(tmp_path):
 
 
 def test_load_config_defaults_have_all_expected_keys(tmp_path):
-    fake_path = str(tmp_path / "noidea.toml")
+    fake_path = str(tmp_path / "config.json")
     with patch("noidea.config.config_path", fake_path):
         result = load_config()
 

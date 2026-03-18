@@ -7,7 +7,7 @@ authors = [
 ]
 license = {text = "MIT"}
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
     "anthropic (>=0.85.0,<0.86.0)",
     "python-dotenv (>=1.2.2,<2.0.0)",

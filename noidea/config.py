@@ -1,15 +1,14 @@
 import json
 import os
-import tomllib
 
-config_path = os.path.expanduser("~/.noidea/noidea.toml")
+config_path = os.path.expanduser("~/.noidea/config.json")
 keys_path = os.path.expanduser("~/.noidea/keys.json")
 
 
 def load_config() -> dict:
     if os.path.exists(config_path):
-        with open(config_path, "rb") as f:
-            config = tomllib.load(f)
+        with open(config_path) as f:
+            config = json.load(f)
         return config
     else:
         defaults = {
