@@ -58,7 +58,12 @@ Prints the current version.
 
 ## Config
 
-Optional config at `~/.noidea/config.json`:
+noidea supports two levels of configuration, both optional:
+
+- **User config**: `~/.noidea/config.json` — applies to all repositories
+- **Repository config**: `<repo>/.noidea/config.json` — overrides user config for a specific repo
+
+Precedence: built-in defaults → user config → repository config.
 
 ```json
 {
