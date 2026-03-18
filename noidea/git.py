@@ -69,7 +69,10 @@ def install_hook() -> HookResult:
         os.makedirs(hooks_dir, exist_ok=True)
 
         if os.path.exists(hook_path):
-            os.rename(hook_path, hook_path + ".bak")
+            if os.path.exists(hook_path + ".bak"):
+                print("backup already present")
+            else:
+                os.rename(hook_path, hook_path + ".bak")
 
         with open(hook_path, "w") as f:
             f.write('#!/bin/bash\nnoidea suggest --file "$1"\n')
