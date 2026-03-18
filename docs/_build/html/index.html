@@ -1,0 +1,205 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>noidea &mdash; noidea 0.4.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=6c02275b"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            noidea
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">noidea</a><ul>
+<li><a class="reference internal" href="#install">Install</a></li>
+<li><a class="reference internal" href="#api-key-setup">API Key Setup</a></li>
+<li><a class="reference internal" href="#commands">Commands</a><ul>
+<li><a class="reference internal" href="#noidea-init"><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">init</span></code></a></li>
+<li><a class="reference internal" href="#noidea-suggest"><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">suggest</span></code></a></li>
+<li><a class="reference internal" href="#noidea-keys"><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">keys</span></code></a></li>
+<li><a class="reference internal" href="#noidea-test"><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">test</span></code></a></li>
+<li><a class="reference internal" href="#noidea-update"><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">update</span></code></a></li>
+<li><a class="reference internal" href="#noidea-version"><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">--version</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
+<li><a class="reference internal" href="#requirements">Requirements</a></li>
+</ul>
+</li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">noidea</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">noidea</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="noidea">
+<h1>noidea<a class="headerlink" href="#noidea" title="Link to this heading"></a></h1>
+<p>AI-powered commit message suggestions via git hooks.
+Stages a diff, sends it to Claude, and pre-fills your commit editor.</p>
+<section id="install">
+<h2>Install<a class="headerlink" href="#install" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pipx<span class="w"> </span>install<span class="w"> </span>noidea
+noidea<span class="w"> </span>init
+</pre></div>
+</div>
+<p>Requires <a class="reference external" href="https://pipx.pypa.io">pipx</a>. Alternatively: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">noidea</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">init</span></code> installs a <code class="docutils literal notranslate"><span class="pre">prepare-commit-msg</span></code> hook in your repo.
+From then on, every <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">commit</span></code> opens your editor with a suggested message pre-filled.</p>
+</section>
+<section id="api-key-setup">
+<h2>API Key Setup<a class="headerlink" href="#api-key-setup" title="Link to this heading"></a></h2>
+<p>noidea needs an Anthropic API key. Three options (checked in order):</p>
+<ol class="arabic simple">
+<li><p><strong>Keyring</strong> (recommended): <code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">keys</span> <span class="pre">add</span></code></p></li>
+<li><p><strong>Environment variable</strong>: <code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">ANTHROPIC_API_KEY=sk-ant-...</span></code></p></li>
+<li><p><strong>.env file</strong>: <code class="docutils literal notranslate"><span class="pre">ANTHROPIC_API_KEY=sk-ant-...</span></code> in a <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (used for development)</p></li>
+</ol>
+</section>
+<section id="commands">
+<h2>Commands<a class="headerlink" href="#commands" title="Link to this heading"></a></h2>
+<section id="noidea-init">
+<h3><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">init</span></code><a class="headerlink" href="#noidea-init" title="Link to this heading"></a></h3>
+<p>Installs the <code class="docutils literal notranslate"><span class="pre">prepare-commit-msg</span></code> hook. Backs up any existing hook as <code class="docutils literal notranslate"><span class="pre">.bak</span></code>.
+Respects <code class="docutils literal notranslate"><span class="pre">core.hooksPath</span></code>.</p>
+</section>
+<section id="noidea-suggest">
+<h3><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">suggest</span></code><a class="headerlink" href="#noidea-suggest" title="Link to this heading"></a></h3>
+<p>Generates a commit message from the current staged diff and prints it.</p>
+<p>Options:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">-F,</span> <span class="pre">--file</span> <span class="pre">TEXT</span></code> — Write message to file instead of stdout (used by the hook)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-M,</span> <span class="pre">--model</span> <span class="pre">TEXT</span></code> — Override the model used for generation</p></li>
+</ul>
+</section>
+<section id="noidea-keys">
+<h3><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">keys</span></code><a class="headerlink" href="#noidea-keys" title="Link to this heading"></a></h3>
+<p>Manage API keys stored in the system keyring.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>noidea<span class="w"> </span>keys<span class="w"> </span>show<span class="w">    </span><span class="c1"># Show saved keys</span>
+noidea<span class="w"> </span>keys<span class="w"> </span>add<span class="w">     </span><span class="c1"># Add a key interactively</span>
+noidea<span class="w"> </span>keys<span class="w"> </span>remove<span class="w">  </span><span class="c1"># Remove a key interactively</span>
+</pre></div>
+</div>
+</section>
+<section id="noidea-test">
+<h3><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">test</span></code><a class="headerlink" href="#noidea-test" title="Link to this heading"></a></h3>
+<p>Sends a test message to the Claude API to verify your key and connectivity work.</p>
+</section>
+<section id="noidea-update">
+<h3><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">update</span></code><a class="headerlink" href="#noidea-update" title="Link to this heading"></a></h3>
+<p>Updates noidea via <code class="docutils literal notranslate"><span class="pre">pipx</span> <span class="pre">upgrade</span> <span class="pre">noidea</span></code> (falls back to <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--upgrade</span> <span class="pre">noidea</span></code>).</p>
+</section>
+<section id="noidea-version">
+<h3><code class="docutils literal notranslate"><span class="pre">noidea</span> <span class="pre">--version</span></code><a class="headerlink" href="#noidea-version" title="Link to this heading"></a></h3>
+<p>Prints the current version.</p>
+</section>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
+<p>Optional config at <code class="docutils literal notranslate"><span class="pre">~/.noidea/config.json</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;llm&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;max_tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;small_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;large_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-sonnet-4-6&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;context_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">600000</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;system_prompt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Your custom prompt here&quot;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Falls back to built-in defaults if no config file exists.
+The default prompt follows conventional commits style (<code class="docutils literal notranslate"><span class="pre">feat</span></code>/<code class="docutils literal notranslate"><span class="pre">fix</span></code>/<code class="docutils literal notranslate"><span class="pre">refactor</span></code>/etc.)
+with a 72-character subject line limit.
+Smaller diffs use <code class="docutils literal notranslate"><span class="pre">small_model</span></code> (Haiku) for speed;
+larger diffs automatically switch to <code class="docutils literal notranslate"><span class="pre">large_model</span></code> (Sonnet).</p>
+</section>
+<section id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Python 3.10+</p></li>
+<li><p>Anthropic API key</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, AccursedGalaxy.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
