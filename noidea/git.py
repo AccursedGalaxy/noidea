@@ -70,7 +70,8 @@ def install_hook() -> HookResult:
 
         if os.path.exists(hook_path):
             if os.path.exists(hook_path + ".bak"):
-                print("backup already present")
+                print("There is already a backup of the hook present.")
+                print("skipping backup creation")
             else:
                 os.rename(hook_path, hook_path + ".bak")
 
