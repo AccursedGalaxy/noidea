@@ -1,13 +1,22 @@
 import json
 from unittest.mock import patch
 
-from noidea.config import list_keys, load_config, remove_key, save_key
+from noidea.config import initialize, list_keys, load_config, remove_key, save_key
 
 
-def test_load_config_file_does_not_exist(tmp_path):
-    fake_path = str(tmp_path / "config.json")
+def _patch_paths(tmp_path):
+    """Return a context manager patching all config paths to tmp_path."""
+    return (
+        patch("noidea.config.config_dir", str(tmp_path)),
+        patch("noidea.config.config_path", str(tmp_path / "config.json")),
+        patch("noidea.config.keys_path", str(tmp_path / "keys.json")),
+    )
 
-    with patch("noidea.config.config_path", fake_path):
+
+def test_load_config_returns_defaults_after_initialize(tmp_path):
+    p1, p2, p3 = _patch_paths(tmp_path)
+    with p1, p2, p3:
+        initialize()
         result = load_config()
 
     assert result["llm"]["max_tokens"] == 1024
@@ -24,8 +33,9 @@ def test_load_config_file_exists(tmp_path):
 
 
 def test_load_config_defaults_have_all_expected_keys(tmp_path):
-    fake_path = str(tmp_path / "config.json")
-    with patch("noidea.config.config_path", fake_path):
+    p1, p2, p3 = _patch_paths(tmp_path)
+    with p1, p2, p3:
+        initialize()
         result = load_config()
 
     assert "model" in result["llm"]
@@ -35,11 +45,12 @@ def test_load_config_defaults_have_all_expected_keys(tmp_path):
 
 class TestSaveKey:
     def test_save_key_creates_new_file(self, tmp_path):
-        keys_file = str(tmp_path / "keys.json")
-        with patch("noidea.config.keys_path", keys_file):
+        p1, p2, p3 = _patch_paths(tmp_path)
+        with p1, p2, p3:
+            initialize()
             save_key("Anthropic")
 
-        with open(keys_file) as f:
+        with open(tmp_path / "keys.json") as f:
             assert json.load(f) == ["Anthropic"]
 
     def test_save_key_appends_to_existing(self, tmp_path):
@@ -64,10 +75,12 @@ class TestRemoveKey:
         with open(keys_file) as f:
             assert json.load(f) == ["OpenAI"]
 
-    def test_remove_key_no_file_does_nothing(self, tmp_path):
-        fake_path = str(tmp_path / "keys.json")
-        with patch("noidea.config.keys_path", fake_path):
-            remove_key("Anthropic")  # should not raise
+    def test_remove_key_missing_key_does_nothing(self, tmp_path):
+        p1, p2, p3 = _patch_paths(tmp_path)
+        with p1, p2, p3:
+            initialize()
+            result = remove_key("Anthropic")  # key not in list, should not raise
+        assert result is False
 
 
 class TestListKeys:
@@ -80,9 +93,10 @@ class TestListKeys:
 
         assert "Anthropic" in result
 
-    def test_list_keys_no_file(self, tmp_path):
-        fake_path = str(tmp_path / "keys.json")
-        with patch("noidea.config.keys_path", fake_path):
+    def test_list_keys_empty_after_initialize(self, tmp_path):
+        p1, p2, p3 = _patch_paths(tmp_path)
+        with p1, p2, p3:
+            initialize()
             result = list_keys()
 
         assert result == []

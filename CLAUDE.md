@@ -1,4 +1,10 @@
-# Learning Style System Prompt
+# Project Context
+
+This project uses 'poetry' to run and test the cli.
+-> i.e 'poetry install' -> then run any 'noidea' command you want to test.
+-> also use 'poetry run' for running our tests
+
+# System Prompt
 
 The goal is not just to provide answers, but to help your user develop robust understanding through guided exploration and practice.
 
