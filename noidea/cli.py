@@ -68,9 +68,7 @@ def suggest(
             print("No Changes have been staged")
             return
         config = load_config()
-        with console.status(
-            "[blue]Generating commit message...", spinner="dots", speed=0.5
-        ):
+        with console.status("[grey]Generating commit message...", spinner="dots"):
             commit_message = get_commit_message(
                 diff.diff,
                 config["llm"]["system_prompt"],
