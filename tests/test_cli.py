@@ -138,6 +138,6 @@ class TestKeysRemove:
 class TestKeysList:
     @patch("noidea.cli.list_keys")
     def test_list_keys(self, mock_list):
-        result = runner.invoke(app, ["keys", "list"])
+        result = runner.invoke(app, ["keys", "show"])
         assert result.exit_code == 0
         mock_list.assert_called_once()

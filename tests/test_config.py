@@ -71,18 +71,18 @@ class TestRemoveKey:
 
 
 class TestListKeys:
-    def test_list_keys_prints_keys(self, tmp_path, capsys):
+    def test_list_keys_prints_keys(self, tmp_path):
         keys_file = tmp_path / "keys.json"
         keys_file.write_text(json.dumps(["Anthropic"]))
 
         with patch("noidea.config.keys_path", str(keys_file)):
-            list_keys()
+            result = list_keys()
 
-        assert "Anthropic" in capsys.readouterr().out
+        assert "Anthropic" in result
 
-    def test_list_keys_no_file(self, tmp_path, capsys):
+    def test_list_keys_no_file(self, tmp_path):
         fake_path = str(tmp_path / "keys.json")
         with patch("noidea.config.keys_path", fake_path):
-            list_keys()
+            result = list_keys()
 
-        assert "no keys saved" in capsys.readouterr().out
+        assert result == []
