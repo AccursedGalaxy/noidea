@@ -9,6 +9,7 @@ from rich.console import Console
 from noidea import __version__
 from noidea.config import (
     Provider,
+    deep_merge,
     initialize,
     list_keys,
     load_config,
@@ -75,31 +76,29 @@ def suggest(
             return
         config = load_config()
 
+        # CLI flag config override
+        if model:
+            config = deep_merge(
+                config, {"llm": {"small_model": model, "large_model": model}}
+            )
+
         context_len = len(config["llm"]["system_prompt"]) + len(diff.diff)
 
         with console.status("[grey]Generating commit message...", spinner="dots"):
-            if model:
+            if context_len >= config["llm"]["context_limit"]:
                 commit_message = get_commit_message(
                     diff.diff,
                     config["llm"]["system_prompt"],
-                    model,
+                    config["llm"]["large_model"],
                     config["llm"]["max_tokens"],
                 )
             else:
-                if context_len >= config["llm"]["context_limit"]:
-                    commit_message = get_commit_message(
-                        diff.diff,
-                        config["llm"]["system_prompt"],
-                        config["llm"]["large_model"],
-                        config["llm"]["max_tokens"],
-                    )
-                else:
-                    commit_message = get_commit_message(
-                        diff.diff,
-                        config["llm"]["system_prompt"],
-                        config["llm"]["small_model"],
-                        config["llm"]["max_tokens"],
-                    )
+                commit_message = get_commit_message(
+                    diff.diff,
+                    config["llm"]["system_prompt"],
+                    config["llm"]["small_model"],
+                    config["llm"]["max_tokens"],
+                )
         if file:
             with open(file, "w") as f:
                 f.write(commit_message)

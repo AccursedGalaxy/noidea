@@ -2,6 +2,8 @@ import json
 import os
 from enum import Enum
 
+from noidea.git import get_git_root
+
 config_dir = os.path.expanduser("~/.noidea")
 config_path = os.path.expanduser("~/.noidea/config.json")
 keys_path = os.path.expanduser("~/.noidea/keys.json")
@@ -30,9 +32,33 @@ class Provider(str, Enum):
     ANTHROPIC = "anthropic"
 
 
+def deep_merge(base, override):
+    result = base.copy()
+
+    for key, value in override.items():
+        if key in result and isinstance(value, dict) and isinstance(result[key], dict):
+            result[key] = deep_merge(result[key], value)
+        else:
+            result[key] = value
+
+    return result
+
+
 def load_config() -> dict:
-    with open(config_path) as f:
-        return json.load(f)
+    config = DEFAULTS
+
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            config = deep_merge(config, json.load(f))
+
+    repo_root = get_git_root()
+    if repo_root:
+        repo_config_path = os.path.join(repo_root, ".noidea", "config.json")
+        if os.path.exists(repo_config_path):
+            with open(repo_config_path) as f:
+                config = deep_merge(config, json.load(f))
+
+    return config
 
 
 def initialize():

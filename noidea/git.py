@@ -16,6 +16,16 @@ class HookResult:
     error: str = ""
 
 
+def get_git_root() -> str:
+    git_root = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return git_root.stdout.strip()
+
+
 def is_git_repo() -> bool:
     return (
         subprocess.run(
