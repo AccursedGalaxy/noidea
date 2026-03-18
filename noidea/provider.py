@@ -13,7 +13,7 @@ def get_api_key() -> str:
     if not key:
         key = os.environ.get("ANTHROPIC_API_KEY")
     if not key:
-        raise SystemExit("No API key found. Run 'noidea setup'.")
+        raise SystemExit("No API key found. Run 'noidea keys add'.")
     return key
 
 
