@@ -38,11 +38,11 @@ def main(
 @app.command()
 def init():
     """Install the git commit-msg hook into the current git repository"""
-    try:
-        install_hook()
+    result = install_hook()
+    if result.success:
         print("Git hook installed successfully.")
-    except Exception as e:
-        print(f"Something went wrong: {e}")
+    else:
+        print(f"Something went wrong: {result.error}")
 
 
 @app.command()
@@ -54,12 +54,12 @@ def suggest(
     """Suggest a commit message for the current staged diff"""
     try:
         diff = get_diff()
-        if diff == "none":
-            print("No Changes have been detected")
+        if not diff.has_changes:
+            print("No Changes have been staged")
             return
         config = load_config()
         commit_message = get_commit_message(
-            diff,
+            diff.diff,
             config["llm"]["system_prompt"],
             config["llm"]["model"],
             config["llm"]["max_tokens"],

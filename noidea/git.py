@@ -1,55 +1,77 @@
 import os
 import subprocess
+from dataclasses import dataclass
 
 
-def get_diff():
+@dataclass
+class DiffResult:
+    has_changes: bool
+    diff: str = ""
+    error: str = ""
+
+
+@dataclass
+class HookResult:
+    success: bool
+    error: str = ""
+
+
+def is_git_repo() -> bool:
+    return (
+        subprocess.run(
+            ["git", "rev-parse", "--git-dir"], capture_output=True
+        ).returncode
+        == 0
+    )
+
+
+def get_diff() -> DiffResult:
     try:
-        diff = subprocess.run(
+        result = subprocess.run(
             ["git", "diff", "--staged"], capture_output=True, text=True, check=True
         )
-        if not diff.stdout:
-            return "none"
-        return diff.stdout
+
+        if not result.stdout:
+            return DiffResult(has_changes=False)
+        else:
+            return DiffResult(has_changes=True, diff=result.stdout)
+
     except subprocess.CalledProcessError as e:
-        print(e.stderr)
-        return "none"
+        return DiffResult(has_changes=False, error=e.stderr)
+
     except FileNotFoundError as e:
-        print(e)
-        return "none"
+        return DiffResult(has_changes=False, error=str(e))
 
 
-def get_hooks_dir() -> str:
-    try:
-        hooks_dir = subprocess.run(
-            ["git", "config", "core.hooksPath"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        if not hooks_dir.stdout:
-            return ".git/hooks"
-        return hooks_dir.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        print(e.stderr)
-        return ".git/hooks"
-    except FileNotFoundError as e:
-        print(e)
-        return ".git/hooks"
+def get_hooks_dir() -> str | None:
+    if not is_git_repo():
+        return None
+
+    result = subprocess.run(
+        ["git", "config", "core.hooksPath"], capture_output=True, text=True
+    )
+
+    if result.returncode == 0 and result.stdout.strip():
+        return result.stdout.strip()
+
+    return ".git/hooks"
 
 
-def install_hook():
+def install_hook() -> HookResult:
     hooks_dir = get_hooks_dir()
-    hook_path = os.path.join(hooks_dir, "prepare-commit-msg")
+    if hooks_dir is None:
+        return HookResult(success=False, error="Not inside a git repository")
 
+    hook_path = os.path.join(hooks_dir, "prepare-commit-msg")
     try:
         if not os.path.exists(hooks_dir):
             os.mkdir(hooks_dir)
-
         if os.path.exists(hook_path):
             os.rename(hook_path, hook_path + ".bak")
-
         with open(hook_path, "w") as f:
             f.write('#!/bin/bash\nnoidea suggest --file "$1"\n')
         os.chmod(hook_path, mode=0o755)
     except Exception as e:
-        print(e)
+        return HookResult(success=False, error=str(e))
+
+    return HookResult(success=True)

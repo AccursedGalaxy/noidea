@@ -11,7 +11,7 @@ def test_get_diff_nothing_staged():
     with patch("noidea.git.subprocess.run", return_value=mock_result):
         result = get_diff()
 
-    assert result == "none"
+    assert not result.has_changes
 
 
 def test_get_diff_with_staged_changes():
@@ -21,14 +21,18 @@ def test_get_diff_with_staged_changes():
     with patch("noidea.git.subprocess.run", return_value=mock_result):
         result = get_diff()
 
-    assert result == "deff --git a/foo.py b/foo.py\n+some change"
+    assert result.has_changes
+    assert result.diff == "deff --git a/foo.py b/foo.py\n+some change"
 
 
 def test_get_hooks_dir_no_dir_found():
     mock_result = MagicMock()
+    mock_result.returncode = 1
     mock_result.stdout = ""
 
-    with patch("noidea.git.subprocess.run", return_value=mock_result):
+    with patch("noidea.git.is_git_repo", return_value=True), patch(
+        "noidea.git.subprocess.run", return_value=mock_result
+    ):
         result = get_hooks_dir()
 
     assert result == ".git/hooks"
@@ -36,9 +40,12 @@ def test_get_hooks_dir_no_dir_found():
 
 def test_get_hooks_dir_dir_found():
     mock_result = MagicMock()
+    mock_result.returncode = 0
     mock_result.stdout = "/some/custom/path\n"
 
-    with patch("noidea.git.subprocess.run", return_value=mock_result):
+    with patch("noidea.git.is_git_repo", return_value=True), patch(
+        "noidea.git.subprocess.run", return_value=mock_result
+    ):
         result = get_hooks_dir()
 
     assert result == "/some/custom/path"

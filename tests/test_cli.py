@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from typer.testing import CliRunner
 
 from noidea.cli import app
+from noidea.git import DiffResult, HookResult
 
 runner = CliRunner()
 
@@ -16,7 +17,7 @@ class TestVersion:
 
 
 class TestInit:
-    @patch("noidea.cli.install_hook")
+    @patch("noidea.cli.install_hook", return_value=HookResult(success=True))
     def test_init_installs_hook(self, mock_install):
         result = runner.invoke(app, ["init"])
         assert result.exit_code == 0
@@ -36,13 +37,13 @@ class TestSuggest:
             }
         },
     )
-    @patch("noidea.cli.get_diff", return_value="+ some change")
+    @patch("noidea.cli.get_diff", return_value=DiffResult(has_changes=True, diff="+ some change"))
     def test_suggest_prints_message(self, mock_diff, mock_config, mock_commit):
         result = runner.invoke(app, ["suggest"])
         assert result.exit_code == 0
         assert "fix: patch bug" in result.output
 
-    @patch("noidea.cli.get_diff", return_value="none")
+    @patch("noidea.cli.get_diff", return_value=DiffResult(has_changes=False))
     def test_suggest_no_changes(self, mock_diff):
         result = runner.invoke(app, ["suggest"])
         assert result.exit_code == 0
@@ -59,7 +60,7 @@ class TestSuggest:
             }
         },
     )
-    @patch("noidea.cli.get_diff", return_value="+ new feature")
+    @patch("noidea.cli.get_diff", return_value=DiffResult(has_changes=True, diff="+ new feature"))
     def test_suggest_writes_to_file(
         self, mock_diff, mock_config, mock_commit, tmp_path
     ):
