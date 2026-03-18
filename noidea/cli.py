@@ -166,11 +166,13 @@ def remove(provider: Provider = typer.Argument(...)):
 def test():
     """Send a dummy message to the API to test."""
     try:
+        config = load_config()
+        llm = config["llm"]
         test_msg = get_commit_message(
             diff="say hi",
             system_prompt="test",
-            model="claude-sonnet-4-6",
-            max_tokens=1024,
+            model=llm["large_model"],
+            max_tokens=llm["max_tokens"],
         )
         print("Test successful!")
         print(f"API response: {test_msg}")
