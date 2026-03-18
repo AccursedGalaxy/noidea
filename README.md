@@ -2,8 +2,6 @@
 
 AI-powered commit message suggestions via git hooks. Stages a diff, sends it to Claude, and pre-fills your commit editor.
 
-## Demo
-
 ![noidea demo](assets/demo.gif)
 
 ## Install
@@ -23,7 +21,7 @@ noidea needs an Anthropic API key. Three options (checked in order):
 
 1. **Keyring** (recommended): `noidea keys add`
 2. **Environment variable**: `export ANTHROPIC_API_KEY=sk-ant-...`
-3. **`.env` file**: `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file
+3. **`.env` file**: `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file (used for development)
 
 ## Commands
 
