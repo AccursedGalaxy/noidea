@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Branch name and staged file list as context for commit message generation
+- Sphinx documentation with ReadTheDocs integration
+- Asciinema demo recording
+
+### Changed
+- Compact and refine system prompt for sharper, less verbose commit messages
+- Simplify model selection logic with config merging and repository-level config support
+- Bump anthropic SDK to 0.86.0 and relax dependency constraints
+
+### Fixed
+- Prevent overwriting existing hook backup during `noidea init`
+- Improve hook backup messaging for clarity
+- Correct typo in error message
+
 ## [0.4.0] - 2026-03-18
 
 ### Added
@@ -77,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - Graceful early exit when no git diff is detected
 
+[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v0.4.0...HEAD
 [0.4.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/AccursedGalaxy/noidea/compare/v0.2.0...v0.2.1
