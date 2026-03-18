@@ -30,5 +30,6 @@ def get_commit_message(
         max_tokens=max_tokens,
     )
     block = message.content[0]
-    assert isinstance(block, TextBlock)
+    if not isinstance(block, TextBlock):
+        raise TypeError(f"Expected TextBlock, got {type(block).__name__}")
     return block.text
