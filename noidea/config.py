@@ -9,7 +9,9 @@ keys_path = os.path.expanduser("~/.noidea/keys.json")
 DEFAULTS = {
     "llm": {
         "max_tokens": 1024,
-        "model": "claude-sonnet-4-6",
+        "small_model": "claude-haiku-4-5",
+        "large_model": "claude-sonnet-4-6",
+        "context_limit": 600000,
         "system_prompt": (
             "Generate a concise git commit message from the provided diff.\n"
             "Rules:\n"

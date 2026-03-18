@@ -31,13 +31,16 @@ def version_callback(value: bool):
         raise typer.Exit()
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     version: Optional[bool] = typer.Option(
         None, "--version", "-v", callback=version_callback, is_eager=True
     ),
 ):
     initialize()
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
 
 
 ###
@@ -71,6 +74,9 @@ def suggest(
             print("No Changes have been staged")
             return
         config = load_config()
+
+        context_len = len(config["llm"]["system_prompt"]) + len(diff.diff)
+
         with console.status("[grey]Generating commit message...", spinner="dots"):
             if model:
                 commit_message = get_commit_message(
@@ -80,12 +86,20 @@ def suggest(
                     config["llm"]["max_tokens"],
                 )
             else:
-                commit_message = get_commit_message(
-                    diff.diff,
-                    config["llm"]["system_prompt"],
-                    config["llm"]["model"],
-                    config["llm"]["max_tokens"],
-                )
+                if context_len >= config["llm"]["context_limit"]:
+                    commit_message = get_commit_message(
+                        diff.diff,
+                        config["llm"]["system_prompt"],
+                        config["llm"]["large_model"],
+                        config["llm"]["max_tokens"],
+                    )
+                else:
+                    commit_message = get_commit_message(
+                        diff.diff,
+                        config["llm"]["system_prompt"],
+                        config["llm"]["small_model"],
+                        config["llm"]["max_tokens"],
+                    )
         if file:
             with open(file, "w") as f:
                 f.write(commit_message)
