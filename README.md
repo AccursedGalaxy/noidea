@@ -2,6 +2,10 @@
 
 AI-powered commit message suggestions via git hooks. Stages a diff, sends it to Claude, and pre-fills your commit editor.
 
+## Demo
+
+![noidea demo](assets/demo.gif)
+
 ## Install
 
 ```bash
@@ -31,7 +35,8 @@ Generates a commit message from the current staged diff and prints it.
 
 ```
 Options:
-  -F, --file TEXT   Write message to file instead of stdout (used by the hook)
+  -F, --file TEXT    Write message to file instead of stdout (used by the hook)
+  -M, --model TEXT   Override the model used for generation
 ```
 
 ### `noidea keys`
@@ -39,7 +44,7 @@ Options:
 Manage API keys stored in the system keyring.
 
 ```bash
-noidea keys list    # List saved keys
+noidea keys show    # Show saved keys
 noidea keys add     # Add a key interactively
 noidea keys remove  # Remove a key interactively
 ```
@@ -55,18 +60,23 @@ Prints the current version.
 
 ## Config
 
-Optional config at `~/.noidea/noidea.toml`:
+Optional config at `~/.noidea/config.json`:
 
-```toml
-[llm]
-model = "claude-sonnet-4-6"
-max_tokens = 1024
-system_prompt = "Your custom prompt here"
+```json
+{
+  "llm": {
+    "max_tokens": 1024,
+    "small_model": "claude-haiku-4-5",
+    "large_model": "claude-sonnet-4-6",
+    "context_limit": 600000,
+    "system_prompt": "Your custom prompt here"
+  }
+}
 ```
 
-Falls back to built-in defaults if no config file exists. The default prompt follows conventional commits style (feat/fix/refactor/etc.) with a 72-character subject line limit.
+Falls back to built-in defaults if no config file exists. The default prompt follows conventional commits style (feat/fix/refactor/etc.) with a 72-character subject line limit. Smaller diffs use `small_model` (Haiku) for speed; larger diffs automatically switch to `large_model` (Sonnet).
 
 ## Requirements
 
-- Python 3.13+
+- Python 3.10+
 - Anthropic API key
