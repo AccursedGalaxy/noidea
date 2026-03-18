@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `--model` flag to `suggest` command for overriding the configured LLM model at runtime
+- Rich spinner and status feedback to `suggest` command for better UX during API calls
+
+### Changed
+- Introduce `initialize()` to ensure config directory and files exist on startup, replacing scattered lazy-creation logic
+- Use `os.makedirs(exist_ok=True)` in `install_hook` for more robust directory handling
+
+### Fixed
+- Align config tests with `initialize()` requirement by patching all necessary paths
+
 ## [0.3.0] - 2026-03-18
 
 ### Added
