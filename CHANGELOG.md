@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-18
+
+### Added
+- `DiffResult` and `HookResult` dataclasses for explicit, typed return values from git operations
+
+### Fixed
+- Update error message to reference correct `keys add` CLI command (issue #1)
+- Add error handling to git subprocess calls to prevent crashes when git is unavailable
+- Create `.git/hooks` directory if missing before installing hook (supports `--no-template` repos)
+- Replace `assert` with explicit `TypeError` for `TextBlock` check in provider
+
+### Changed
+- Rename `noidea keys list` to `noidea keys show` to avoid conflict with Python's `list` keyword
+- Introduce `Provider` enum replacing hardcoded provider strings across config, CLI, and provider modules
+- `save_key` and `remove_key` now return booleans to indicate duplicate/missing key conditions
+- `list_keys` now returns data instead of printing directly; output moved to CLI layer
+- Remove `pytest` from main dependencies (moved to dev group)
+
 ## [0.2.1] - 2026-03-18
 
 ### Fixed
@@ -45,7 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - Graceful early exit when no git diff is detected
 
-[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/AccursedGalaxy/noidea/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/AccursedGalaxy/noidea/compare/v0.1.0...v0.1.1
