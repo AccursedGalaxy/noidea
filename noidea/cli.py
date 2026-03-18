@@ -59,7 +59,10 @@ def init():
 def suggest(
     file: str = typer.Option(
         None, "--file", "-F", help="Write output to a file instead of stdout"
-    )
+    ),
+    model: str = typer.Option(
+        None, "--model", "-M", help="Run suggestion with a different model"
+    ),
 ):
     """Suggest a commit message for the current staged diff"""
     try:
@@ -69,12 +72,20 @@ def suggest(
             return
         config = load_config()
         with console.status("[grey]Generating commit message...", spinner="dots"):
-            commit_message = get_commit_message(
-                diff.diff,
-                config["llm"]["system_prompt"],
-                config["llm"]["model"],
-                config["llm"]["max_tokens"],
-            )
+            if model:
+                commit_message = get_commit_message(
+                    diff.diff,
+                    config["llm"]["system_prompt"],
+                    model,
+                    config["llm"]["max_tokens"],
+                )
+            else:
+                commit_message = get_commit_message(
+                    diff.diff,
+                    config["llm"]["system_prompt"],
+                    config["llm"]["model"],
+                    config["llm"]["max_tokens"],
+                )
         if file:
             with open(file, "w") as f:
                 f.write(commit_message)
