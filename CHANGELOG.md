@@ -10,8 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `--model` flag to `suggest` command for overriding the configured LLM model at runtime
 - Rich spinner and status feedback to `suggest` command for better UX during API calls
+- Adaptive model selection: automatically switches between `small_model` and `large_model` based on context length vs `context_limit` threshold
+- Show help text when `noidea` is invoked without a subcommand
 
 ### Changed
+- Replace single `model` config key with `small_model`, `large_model`, and `context_limit` for adaptive model selection
 - Introduce `initialize()` to ensure config directory and files exist on startup, replacing scattered lazy-creation logic
 - Use `os.makedirs(exist_ok=True)` in `install_hook` for more robust directory handling
 

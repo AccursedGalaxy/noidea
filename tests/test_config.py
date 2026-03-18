@@ -38,7 +38,9 @@ def test_load_config_defaults_have_all_expected_keys(tmp_path):
         initialize()
         result = load_config()
 
-    assert "model" in result["llm"]
+    assert "small_model" in result["llm"]
+    assert "large_model" in result["llm"]
+    assert "context_limit" in result["llm"]
     assert "system_prompt" in result["llm"]
     assert "max_tokens" in result["llm"]
 

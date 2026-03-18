@@ -32,7 +32,9 @@ class TestSuggest:
         return_value={
             "llm": {
                 "system_prompt": "gen msg",
-                "model": "claude-sonnet-4-6",
+                "small_model": "claude-haiku-4-5",
+                "large_model": "claude-sonnet-4-6",
+                "context_limit": 600000,
                 "max_tokens": 1024,
             }
         },
@@ -55,7 +57,9 @@ class TestSuggest:
         return_value={
             "llm": {
                 "system_prompt": "gen msg",
-                "model": "claude-sonnet-4-6",
+                "small_model": "claude-haiku-4-5",
+                "large_model": "claude-sonnet-4-6",
+                "context_limit": 600000,
                 "max_tokens": 1024,
             }
         },
