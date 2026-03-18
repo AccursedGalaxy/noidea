@@ -59,18 +59,23 @@ def get_hooks_dir() -> str | None:
 
 def install_hook() -> HookResult:
     hooks_dir = get_hooks_dir()
+
     if hooks_dir is None:
         return HookResult(success=False, error="Not inside a git repository")
 
     hook_path = os.path.join(hooks_dir, "prepare-commit-msg")
+
     try:
-        if not os.path.exists(hooks_dir):
-            os.mkdir(hooks_dir)
+        os.makedirs(hooks_dir, exist_ok=True)
+
         if os.path.exists(hook_path):
             os.rename(hook_path, hook_path + ".bak")
+
         with open(hook_path, "w") as f:
             f.write('#!/bin/bash\nnoidea suggest --file "$1"\n')
+
         os.chmod(hook_path, mode=0o755)
+
     except Exception as e:
         return HookResult(success=False, error=str(e))
 
