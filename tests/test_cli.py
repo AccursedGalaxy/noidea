@@ -75,14 +75,14 @@ class TestTestCommand:
     def test_test_success(self, mock_commit):
         result = runner.invoke(app, ["test"])
         assert result.exit_code == 0
-        assert "Test successfull!" in result.output
+        assert "Test successful!" in result.output
         assert "hello!" in result.output
 
-    @patch("noidea.cli.get_commit_message", return_value="")
+    @patch("noidea.cli.get_commit_message", side_effect=Exception("API error"))
     def test_test_failure(self, mock_commit):
         result = runner.invoke(app, ["test"])
         assert result.exit_code == 0
-        assert "something went wrong" in result.output
+        assert "Something went wrong" in result.output
 
 
 class TestUpdate:
@@ -115,7 +115,7 @@ class TestKeysAdd:
     def test_add_key(self, mock_keyring, mock_save):
         result = runner.invoke(app, ["keys", "add"], input="secret-key\n")
         assert result.exit_code == 0
-        assert "Api key saved" in result.output
+        assert "API key saved" in result.output
         mock_keyring.set_password.assert_called_once_with(
             service_name="noidea", username="Anthropic", password="secret-key"
         )
