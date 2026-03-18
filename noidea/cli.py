@@ -139,7 +139,7 @@ def add(provider: Provider = typer.Argument(default=Provider.ANTHROPIC)):
         if save_key(provider.value):
             print("API key saved successfully!")
         else:
-            print("you alrady have a api saved for this provider")
+            print("you already have a api saved for this provider")
     except Exception as e:
         print(f"Something went wrong: {e}")
 
