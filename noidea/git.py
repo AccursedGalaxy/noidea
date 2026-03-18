@@ -42,6 +42,9 @@ def install_hook():
     hook_path = os.path.join(hooks_dir, "prepare-commit-msg")
 
     try:
+        if not os.path.exists(hooks_dir):
+            os.mkdir(hooks_dir)
+
         if os.path.exists(hook_path):
             os.rename(hook_path, hook_path + ".bak")
 
