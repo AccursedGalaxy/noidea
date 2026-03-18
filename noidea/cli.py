@@ -6,7 +6,14 @@ import keyring
 import typer
 
 from noidea import __version__
-from noidea.config import Provider, list_keys, load_config, remove_key, save_key
+from noidea.config import (
+    Provider,
+    initialize,
+    list_keys,
+    load_config,
+    remove_key,
+    save_key,
+)
 from noidea.git import get_diff, install_hook
 from noidea.provider import get_commit_message
 
@@ -27,7 +34,7 @@ def main(
         None, "--version", "-v", callback=version_callback, is_eager=True
     ),
 ):
-    pass
+    initialize()
 
 
 ###
