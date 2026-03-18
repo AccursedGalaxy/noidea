@@ -35,6 +35,26 @@ def is_git_repo() -> bool:
     )
 
 
+def get_branch_name() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return result.stdout.strip()
+
+
+def get_staged_files() -> list[str]:
+    result = subprocess.run(
+        ["git", "diff", "--staged", "--name-only"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return [f for f in result.stdout.strip().splitlines() if f]
+
+
 def get_diff() -> DiffResult:
     try:
         result = subprocess.run(

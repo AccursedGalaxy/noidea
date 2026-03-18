@@ -15,14 +15,19 @@ DEFAULTS = {
         "large_model": "claude-sonnet-4-6",
         "context_limit": 600000,
         "system_prompt": (
-            "Generate a concise git commit message from the provided diff.\n"
-            "Rules:\n"
-            "- First line: imperative mood, max 72 chars, no period\n"
-            "- Second line: blank line\n"
-            "- Third line and below: body explaining *why*, not *what*\n"
-            "- Use conventional commits prefix if scope is clear (feat/fix/refactor/chore/docs/test)\n"
-            "- No filler, no praise, no explanation outside the commit message itself\n"
-            "Output only the commit message. No code block!"
+            "Generate a git commit message from the provided diff, branch name, and staged file list.\n"
+            "Subject line rules:\n"
+            "- Imperative mood, max 72 chars, no period\n"
+            "- Use conventional commits prefix (feat/fix/refactor/chore/docs/test)\n"
+            "- Describe the single intent behind the change, not what files were touched\n"
+            "- Use the branch name to infer intent when possible\n"
+            "- Avoid generic verbs like 'update' or 'add' — be specific\n"
+            "- Never use 'and' to combine multiple changes — pick the overarching purpose\n"
+            "Body rules:\n"
+            "- Optional — only include if the *why* is non-obvious from the subject\n"
+            "- Explain *why* the change was made, not *what* changed (the diff shows what)\n"
+            "- Max 2-3 sentences\n"
+            "Output only the commit message, no markdown formatting."
         ),
     }
 }

@@ -16,7 +16,7 @@ from noidea.config import (
     remove_key,
     save_key,
 )
-from noidea.git import get_diff, install_hook
+from noidea.git import get_branch_name, get_diff, get_staged_files, install_hook
 from noidea.provider import get_commit_message
 
 app = typer.Typer(help="AI-powered git commit messages.")
@@ -82,23 +82,24 @@ def suggest(
                 config, {"llm": {"small_model": model, "large_model": model}}
             )
 
+        branch = get_branch_name()
+        staged_files = get_staged_files()
         context_len = len(config["llm"]["system_prompt"]) + len(diff.diff)
 
         with console.status("[grey]Generating commit message...", spinner="dots"):
-            if context_len >= config["llm"]["context_limit"]:
-                commit_message = get_commit_message(
-                    diff.diff,
-                    config["llm"]["system_prompt"],
-                    config["llm"]["large_model"],
-                    config["llm"]["max_tokens"],
-                )
-            else:
-                commit_message = get_commit_message(
-                    diff.diff,
-                    config["llm"]["system_prompt"],
-                    config["llm"]["small_model"],
-                    config["llm"]["max_tokens"],
-                )
+            selected_model = (
+                config["llm"]["large_model"]
+                if context_len >= config["llm"]["context_limit"]
+                else config["llm"]["small_model"]
+            )
+            commit_message = get_commit_message(
+                diff.diff,
+                config["llm"]["system_prompt"],
+                selected_model,
+                config["llm"]["max_tokens"],
+                branch=branch,
+                staged_files=staged_files,
+            )
         if file:
             with open(file, "w") as f:
                 f.write(commit_message)

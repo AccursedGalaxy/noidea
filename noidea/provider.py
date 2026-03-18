@@ -20,13 +20,29 @@ def get_api_key(provider: Provider = Provider.ANTHROPIC) -> str:
 
 
 def get_commit_message(
-    diff: str, system_prompt: str, model: str, max_tokens: int
+    diff: str,
+    system_prompt: str,
+    model: str,
+    max_tokens: int,
+    branch: str = "",
+    staged_files: list[str] | None = None,
 ) -> str:
+    context_parts = []
+    if branch:
+        context_parts.append(f"Branch: {branch}")
+    if staged_files:
+        context_parts.append("Staged files:\n" + "\n".join(f"- {f}" for f in staged_files))
+
+    user_content = ""
+    if context_parts:
+        user_content = "\n".join(context_parts) + "\n\nDiff:\n"
+    user_content += diff
+
     client = Anthropic(api_key=get_api_key())
     message = client.messages.create(
         model=model,
         system=system_prompt,
-        messages=[{"role": "user", "content": diff}],
+        messages=[{"role": "user", "content": user_content}],
         max_tokens=max_tokens,
     )
     block = message.content[0]
