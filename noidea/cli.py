@@ -79,10 +79,14 @@ def suggest(
 
 
 @keys_app.command()
-def list():
-    """List all saved API keys"""
+def show():
+    """Show all saved API keys"""
     try:
-        list_keys()
+        keys = list_keys()
+        if keys == []:
+            print("You have no keys saved yet")
+        for key in keys:
+            print(key)
     except Exception as e:
         print(f"Something went wrong: {e}")
 

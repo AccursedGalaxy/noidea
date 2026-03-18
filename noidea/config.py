@@ -68,10 +68,10 @@ def remove_key(name: str):
         return False
 
 
-def list_keys():
+def list_keys() -> list:
     if os.path.exists(keys_path):
         with open(keys_path) as f:
             keys = json.load(f)
-        print(keys)
+        return keys
     else:
-        print("no keys saved yet.")
+        return []
