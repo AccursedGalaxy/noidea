@@ -6,7 +6,7 @@ import keyring
 import typer
 
 from noidea import __version__
-from noidea.config import list_keys, load_config, remove_key, save_key
+from noidea.config import Provider, list_keys, load_config, remove_key, save_key
 from noidea.git import get_diff, install_hook
 from noidea.provider import get_commit_message
 
@@ -88,25 +88,30 @@ def list():
 
 
 @keys_app.command()
-def add():
+def add(provider: Provider = typer.Argument(default=Provider.ANTHROPIC)):
     """Add a API key to keyring storage"""
     try:
         key = typer.prompt("Enter your key:", hide_input=True)
-        keyring.set_password(service_name="noidea", username="Anthropic", password=key)
-        save_key("Anthropic")
-        print("API key saved successfully!")
+        keyring.set_password(
+            service_name="noidea", username=provider.value, password=key
+        )
+        if save_key(provider.value):
+            print("API key saved successfully!")
+        else:
+            print("you alrady have a api saved for this provider")
     except Exception as e:
         print(f"Something went wrong: {e}")
 
 
 @keys_app.command()
-def remove():
+def remove(provider: Provider = typer.Argument(...)):
     """Remove a API key from keyring storage"""
     try:
-        name = typer.prompt("Which key do you want to delete?")
-        keyring.delete_password(service_name="noidea", username=name)
-        remove_key(name)
-        print("Key deleted successfully!")
+        keyring.delete_password(service_name="noidea", username=provider.value)
+        if remove_key(provider.value):
+            print("Key deleted successfully!")
+        else:
+            print("Unable to delete key. Keys file or key don't exist.")
     except Exception as e:
         print(f"Something went wrong: {e}")
 

@@ -12,7 +12,7 @@ class TestGetApiKey:
         mock_keyring.get_password.return_value = "kr-key-123"
         assert get_api_key() == "kr-key-123"
         mock_keyring.get_password.assert_called_once_with(
-            service_name="noidea", username="Anthropic"
+            service_name="noidea", username="anthropic"
         )
 
     @patch("noidea.provider.keyring")

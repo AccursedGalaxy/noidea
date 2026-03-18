@@ -1,8 +1,13 @@
 import json
 import os
+from enum import Enum
 
 config_path = os.path.expanduser("~/.noidea/config.json")
 keys_path = os.path.expanduser("~/.noidea/keys.json")
+
+
+class Provider(str, Enum):
+    ANTHROPIC = "anthropic"
 
 
 def load_config() -> dict:
@@ -38,9 +43,13 @@ def save_key(name: str):
     else:
         keys = []
 
-    keys.append(name)
-    with open(keys_path, "w") as f:
-        json.dump(keys, f)
+    if name in keys:
+        return False
+    else:
+        keys.append(name)
+        with open(keys_path, "w") as f:
+            json.dump(keys, f)
+        return True
 
 
 def remove_key(name: str):
@@ -48,11 +57,15 @@ def remove_key(name: str):
         with open(keys_path) as f:
             keys = json.load(f)
     else:
-        return
+        return False
 
-    keys.remove(name)
-    with open(keys_path, "w") as f:
-        json.dump(keys, f)
+    if name in keys:
+        keys.remove(name)
+        with open(keys_path, "w") as f:
+            json.dump(keys, f)
+        return True
+    else:
+        return False
 
 
 def list_keys():

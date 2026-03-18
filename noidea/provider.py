@@ -5,11 +5,13 @@ from anthropic import Anthropic
 from anthropic.types import TextBlock
 from dotenv import load_dotenv
 
+from noidea.config import Provider
+
 load_dotenv()
 
 
-def get_api_key() -> str:
-    key = keyring.get_password(service_name="noidea", username="Anthropic")
+def get_api_key(provider: Provider = Provider.ANTHROPIC) -> str:
+    key = keyring.get_password(service_name="noidea", username=provider.value)
     if not key:
         key = os.environ.get("ANTHROPIC_API_KEY")
     if not key:

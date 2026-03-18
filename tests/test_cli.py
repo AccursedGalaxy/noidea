@@ -117,22 +117,22 @@ class TestKeysAdd:
         assert result.exit_code == 0
         assert "API key saved" in result.output
         mock_keyring.set_password.assert_called_once_with(
-            service_name="noidea", username="Anthropic", password="secret-key"
+            service_name="noidea", username="anthropic", password="secret-key"
         )
-        mock_save.assert_called_once_with("Anthropic")
+        mock_save.assert_called_once_with("anthropic")
 
 
 class TestKeysRemove:
     @patch("noidea.cli.remove_key")
     @patch("noidea.cli.keyring")
     def test_remove_key(self, mock_keyring, mock_remove):
-        result = runner.invoke(app, ["keys", "remove"], input="Anthropic\n")
+        result = runner.invoke(app, ["keys", "remove", "anthropic"])
         assert result.exit_code == 0
         assert "Key deleted" in result.output
         mock_keyring.delete_password.assert_called_once_with(
-            service_name="noidea", username="Anthropic"
+            service_name="noidea", username="anthropic"
         )
-        mock_remove.assert_called_once_with("Anthropic")
+        mock_remove.assert_called_once_with("anthropic")
 
 
 class TestKeysList:
