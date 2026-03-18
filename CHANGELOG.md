@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-18
+
 ### Added
 - Branch name and staged file list as context for commit message generation
 - Sphinx documentation with ReadTheDocs integration
@@ -94,7 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - Graceful early exit when no git diff is detected
 
-[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/AccursedGalaxy/noidea/compare/v0.2.0...v0.2.1
