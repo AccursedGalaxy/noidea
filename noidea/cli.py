@@ -4,6 +4,7 @@ from typing import Optional
 
 import keyring
 import typer
+from rich.console import Console
 
 from noidea import __version__
 from noidea.config import (
@@ -20,6 +21,8 @@ from noidea.provider import get_commit_message
 app = typer.Typer(help="AI-powered git commit messages.")
 keys_app = typer.Typer(help="Manage your API keys via keyring storage.")
 app.add_typer(keys_app, name="keys")
+
+console = Console(stderr=True)
 
 
 def version_callback(value: bool):
@@ -65,15 +68,17 @@ def suggest(
             print("No Changes have been staged")
             return
         config = load_config()
-        commit_message = get_commit_message(
-            diff.diff,
-            config["llm"]["system_prompt"],
-            config["llm"]["model"],
-            config["llm"]["max_tokens"],
-        )
+        with console.status("[bold cyan]Generating commit message...", spinner="dots5"):
+            commit_message = get_commit_message(
+                diff.diff,
+                config["llm"]["system_prompt"],
+                config["llm"]["model"],
+                config["llm"]["max_tokens"],
+            )
         if file:
             with open(file, "w") as f:
                 f.write(commit_message)
+            console.print("[bold green]Commit message ready.[/bold green]")
         else:
             print(commit_message)
     except Exception as e:
