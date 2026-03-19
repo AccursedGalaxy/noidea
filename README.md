@@ -37,6 +37,9 @@ Options:
   -M, --model TEXT   Override the model used for generation
 ```
 
+### `noidea status`
+Shows the current noidea configuration, API key status, and whether the git hook is installed.
+
 ### `noidea keys`
 
 Manage API keys stored in the system keyring.

@@ -85,9 +85,10 @@ refactor: improve CLI app configuration and main callback
 
 | Module | Description |
 |---|---|
-| `cli.py` | Typer app — all CLI commands and subcommands |
-| `config.py` | 3-tier config loading: defaults -> user (`~/.noidea/config.toml`) -> repo (`.noidea.toml`) |
-| `git.py` | Git subprocess wrappers (diff, log, etc.) |
+| `cli.py` | Typer app entry point — registers commands and the `--version` flag |
+| `commands/` | One module per CLI command: `init`, `keys`, `status`, `suggest`, `test`, `update` |
+| `config.py` | 3-tier config loading: defaults → user (`~/.noidea/config.json`) → repo (`.noidea/config.json`) |
+| `git.py` | Git subprocess wrappers (diff, log, branch, staged files, etc.) |
 | `provider.py` | Anthropic API client for generating commit messages |
 
 > **Config note:** Configuration merges three layers (defaults, user-level, repo-level) with later layers overriding earlier ones. Keep this in mind when touching config code.

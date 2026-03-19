@@ -45,6 +45,11 @@ Options:
 - ``-F, --file TEXT`` — Write message to file instead of stdout (used by the hook)
 - ``-M, --model TEXT`` — Override the model used for generation
 
+``noidea status``
+~~~~~~~~~~~~~~~~~
+
+Shows the current noidea configuration, API key status, and whether the git hook is installed.
+
 ``noidea keys``
 ~~~~~~~~~~~~~~~
 

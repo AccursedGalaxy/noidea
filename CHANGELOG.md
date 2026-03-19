@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Clarify conventional commits format in system prompt
 - Format codebase with isort and black
+- Extract each CLI command into its own module under `noidea/commands/` for cleaner project structure
 
 ## [0.5.1] - 2026-03-19
 
