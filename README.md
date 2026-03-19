@@ -1,78 +1,73 @@
+<div align="center">
+
 # noidea
 
-[![PyPI version](https://img.shields.io/pypi/v/noidea)](https://pypi.org/project/noidea/)
-[![PyPI downloads](https://img.shields.io/pypi/dm/noidea)](https://pypi.org/project/noidea/)
-[![GitHub stars](https://img.shields.io/github/stars/AccursedGalaxy/noidea)](https://github.com/AccursedGalaxy/noidea/stargazers)
-[![License](https://img.shields.io/github/license/AccursedGalaxy/noidea)](https://github.com/AccursedGalaxy/noidea/blob/main/LICENSE)
-[![Python](https://img.shields.io/pypi/pyversions/noidea)](https://pypi.org/project/noidea/)
+**AI-powered commit messages that write themselves.**
 
-AI-powered commit message suggestions via git hooks. Stages a diff, sends it to Claude, and pre-fills your commit editor.
+Stages your diff, sends it to Claude, and pre-fills your commit editor — so you never have to write a commit message again.
 
-![noidea demo](assets/demo.gif)
+[![PyPI](https://img.shields.io/pypi/v/noidea?style=flat-square&color=blue)](https://pypi.org/project/noidea/)
+[![Downloads](https://img.shields.io/pypi/dm/noidea?style=flat-square&color=green)](https://pypi.org/project/noidea/)
+[![Stars](https://img.shields.io/github/stars/AccursedGalaxy/noidea?style=flat-square)](https://github.com/AccursedGalaxy/noidea/stargazers)
+[![License](https://img.shields.io/github/license/AccursedGalaxy/noidea?style=flat-square)](https://github.com/AccursedGalaxy/noidea/blob/main/LICENSE)
+[![Python](https://img.shields.io/pypi/pyversions/noidea?style=flat-square)](https://pypi.org/project/noidea/)
 
-## Install
+<br>
+
+<img src="assets/demo.gif" alt="noidea demo" width="700">
+
+</div>
+
+---
+
+## Quick Start
 
 ```bash
 pipx install noidea
 noidea init
 ```
 
-> Requires [pipx](https://pipx.pypa.io). Alternatively: `pip install noidea`
+That's it. Every `git commit` now opens your editor with a suggested message pre-filled.
 
-`noidea init` installs a `prepare-commit-msg` hook in your repo. From then on, every `git commit` opens your editor with a suggested message pre-filled.
+> Requires [pipx](https://pipx.pypa.io). Alternatively: `pip install noidea`
 
 ## API Key Setup
 
 noidea needs an Anthropic API key. Three options (checked in order):
 
-1. **Keyring** (recommended): `noidea keys add`
-2. **Environment variable**: `export ANTHROPIC_API_KEY=sk-ant-...`
-3. **`.env` file**: `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file (used for development)
+| Method | Command |
+|--------|---------|
+| **Keyring** (recommended) | `noidea keys add` |
+| **Environment variable** | `export ANTHROPIC_API_KEY=sk-ant-...` |
+| **`.env` file** | `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file |
 
 ## Commands
 
-### `noidea init`
-Installs the `prepare-commit-msg` hook. Backs up any existing hook as `.bak`. Respects `core.hooksPath`.
+| Command | Description |
+|---------|-------------|
+| `noidea init` | Install the `prepare-commit-msg` hook. Backs up any existing hook. Respects `core.hooksPath`. |
+| `noidea suggest` | Generate a commit message from the staged diff and print it. |
+| `noidea status` | Show current config, API key status, and hook installation. |
+| `noidea keys` | Manage API keys in the system keyring (`show` / `add` / `remove`). |
+| `noidea test` | Send a test message to Claude to verify connectivity. |
+| `noidea update` | Upgrade noidea via `pipx` (falls back to `pip`). |
+| `noidea --version` | Print the current version. |
 
-### `noidea suggest`
-Generates a commit message from the current staged diff and prints it.
+### `noidea suggest` options
 
 ```
-Options:
-  -F, --file TEXT    Write message to file instead of stdout (used by the hook)
-  -M, --model TEXT   Override the model used for generation
+-F, --file TEXT    Write message to file instead of stdout (used by the hook)
+-M, --model TEXT   Override the model used for generation
 ```
-
-### `noidea status`
-Shows the current noidea configuration, API key status, and whether the git hook is installed.
-
-### `noidea keys`
-
-Manage API keys stored in the system keyring.
-
-```bash
-noidea keys show    # Show saved keys
-noidea keys add     # Add a key interactively
-noidea keys remove  # Remove a key interactively
-```
-
-### `noidea test`
-Sends a test message to the Claude API to verify your key and connectivity work.
-
-### `noidea update`
-Updates noidea via `pipx upgrade noidea` (falls back to `pip install --upgrade noidea`).
-
-### `noidea --version`
-Prints the current version.
 
 ## Config
 
-noidea supports two levels of configuration, both optional:
+Two optional config levels — both are `config.json` files:
 
-- **User config**: `~/.noidea/config.json` — applies to all repositories
-- **Repository config**: `<repo>/.noidea/config.json` — overrides user config for a specific repo
+- **User**: `~/.noidea/config.json` — applies everywhere
+- **Repo**: `<repo>/.noidea/config.json` — overrides user config
 
-Precedence: built-in defaults → user config → repository config.
+Precedence: built-in defaults → user config → repo config.
 
 ```json
 {
@@ -86,7 +81,7 @@ Precedence: built-in defaults → user config → repository config.
 }
 ```
 
-Falls back to built-in defaults if no config file exists. The default prompt follows conventional commits style (feat/fix/refactor/etc.) with a 72-character subject line limit. Smaller diffs use `small_model` (Haiku) for speed; larger diffs automatically switch to `large_model` (Sonnet).
+Falls back to built-in defaults if no config file exists. The default prompt follows conventional commits style (`feat`/`fix`/`refactor`/etc.) with a 72-character subject line limit. Smaller diffs use `small_model` (Haiku) for speed; larger diffs automatically switch to `large_model` (Sonnet).
 
 ## Requirements
 
