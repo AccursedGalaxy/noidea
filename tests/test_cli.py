@@ -39,7 +39,10 @@ class TestSuggest:
             }
         },
     )
-    @patch("noidea.cli.get_diff", return_value=DiffResult(has_changes=True, diff="+ some change"))
+    @patch(
+        "noidea.cli.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ some change"),
+    )
     def test_suggest_prints_message(self, mock_diff, mock_config, mock_commit):
         result = runner.invoke(app, ["suggest"])
         assert result.exit_code == 0
@@ -64,7 +67,10 @@ class TestSuggest:
             }
         },
     )
-    @patch("noidea.cli.get_diff", return_value=DiffResult(has_changes=True, diff="+ new feature"))
+    @patch(
+        "noidea.cli.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ new feature"),
+    )
     def test_suggest_writes_to_file(
         self, mock_diff, mock_config, mock_commit, tmp_path
     ):

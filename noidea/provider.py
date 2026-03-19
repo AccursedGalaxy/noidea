@@ -31,7 +31,9 @@ def get_commit_message(
     if branch:
         context_parts.append(f"Branch: {branch}")
     if staged_files:
-        context_parts.append("Staged files:\n" + "\n".join(f"- {f}" for f in staged_files))
+        context_parts.append(
+            "Staged files:\n" + "\n".join(f"- {f}" for f in staged_files)
+        )
 
     user_content = ""
     if context_parts:

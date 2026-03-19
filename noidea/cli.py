@@ -95,9 +95,13 @@ def status():
             with open(hook_path) as f:
                 content = f.read()
             if "noidea" in content:
-                console.print(f"Hook:           {OK} prepare-commit-msg installed ({hooks_dir})")
+                console.print(
+                    f"Hook:           {OK} prepare-commit-msg installed ({hooks_dir})"
+                )
             else:
-                console.print(f"Hook:           [yellow]![/yellow] prepare-commit-msg exists but not managed by noidea")
+                console.print(
+                    f"Hook:           [yellow]![/yellow] prepare-commit-msg exists but not managed by noidea"
+                )
         else:
             console.print(f"Hook:           {FAIL} prepare-commit-msg not found")
     else:
@@ -120,9 +124,13 @@ def status():
                 if stored:
                     console.print(f"API Key:        {OK} {key} (keyring)")
                 else:
-                    console.print(f"API Key:        {FAIL} {key} registered but missing from keyring")
+                    console.print(
+                        f"API Key:        {FAIL} {key} registered but missing from keyring"
+                    )
         else:
-            console.print(f"API Key:        {FAIL} no key found (run 'noidea keys add')")
+            console.print(
+                f"API Key:        {FAIL} no key found (run 'noidea keys add')"
+            )
     except Exception:
         console.print(f"API Key:        {FAIL} could not read keys")
 

@@ -30,8 +30,9 @@ def test_get_hooks_dir_no_dir_found():
     mock_result.returncode = 1
     mock_result.stdout = ""
 
-    with patch("noidea.git.is_git_repo", return_value=True), patch(
-        "noidea.git.subprocess.run", return_value=mock_result
+    with (
+        patch("noidea.git.is_git_repo", return_value=True),
+        patch("noidea.git.subprocess.run", return_value=mock_result),
     ):
         result = get_hooks_dir()
 
@@ -43,8 +44,9 @@ def test_get_hooks_dir_dir_found():
     mock_result.returncode = 0
     mock_result.stdout = "/some/custom/path\n"
 
-    with patch("noidea.git.is_git_repo", return_value=True), patch(
-        "noidea.git.subprocess.run", return_value=mock_result
+    with (
+        patch("noidea.git.is_git_repo", return_value=True),
+        patch("noidea.git.subprocess.run", return_value=mock_result),
     ):
         result = get_hooks_dir()
 
