@@ -23,13 +23,22 @@ type: project
 - JSON, not TOML. Paths: `~/.noidea/config.json` (user) and `<repo>/.noidea/config.json` (repo-level)
 - Three-tier merge: defaults → user config → repo config
 
-## Architecture (as of 2026-03-19)
+## Architecture (as of 2026-03-19, v0.5.3)
 
 - `noidea/cli.py` — thin entry point, registers commands, `--version` flag
 - `noidea/commands/` — one module per command: `init`, `keys`, `status`, `suggest`, `test`, `update`
 - `noidea/config.py` — config loading and key management
 - `noidea/git.py` — git subprocess wrappers
 - `noidea/provider.py` — Anthropic API client
+
+## Version surfaces to keep in sync
+
+When bumping versions, update all three:
+1. `pyproject.toml` — `version =`
+2. `docs/conf.py` — `version` and `release`
+3. `CHANGELOG.md` — latest versioned section header and `[Unreleased]` compare link
+
+Current version: 0.5.3. Tag v0.5.2 exists; v0.5.3 tag not yet created as of 2026-03-19.
 
 ## CHANGELOG conventions
 
