@@ -10,7 +10,6 @@ Stages your diff, sends it to Claude, and pre-fills your commit editor — so yo
 [![Downloads](https://img.shields.io/pypi/dm/noidea?style=flat-square&color=green)](https://pypi.org/project/noidea/)
 [![Stars](https://img.shields.io/github/stars/AccursedGalaxy/noidea?style=flat-square)](https://github.com/AccursedGalaxy/noidea/stargazers)
 [![License](https://img.shields.io/github/license/AccursedGalaxy/noidea?style=flat-square)](https://github.com/AccursedGalaxy/noidea/blob/main/LICENSE)
-[![Python](https://img.shields.io/pypi/pyversions/noidea?style=flat-square)](https://pypi.org/project/noidea/)
 
 <br>
 
