@@ -1,8 +1,8 @@
 project = "noidea"
 copyright = "2026, AccursedGalaxy"
 author = "AccursedGalaxy"
-version = "0.5.1"
-release = "0.5.1"
+version = "0.5.2"
+release = "0.5.2"
 
 extensions = []
 
