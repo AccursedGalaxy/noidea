@@ -57,9 +57,7 @@ class TestSuggest:
         assert result.exit_code == 0
         assert "No Changes" in result.output
 
-    @patch(
-        "noidea.commands.suggest.get_commit_message", return_value="feat: new thing"
-    )
+    @patch("noidea.commands.suggest.get_commit_message", return_value="feat: new thing")
     @patch(
         "noidea.commands.suggest.load_config",
         return_value={
@@ -87,9 +85,7 @@ class TestSuggest:
 
 
 class TestTestCommand:
-    @patch(
-        "noidea.commands.test.get_commit_message", return_value="hello!"
-    )
+    @patch("noidea.commands.test.get_commit_message", return_value="hello!")
     def test_test_success(self, mock_commit):
         result = runner.invoke(app, ["test"])
         assert result.exit_code == 0
