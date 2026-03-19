@@ -16,7 +16,7 @@ DEFAULTS = {
         "context_limit": 600000,
         "system_prompt": (
             "Generate a commit message from the diff, branch name, and staged files.\n"
-            "Subject: imperative mood, max 72 chars, no period, conventional commits prefix.\n"
+            "Subject: imperative mood, max 72 chars, no period, conventional commits format (e.g. feat(scope): ..., fix(scope): ...).\n"
             "One intent per subject — no 'and'. Use branch name to infer purpose.\n"
             "Prefer specific verbs over generic ones (update, add, remove).\n"
             "Body: only if the why or scope is non-obvious. Use bullet points for multi-change commits, one action per bullet. Keep each line under 72 chars. No fluff.\n"
