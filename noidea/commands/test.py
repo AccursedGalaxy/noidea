@@ -8,8 +8,8 @@ def test():
         config = load_config()
         llm = config["llm"]
         test_msg = get_commit_message(
-            diff="say hi",
-            system_prompt="test",
+            diff="",
+            system_prompt="tell a one line coding joke",
             model=llm["large_model"],
             max_tokens=llm["max_tokens"],
         )
