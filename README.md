@@ -1,5 +1,11 @@
 # noidea
 
+[![PyPI version](https://img.shields.io/pypi/v/noidea)](https://pypi.org/project/noidea/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/noidea)](https://pypi.org/project/noidea/)
+[![GitHub stars](https://img.shields.io/github/stars/AccursedGalaxy/noidea)](https://github.com/AccursedGalaxy/noidea/stargazers)
+[![License](https://img.shields.io/github/license/AccursedGalaxy/noidea)](https://github.com/AccursedGalaxy/noidea/blob/main/LICENSE)
+[![Python](https://img.shields.io/pypi/pyversions/noidea)](https://pypi.org/project/noidea/)
+
 AI-powered commit message suggestions via git hooks. Stages a diff, sends it to Claude, and pre-fills your commit editor.
 
 ![noidea demo](assets/demo.gif)
