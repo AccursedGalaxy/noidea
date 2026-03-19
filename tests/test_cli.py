@@ -17,7 +17,7 @@ class TestVersion:
 
 
 class TestInit:
-    @patch("noidea.cli.install_hook", return_value=HookResult(success=True))
+    @patch("noidea.commands.init.install_hook", return_value=HookResult(success=True))
     def test_init_installs_hook(self, mock_install):
         result = runner.invoke(app, ["init"])
         assert result.exit_code == 0
@@ -26,9 +26,9 @@ class TestInit:
 
 
 class TestSuggest:
-    @patch("noidea.cli.get_commit_message", return_value="fix: patch bug")
+    @patch("noidea.commands.suggest.get_commit_message", return_value="fix: patch bug")
     @patch(
-        "noidea.cli.load_config",
+        "noidea.commands.suggest.load_config",
         return_value={
             "llm": {
                 "system_prompt": "gen msg",
@@ -40,7 +40,7 @@ class TestSuggest:
         },
     )
     @patch(
-        "noidea.cli.get_diff",
+        "noidea.commands.suggest.get_diff",
         return_value=DiffResult(has_changes=True, diff="+ some change"),
     )
     def test_suggest_prints_message(self, mock_diff, mock_config, mock_commit):
@@ -48,15 +48,20 @@ class TestSuggest:
         assert result.exit_code == 0
         assert "fix: patch bug" in result.output
 
-    @patch("noidea.cli.get_diff", return_value=DiffResult(has_changes=False))
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=False),
+    )
     def test_suggest_no_changes(self, mock_diff):
         result = runner.invoke(app, ["suggest"])
         assert result.exit_code == 0
         assert "No Changes" in result.output
 
-    @patch("noidea.cli.get_commit_message", return_value="feat: new thing")
     @patch(
-        "noidea.cli.load_config",
+        "noidea.commands.suggest.get_commit_message", return_value="feat: new thing"
+    )
+    @patch(
+        "noidea.commands.suggest.load_config",
         return_value={
             "llm": {
                 "system_prompt": "gen msg",
@@ -68,7 +73,7 @@ class TestSuggest:
         },
     )
     @patch(
-        "noidea.cli.get_diff",
+        "noidea.commands.suggest.get_diff",
         return_value=DiffResult(has_changes=True, diff="+ new feature"),
     )
     def test_suggest_writes_to_file(
@@ -82,14 +87,19 @@ class TestSuggest:
 
 
 class TestTestCommand:
-    @patch("noidea.cli.get_commit_message", return_value="hello!")
+    @patch(
+        "noidea.commands.test.get_commit_message", return_value="hello!"
+    )
     def test_test_success(self, mock_commit):
         result = runner.invoke(app, ["test"])
         assert result.exit_code == 0
         assert "Test successful!" in result.output
         assert "hello!" in result.output
 
-    @patch("noidea.cli.get_commit_message", side_effect=Exception("API error"))
+    @patch(
+        "noidea.commands.test.get_commit_message",
+        side_effect=Exception("API error"),
+    )
     def test_test_failure(self, mock_commit):
         result = runner.invoke(app, ["test"])
         assert result.exit_code == 0
@@ -97,14 +107,14 @@ class TestTestCommand:
 
 
 class TestUpdate:
-    @patch("noidea.cli.subprocess.run")
+    @patch("noidea.commands.update.subprocess.run")
     def test_update_with_pipx(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         result = runner.invoke(app, ["update"])
         assert result.exit_code == 0
         mock_run.assert_called_once_with(["pipx", "upgrade", "noidea"], check=True)
 
-    @patch("noidea.cli.subprocess.run")
+    @patch("noidea.commands.update.subprocess.run")
     def test_update_falls_back_to_pip(self, mock_run):
         # First call raises FileNotFoundError (pipx missing), second succeeds (pip)
         mock_run.side_effect = [FileNotFoundError, MagicMock(returncode=0)]
@@ -112,7 +122,7 @@ class TestUpdate:
         assert result.exit_code == 0
 
     @patch(
-        "noidea.cli.subprocess.run",
+        "noidea.commands.update.subprocess.run",
         side_effect=subprocess.CalledProcessError(1, "pipx"),
     )
     def test_update_handles_failure(self, mock_run):
@@ -121,8 +131,8 @@ class TestUpdate:
 
 
 class TestKeysAdd:
-    @patch("noidea.cli.save_key")
-    @patch("noidea.cli.keyring")
+    @patch("noidea.commands.keys.save_key")
+    @patch("noidea.commands.keys.keyring")
     def test_add_key(self, mock_keyring, mock_save):
         result = runner.invoke(app, ["keys", "add"], input="secret-key\n")
         assert result.exit_code == 0
@@ -134,8 +144,8 @@ class TestKeysAdd:
 
 
 class TestKeysRemove:
-    @patch("noidea.cli.remove_key")
-    @patch("noidea.cli.keyring")
+    @patch("noidea.commands.keys.remove_key")
+    @patch("noidea.commands.keys.keyring")
     def test_remove_key(self, mock_keyring, mock_remove):
         result = runner.invoke(app, ["keys", "remove", "anthropic"])
         assert result.exit_code == 0
@@ -147,7 +157,7 @@ class TestKeysRemove:
 
 
 class TestKeysList:
-    @patch("noidea.cli.list_keys")
+    @patch("noidea.commands.keys.list_keys")
     def test_list_keys(self, mock_list):
         result = runner.invoke(app, ["keys", "show"])
         assert result.exit_code == 0
