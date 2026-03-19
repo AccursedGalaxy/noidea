@@ -3,17 +3,17 @@ from noidea.provider import get_commit_message
 
 
 def test():
-    """Send a dummy message to the API to test."""
+    """Ping the AI to make sure it's awake."""
     try:
         config = load_config()
         llm = config["llm"]
         test_msg = get_commit_message(
-            diff="",
-            system_prompt="tell a one line coding joke",
+            diff="tell a one line coding joke",
+            system_prompt="",
             model=llm["large_model"],
             max_tokens=llm["max_tokens"],
         )
-        print("Test successful!")
-        print(f"API response: {test_msg}")
+        print("The AI is alive and well.")
+        print(f"It said: {test_msg}")
     except Exception as e:
-        print(f"Something went wrong: {e}")
+        print(f"Couldn't reach the API: {e}")

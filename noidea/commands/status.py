@@ -14,7 +14,7 @@ FAIL = "[red]\u2717[/red]"
 
 
 def status():
-    """Show current noidea configuration, API keys, and hook status."""
+    """Check if everything's wired up and ready to go."""
     console.print(f"\n[bold]noidea[/bold] v{__version__}\n")
 
     # Repository

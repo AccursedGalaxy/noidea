@@ -2,9 +2,9 @@
 
 # noidea
 
-**AI-powered commit messages that write themselves.**
+**Because you shouldn't have to think about commit messages.**
 
-Stages your diff, sends it to Claude, and pre-fills your commit editor — so you never have to write a commit message again.
+Stages your diff, sends it to an AI, and pre-fills your commit editor — so you never have to write a commit message again.
 
 [![PyPI](https://img.shields.io/pypi/v/noidea?style=flat-square&color=blue)](https://pypi.org/project/noidea/)
 [![Downloads](https://img.shields.io/pypi/dm/noidea?style=flat-square&color=green)](https://pypi.org/project/noidea/)

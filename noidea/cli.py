@@ -10,7 +10,7 @@ app = typer.Typer(
     name="noidea",
     rich_markup_mode="rich",
     no_args_is_help=True,
-    help="AI-powered git commit messages.",
+    help="You have no idea what to write in your commits? We got you.",
 )
 app.add_typer(keys_app, name="keys")
 
@@ -23,7 +23,7 @@ app.command()(update.update)
 
 def version_callback(value: bool):
     if value:
-        typer.echo(f"noidea {__version__}")
+        typer.echo(f"noidea {__version__} — no idea required")
         raise typer.Exit()
 
 

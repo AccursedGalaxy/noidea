@@ -21,7 +21,7 @@ class TestInit:
     def test_init_installs_hook(self, mock_install):
         result = runner.invoke(app, ["init"])
         assert result.exit_code == 0
-        assert "Git hook installed successfully" in result.output
+        assert "Hook installed" in result.output
         mock_install.assert_called_once()
 
 
@@ -55,7 +55,7 @@ class TestSuggest:
     def test_suggest_no_changes(self, mock_diff):
         result = runner.invoke(app, ["suggest"])
         assert result.exit_code == 0
-        assert "No Changes" in result.output
+        assert "Nothing staged" in result.output
 
     @patch("noidea.commands.suggest.get_commit_message", return_value="feat: new thing")
     @patch(
@@ -89,7 +89,7 @@ class TestTestCommand:
     def test_test_success(self, mock_commit):
         result = runner.invoke(app, ["test"])
         assert result.exit_code == 0
-        assert "Test successful!" in result.output
+        assert "The AI is alive and well" in result.output
         assert "hello!" in result.output
 
     @patch(
@@ -99,7 +99,7 @@ class TestTestCommand:
     def test_test_failure(self, mock_commit):
         result = runner.invoke(app, ["test"])
         assert result.exit_code == 0
-        assert "Something went wrong" in result.output
+        assert "Couldn't reach the API" in result.output
 
 
 class TestUpdate:
@@ -132,7 +132,7 @@ class TestKeysAdd:
     def test_add_key(self, mock_keyring, mock_save):
         result = runner.invoke(app, ["keys", "add"], input="secret-key\n")
         assert result.exit_code == 0
-        assert "API key saved" in result.output
+        assert "Key saved" in result.output
         mock_keyring.set_password.assert_called_once_with(
             service_name="noidea", username="anthropic", password="secret-key"
         )
@@ -145,7 +145,7 @@ class TestKeysRemove:
     def test_remove_key(self, mock_keyring, mock_remove):
         result = runner.invoke(app, ["keys", "remove", "anthropic"])
         assert result.exit_code == 0
-        assert "Key deleted" in result.output
+        assert "Key removed" in result.output
         mock_keyring.delete_password.assert_called_once_with(
             service_name="noidea", username="anthropic"
         )

@@ -1,7 +1,7 @@
 [project]
 name = "noidea"
 version = "0.5.2"
-description = "AI powered commit suggestions"
+description = "You have no idea what to write? We've got you."
 authors = [
     {name = "AccursedGalaxy",email = "robinbohrer7@gmail.com"}
 ]

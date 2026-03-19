@@ -5,7 +5,7 @@ import typer
 
 
 def update():
-    """Update noidea to the latest version."""
+    """Get the latest noidea — now with even less idea required."""
     try:
         subprocess.run(["pipx", "upgrade", "noidea"], check=True)
     except FileNotFoundError:
@@ -16,7 +16,7 @@ def update():
                 check=True,
             )
         except Exception as e:
-            print(f"Something went wrong during the update: {e}")
+            print(f"Update failed: {e}")
     except subprocess.CalledProcessError as e:
         typer.echo(f"Update failed: {e}", err=True)
         raise typer.Exit(1)

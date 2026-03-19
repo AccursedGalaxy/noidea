@@ -16,11 +16,13 @@ def suggest(
         None, "--model", "-M", help="Run suggestion with a different model"
     ),
 ):
-    """Suggest a commit message for the current staged diff"""
+    """Let AI do the thinking. Generates a commit message from your staged changes."""
     try:
         diff = get_diff()
         if not diff.has_changes:
-            print("No Changes have been staged")
+            print(
+                "Nothing staged yet. Stage some changes first — we can't read your mind (yet)."
+            )
             return
         config = load_config()
 
@@ -34,7 +36,7 @@ def suggest(
         staged_files = get_staged_files()
         context_len = len(config["llm"]["system_prompt"]) + len(diff.diff)
 
-        with console.status("[grey]Generating commit message...", spinner="dots"):
+        with console.status("[grey]Thinking of something clever...", spinner="dots"):
             selected_model = (
                 config["llm"]["large_model"]
                 if context_len >= config["llm"]["context_limit"]
@@ -51,8 +53,8 @@ def suggest(
         if file:
             with open(file, "w") as f:
                 f.write(commit_message)
-            console.print("[bold green]Commit message ready.[/bold green]")
+            console.print("[bold green]Done. You're welcome.[/bold green]")
         else:
             print(commit_message)
     except Exception as e:
-        print(f"Something went wrong: {e}")
+        print(f"Suggestion failed: {e}")
