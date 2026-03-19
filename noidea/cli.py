@@ -14,11 +14,11 @@ app = typer.Typer(
 )
 app.add_typer(keys_app, name="keys")
 
-app.command()(init)
-app.command()(status)
-app.command()(suggest)
-app.command()(test)
-app.command()(update)
+app.command()(init.init)
+app.command()(status.status)
+app.command()(suggest.suggest)
+app.command()(test.test)
+app.command()(update.update)
 
 
 def version_callback(value: bool):
