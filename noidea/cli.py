@@ -53,8 +53,6 @@ def main(
 ###
 ### Feature Commands
 ###
-
-
 @app.command()
 def init():
     """Install the git commit-msg hook into the current git repository"""
@@ -119,8 +117,6 @@ def suggest(
 ###
 ### API Key Commands
 ###
-
-
 @keys_app.command()
 def show():
     """Show all saved API keys"""
@@ -166,8 +162,6 @@ def remove(provider: Provider = typer.Argument(...)):
 ###
 ### Management Commands
 ###
-
-
 @app.command()
 def test():
     """Send a dummy message to the API to test."""
