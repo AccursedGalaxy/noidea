@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `CONTRIBUTING.md` with development setup, commit conventions, and PR workflow
+- `black`, `isort`, and `pyright` as dev dependencies with project-wide configuration
+- `status` command to show noidea configuration and hook status
+
+### Changed
+- Clarify conventional commits format in system prompt
+- Format codebase with isort and black
+
 ## [0.5.1] - 2026-03-19
 
 ### Changed
