@@ -19,7 +19,12 @@ from noidea.config import (
 from noidea.git import get_branch_name, get_diff, get_staged_files, install_hook
 from noidea.provider import get_commit_message
 
-app = typer.Typer(help="AI-powered git commit messages.")
+app = typer.Typer(
+    name="noidea",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+    help="AI-powered git commit messages.",
+)
 keys_app = typer.Typer(help="Manage your API keys via keyring storage.")
 app.add_typer(keys_app, name="keys")
 
@@ -32,16 +37,17 @@ def version_callback(value: bool):
         raise typer.Exit()
 
 
-@app.callback(invoke_without_command=True)
+@app.callback()
 def main(
-    ctx: typer.Context,
     version: Optional[bool] = typer.Option(
-        None, "--version", "-v", callback=version_callback, is_eager=True
+        None,
+        "--version",
+        "-v",
+        callback=version_callback,
+        is_eager=True,
     ),
-):
+) -> None:
     initialize()
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
 
 
 ###
