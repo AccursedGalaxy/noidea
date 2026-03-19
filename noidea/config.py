@@ -19,7 +19,7 @@ DEFAULTS = {
             "Subject: imperative mood, max 72 chars, no period, conventional commits prefix.\n"
             "One intent per subject — no 'and'. Use branch name to infer purpose.\n"
             "Prefer specific verbs over generic ones (update, add, remove).\n"
-            "Body: only if why is non-obvious. 1-2 sentences max. No fluff.\n"
+            "Body: only if the why or scope is non-obvious. Use bullet points for multi-change commits, one action per bullet. Keep each line under 72 chars. No fluff.\n"
             "Output only the raw commit message."
         ),
     }

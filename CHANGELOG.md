@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-03-19
+
+### Changed
+- Improve system prompt to produce bullet-point commit bodies instead of long single-line descriptions
+- Refactor CLI app configuration and main callback for cleaner structure
+- Clean up extra blank lines in CLI module
+
+### Fixed
+- Use config values in `test` command instead of hardcoded model
+
 ## [0.5.0] - 2026-03-18
 
 ### Added
@@ -96,7 +106,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - Graceful early exit when no git diff is detected
 
-[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.2.1...v0.3.0
