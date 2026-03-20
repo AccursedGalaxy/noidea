@@ -26,6 +26,7 @@ def get_commit_message(
     max_tokens: int,
     branch: str = "",
     staged_files: list[str] | None = None,
+    temperature: float = 1.0,
 ) -> str:
     context_parts = []
     if branch:
@@ -46,6 +47,7 @@ def get_commit_message(
         system=system_prompt,
         messages=[{"role": "user", "content": user_content}],
         max_tokens=max_tokens,
+        temperature=temperature,
     )
     block = message.content[0]
     if not isinstance(block, TextBlock):

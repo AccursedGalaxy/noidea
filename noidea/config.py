@@ -22,6 +22,7 @@ DEFAULTS = {
             "Body: only if the why or scope is non-obvious. Use bullet points for multi-change commits, one action per bullet. Keep each line under 72 chars. No fluff.\n"
             "Output only the raw commit message."
         ),
+        "temperature": 1.0,
     }
 }
 

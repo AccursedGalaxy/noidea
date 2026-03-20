@@ -75,4 +75,5 @@ def status():
     console.print(f"Small Model:    {llm['small_model']}")
     console.print(f"Large Model:    {llm['large_model']}")
     console.print(f"Context Limit:  {llm['context_limit']}")
+    console.print(f"Temperature:    {llm['temperature']}")
     console.print()

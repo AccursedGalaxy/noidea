@@ -49,6 +49,7 @@ def suggest(
                 config["llm"]["max_tokens"],
                 branch=branch,
                 staged_files=staged_files,
+                temperature=config["llm"]["temperature"],
             )
         if file:
             with open(file, "w") as f:
