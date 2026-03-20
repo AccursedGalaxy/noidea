@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `temperature` config key under `llm` (default `1.0`) to control LLM output creativity; can be overridden per-user or per-repo
+
+### Changed
+- `test` command now shows a spinner while waiting for the API and returns a different joke topic each run for varied output
+
 ## [0.5.3] - 2026-03-19
 
 ### Changed
