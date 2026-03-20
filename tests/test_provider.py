@@ -57,6 +57,7 @@ class TestGetCommitMessage:
             system="generate commit msg",
             messages=[{"role": "user", "content": "+ added login"}],
             max_tokens=100,
+            temperature=1.0,
         )
 
     @patch("noidea.provider.get_api_key", return_value="fake-key")

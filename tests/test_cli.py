@@ -36,6 +36,7 @@ class TestSuggest:
                 "large_model": "claude-sonnet-4-6",
                 "context_limit": 600000,
                 "max_tokens": 1024,
+                "temperature": 1.0,
             }
         },
     )
@@ -67,6 +68,7 @@ class TestSuggest:
                 "large_model": "claude-sonnet-4-6",
                 "context_limit": 600000,
                 "max_tokens": 1024,
+                "temperature": 1.0,
             }
         },
     )

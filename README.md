@@ -75,12 +75,13 @@ Precedence: built-in defaults → user config → repo config.
     "small_model": "claude-haiku-4-5",
     "large_model": "claude-sonnet-4-6",
     "context_limit": 600000,
+    "temperature": 1.0,
     "system_prompt": "Your custom prompt here"
   }
 }
 ```
 
-Falls back to built-in defaults if no config file exists. The default prompt follows conventional commits style (`feat`/`fix`/`refactor`/etc.) with a 72-character subject line limit. Smaller diffs use `small_model` (Haiku) for speed; larger diffs automatically switch to `large_model` (Sonnet).
+Falls back to built-in defaults if no config file exists. The default prompt follows conventional commits style (`feat`/`fix`/`refactor`/etc.) with a 72-character subject line limit. Smaller diffs use `small_model` (Haiku) for speed; larger diffs automatically switch to `large_model` (Sonnet). `temperature` controls output creativity (0.0–1.0); the default of `1.0` maximises variety.
 
 ## Requirements
 
