@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-03-20
+
 ### Added
 - `temperature` config key under `llm` (default `1.0`) to control LLM output creativity; can be overridden per-user or per-repo
 
@@ -130,7 +132,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - Graceful early exit when no git diff is detected
 
-[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.0...v0.5.1
