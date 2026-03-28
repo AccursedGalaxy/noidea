@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-03-28
+
+### Added
+- TigerStyle coding standard (`STYLE.md`) adapted from TigerBeetle for Python CLI context
+- TigerStyle migration plan and tracking document (`docs/TIGERSTYLE_MIGRATION.md`)
+- Comprehensive input validation and assertions across all modules (minimum two per function)
+- Expanded test suite with validation, edge-case, and error-handling coverage
+
+### Changed
+- **Stable MVP release** — declaring the feature set stable for production use
+- Narrow all `except Exception` blankets to specific exception types (`OSError`, `JSONDecodeError`, `AuthenticationError`, `RateLimitError`, `APIConnectionError`, etc.)
+- Replace recursive `deep_merge` in config with iterative stack-based implementation (TigerStyle: no recursion)
+- Add explicit argument and return-value validation to all public functions
+- Enforce 70-line function limit and 100-column line limit across codebase
+- Update `CLAUDE.md` and `CONTRIBUTING.md` to reference TigerStyle as the project coding standard
+
 ## [0.5.4] - 2026-03-20
 
 ### Added
@@ -132,7 +148,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - Graceful early exit when no git diff is detected
 
-[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.4...v1.0.0
 [0.5.4]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.1...v0.5.2
