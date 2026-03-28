@@ -6,9 +6,7 @@ import typer
 
 from noidea.config import SERVICE_NAME, Provider, list_keys, remove_key, save_key
 
-keys_app = typer.Typer(
-    help="Manage your API keys. The one secret you actually need to keep."
-)
+keys_app = typer.Typer(help="Manage your API keys. The one secret you actually need to keep.")
 
 
 @keys_app.command()
@@ -29,9 +27,7 @@ def add(provider: Provider = typer.Argument(default=Provider.ANTHROPIC)):
     """Stash an API key in your keyring."""
     try:
         key = typer.prompt("Enter your key:", hide_input=True)
-        keyring.set_password(
-            service_name=SERVICE_NAME, username=provider.value, password=key
-        )
+        keyring.set_password(service_name=SERVICE_NAME, username=provider.value, password=key)
         if save_key(provider.value):
             print("Key saved. You're ready to have no idea what to commit.")
         else:

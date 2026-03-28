@@ -214,3 +214,69 @@ class TestValidateConfig:
         config = {"llm": {**DEFAULTS["llm"], "context_limit": 500000.0}}
         result = validate_config(config)
         assert result["llm"]["context_limit"] == 500000.0
+
+
+class TestLoadConfigErrors:
+    def test_corrupted_json_falls_back_to_defaults(self, tmp_path):
+        config_file = tmp_path / "config.json"
+        config_file.write_text("{not valid json!!!")
+
+        with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
+            result = load_config()
+
+        assert result["llm"]["max_tokens"] == 1024
+
+    def test_unreadable_config_falls_back_to_defaults(self, tmp_path):
+        config_file = tmp_path / "config.json"
+        config_file.write_text(json.dumps({"llm": {"max_tokens": 512}}))
+        config_file.chmod(0o000)
+
+        try:
+            with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
+                result = load_config()
+            assert result["llm"]["max_tokens"] == 1024
+        finally:
+            config_file.chmod(0o644)
+
+    def test_corrupted_repo_config_uses_user_config(self, tmp_path):
+        user_config = tmp_path / "config.json"
+        user_config.write_text(json.dumps({"llm": {"max_tokens": 512}}))
+
+        repo_root = tmp_path / "repo"
+        repo_noidea = repo_root / ".noidea"
+        repo_noidea.mkdir(parents=True)
+        repo_config = repo_noidea / "config.json"
+        repo_config.write_text("{broken json")
+
+        with (
+            patch("noidea.config.CONFIG_PATH", str(user_config)),
+            patch("noidea.config.get_git_root", return_value=str(repo_root)),
+        ):
+            result = load_config()
+
+        assert result["llm"]["max_tokens"] == 512
+
+
+class TestInitializeErrors:
+    def test_makedirs_failure_prints_warning(self, tmp_path, capsys):
+        with (
+            patch("noidea.config.CONFIG_DIR", str(tmp_path / "no" / "way")),
+            patch("noidea.config.os.makedirs", side_effect=OSError("Permission denied")),
+            patch("noidea.config.CONFIG_PATH", str(tmp_path / "config.json")),
+            patch("noidea.config.KEYS_PATH", str(tmp_path / "keys.json")),
+        ):
+            initialize()
+
+        captured = capsys.readouterr()
+        assert "Warning" in captured.err
+        assert "Permission denied" in captured.err
+
+    def test_config_write_failure_prints_warning(self, tmp_path, capsys):
+        p1, p2, p3 = _patch_paths(tmp_path)
+        with p1, p2, p3:
+            # Create dir but make config write fail.
+            with patch("builtins.open", side_effect=OSError("Disk full")):
+                initialize()
+
+        captured = capsys.readouterr()
+        assert "Warning" in captured.err

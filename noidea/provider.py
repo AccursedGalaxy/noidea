@@ -40,21 +40,15 @@ def get_commit_message(
     if not isinstance(model, str) or not model.strip():
         raise ValueError("model must be a non-empty string")
     if not isinstance(max_tokens, int) or max_tokens <= 0:
-        raise TypeError(
-            f"max_tokens must be a positive integer, got {type(max_tokens).__name__}"
-        )
+        raise TypeError(f"max_tokens must be a positive integer, got {type(max_tokens).__name__}")
     if not isinstance(temperature, (int, float)) or temperature < 0:
-        raise TypeError(
-            f"temperature must be a non-negative number, got {temperature!r}"
-        )
+        raise TypeError(f"temperature must be a non-negative number, got {temperature!r}")
 
     context_parts = []
     if branch:
         context_parts.append(f"Branch: {branch}")
     if staged_files:
-        context_parts.append(
-            "Staged files:\n" + "\n".join(f"- {f}" for f in staged_files)
-        )
+        context_parts.append("Staged files:\n" + "\n".join(f"- {f}" for f in staged_files))
 
     user_content = ""
     if context_parts:

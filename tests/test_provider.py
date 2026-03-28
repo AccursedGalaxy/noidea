@@ -107,3 +107,21 @@ class TestGetCommitMessageValidation:
     def test_rejects_negative_temperature(self):
         with pytest.raises(TypeError, match="temperature"):
             get_commit_message("diff", "prompt", "model", 100, temperature=-1)
+
+
+class TestGetCommitMessageNonTextBlock:
+    @patch("noidea.provider.get_api_key", return_value="fake-key")
+    @patch("noidea.provider.Anthropic")
+    def test_raises_on_non_text_block(self, mock_anthropic_cls, mock_get_key):
+        mock_block = MagicMock()
+        mock_block.__class__.__name__ = "ToolUseBlock"
+
+        mock_message = MagicMock()
+        mock_message.content = [mock_block]
+
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = mock_message
+        mock_anthropic_cls.return_value = mock_client
+
+        with pytest.raises(TypeError, match="Expected TextBlock"):
+            get_commit_message("some diff", "prompt", "model", 100)

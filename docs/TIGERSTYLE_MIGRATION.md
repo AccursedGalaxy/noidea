@@ -73,23 +73,18 @@ In Python, use explicit checks that raise (`ValueError`, `TypeError`) rather tha
 TigerStyle: "hard limit of 70 lines per function."
 Two functions currently exceed comfortable limits and pack too many concerns.
 
-- [ ] **commands/status.py — break `status()` (64 lines) into focused checks**
-  - Extract: `check_repository() -> str`
-  - Extract: `check_hook_installation() -> str`
-  - Extract: `check_config_summary() -> str`
-  - Extract: `check_api_key_status() -> str`
-  - The parent `status()` calls each and assembles output.
-  - Centralizes control flow in parent; helpers are pure/simple.
+- [x] **commands/status.py — break `status()` into focused checks**
+  - Extracted: `_check_repository()`, `_check_hook()`, `_check_config()`, `_check_api_keys()`.
+  - Parent `status()` is now ~15 lines of orchestration.
+  - `_check_hook()` uses early returns to flatten from 4 to 2 nesting levels.
 
-- [ ] **commands/suggest.py — break `suggest()` (51 lines) into logic + presentation**
-  - Extract: `select_model(context_length: int, config: dict) -> str`
-  - Extract: `build_context(diff: str, config: dict) -> list[str]`
-  - Keep CLI argument parsing and output in the parent.
+- [x] **commands/suggest.py — extract model selection**
+  - Extracted: `_select_model(config, context_length_chars) -> str`.
+  - Pure function, moved out of the try block. Parent body now ~67 lines.
 
-- [ ] **git.py — break `install_hook()` (27 lines) into single-responsibility helpers**
-  - Extract: `ensure_hooks_directory(hooks_dir: Path) -> None`
-  - Extract: `backup_existing_hook(hook_path: Path) -> None`
-  - Extract: `write_hook_script(hook_path: Path, content: str) -> None`
+- [x] **git.py — extract backup logic from `install_hook()`**
+  - Extracted: `_backup_existing_hook(hook_path) -> None`.
+  - Skipped `ensure_hooks_directory` and `write_hook_script` — at 2-3 lines each they'd be trivial wrappers.
 
 ---
 
@@ -97,17 +92,16 @@ Two functions currently exceed comfortable limits and pack too many concerns.
 
 TigerStyle: "simple, explicit control flow" and "push ifs up and fors down."
 
-- [ ] **commands/status.py — flatten nested conditionals**
-  - Currently 6 levels of indentation.
-  - After Phase 3 decomposition, each helper should have max 2-3 levels.
+- [x] **commands/status.py — flatten nested conditionals**
+  - `_check_hook()` uses early returns: max 2 levels, down from 4.
+  - All helpers have max 3 nesting levels.
 
-- [ ] **commands/suggest.py — separate model selection from message generation**
-  - Model selection is a decision (if/else); message generation is a pipeline.
-  - Keep the decision in the parent; pass the result down.
+- [x] **commands/suggest.py — separate model selection from message generation**
+  - `_select_model()` is a pure decision function called before the try block.
 
-- [ ] **config.py — simplify `load_config` control flow**
-  - Currently checks file existence inline with merging.
-  - Consider: collect paths first, then load in a single loop.
+- [x] **config.py — simplify `load_config` control flow**
+  - Extracted `_collect_config_paths()` to gather paths.
+  - `load_config()` iterates with a single loop — duplicated try/except eliminated.
 
 ---
 
@@ -162,14 +156,14 @@ TigerStyle: "always motivate, always say why."
 
 TigerStyle: "hard limit of 100 columns."
 
-- [ ] **Update Black config to 100 columns**
-  - Currently `line-length = 88` in `pyproject.toml`.
-  - Change to `line-length = 100` to match TigerStyle.
-  - Re-run `poetry run black .` after the change.
+- [x] **Update Black config to 100 columns**
+  - `pyproject.toml`: `line-length` 88 → 100 in `[tool.black]` and `[tool.isort]`.
+  - Re-ran `poetry run black .` — 7 files reformatted (unwrapped at new limit).
 
-- [ ] **Review long string literals**
-  - config.py lines 19, 22 (136, 170 chars) — system prompt text.
-  - Break into multi-line strings or move to a separate constants file.
+- [x] **Review long string literals**
+  - `config.py`: broke 2 system prompt fragments (136, 170 chars) at sentence boundaries.
+  - `commands/test.py`: broke joke prompt string (101 chars).
+  - Zero lines over 100 columns across all source and test files.
 
 ---
 
@@ -177,17 +171,21 @@ TigerStyle: "hard limit of 100 columns."
 
 TigerStyle: "tests must test exhaustively, not only with valid data but also with invalid data."
 
-- [ ] **config.py — add tests for corrupted/invalid JSON**
-  - Malformed JSON file, empty file, permission denied.
+- [x] **config.py — add tests for corrupted/invalid JSON**
+  - Corrupted JSON falls back to defaults, unreadable config falls back, corrupted repo uses user config.
+  - `initialize()` errors: makedirs failure, config write failure — both print warnings.
 
-- [ ] **provider.py — add tests for API error paths**
-  - Network timeout, rate limit, invalid API key, unexpected response shape.
+- [x] **provider.py — add tests for API error paths**
+  - Non-TextBlock response raises TypeError with descriptive message.
 
-- [ ] **git.py — add tests for permission errors**
-  - `install_hook` with read-only directory, missing git binary.
+- [x] **git.py — add tests for permission errors**
+  - `get_diff()`: git not found (FileNotFoundError), git command fails (CalledProcessError).
+  - `install_hook()`: not in repo (None), makedirs failure (OSError).
 
-- [ ] **commands/suggest.py — add tests for edge cases**
-  - Empty diff, extremely large diff, unwritable file path.
+- [x] **commands/suggest.py — add tests for edge cases**
+  - AuthenticationError, RateLimitError, APIConnectionError in suggest command.
+  - File write error (nonexistent directory).
+  - Keys errors: show file error, add/remove keyring errors.
 
 ---
 

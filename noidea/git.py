@@ -39,12 +39,7 @@ def get_git_root() -> str:
 
 
 def is_git_repo() -> bool:
-    return (
-        subprocess.run(
-            ["git", "rev-parse", "--git-dir"], capture_output=True
-        ).returncode
-        == 0
-    )
+    return subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True).returncode == 0
 
 
 def get_branch_name() -> str:
@@ -92,15 +87,24 @@ def get_hooks_dir() -> str | None:
     if not is_git_repo():
         return None
 
-    result = subprocess.run(
-        ["git", "config", "core.hooksPath"], capture_output=True, text=True
-    )
+    result = subprocess.run(["git", "config", "core.hooksPath"], capture_output=True, text=True)
 
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
 
     # Default location when core.hooksPath is not configured.
     return ".git/hooks"
+
+
+def _backup_existing_hook(hook_path: str) -> None:
+    """Back up an existing hook file. Skip if backup already exists."""
+    if not os.path.exists(hook_path):
+        return
+    if os.path.exists(hook_path + HOOK_BACKUP_SUFFIX):
+        print("There is already a backup of the hook present.")
+        print("skipping backup creation")
+        return
+    os.rename(hook_path, hook_path + HOOK_BACKUP_SUFFIX)
 
 
 def install_hook() -> HookResult:
@@ -117,14 +121,7 @@ def install_hook() -> HookResult:
 
     try:
         os.makedirs(hooks_dir, exist_ok=True)
-
-        if os.path.exists(hook_path):
-            # Preserve the user's original hook, not our previous version.
-            if os.path.exists(hook_path + HOOK_BACKUP_SUFFIX):
-                print("There is already a backup of the hook present.")
-                print("skipping backup creation")
-            else:
-                os.rename(hook_path, hook_path + HOOK_BACKUP_SUFFIX)
+        _backup_existing_hook(hook_path)
 
         with open(hook_path, "w") as f:
             f.write(HOOK_SCRIPT)

@@ -24,10 +24,13 @@ DEFAULTS = {
         "context_limit": 600000,  # Character threshold for model selection, not a token limit.
         "system_prompt": (
             "Generate a commit message from the diff, branch name, and staged files.\n"
-            "Subject: imperative mood, max 72 chars, no period, conventional commits format (e.g. feat(scope): ..., fix(scope): ...).\n"
+            "Subject: imperative mood, max 72 chars, no period, "
+            "conventional commits format (e.g. feat(scope): ..., fix(scope): ...).\n"
             "One intent per subject — no 'and'. Use branch name to infer purpose.\n"
             "Prefer specific verbs over generic ones (update, add, remove).\n"
-            "Body: only if the why or scope is non-obvious. Use bullet points for multi-change commits, one action per bullet. Keep each line under 72 chars. No fluff.\n"
+            "Body: only if the why or scope is non-obvious. "
+            "Use bullet points for multi-change commits, "
+            "one action per bullet. Keep each line under 72 chars. No fluff.\n"
             "Output only the raw commit message."
         ),
         "temperature": 1.0,
@@ -63,8 +66,7 @@ def validate_config(config: dict) -> dict:
         value = llm.get(key)
         if not isinstance(value, expected_type):
             print(
-                f"Warning: llm.{key} has wrong type"
-                f" ({type(value).__name__}), using default.",
+                f"Warning: llm.{key} has wrong type" f" ({type(value).__name__}), using default.",
                 file=sys.stderr,
             )
             llm[key] = DEFAULTS["llm"][key]
@@ -80,11 +82,7 @@ def deep_merge(base, override):
     while stack:
         target, source = stack.pop()
         for key, value in source.items():
-            if (
-                key in target
-                and isinstance(value, dict)
-                and isinstance(target[key], dict)
-            ):
+            if key in target and isinstance(value, dict) and isinstance(target[key], dict):
                 target[key] = target[key].copy()
                 stack.append((target[key], value))
             else:
@@ -93,31 +91,29 @@ def deep_merge(base, override):
     return result
 
 
-def load_config() -> dict:
-    config = DEFAULTS
-
+def _collect_config_paths() -> list[str]:
+    """Gather user and repo config file paths that exist on disk."""
+    paths = []
     if os.path.exists(CONFIG_PATH):
+        paths.append(CONFIG_PATH)
+    repo_root = get_git_root()
+    if repo_root:
+        repo_path = os.path.join(repo_root, CONFIG_DIR_NAME, CONFIG_FILENAME)
+        if os.path.exists(repo_path):
+            paths.append(repo_path)
+    return paths
+
+
+def load_config() -> dict:
+    # Merge order: defaults → user config → repo config (last wins).
+    config = DEFAULTS
+    for path in _collect_config_paths():
         try:
-            with open(CONFIG_PATH) as f:
+            with open(path) as f:
                 config = deep_merge(config, json.load(f))
         except (OSError, json.JSONDecodeError) as error:
             # Warn instead of crashing: a corrupt config should not block all CLI usage.
-            print(f"Warning: could not load {CONFIG_PATH}: {error}", file=sys.stderr)
-
-    repo_root = get_git_root()
-    if repo_root:
-        repo_config_path = os.path.join(repo_root, CONFIG_DIR_NAME, CONFIG_FILENAME)
-        if os.path.exists(repo_config_path):
-            try:
-                with open(repo_config_path) as f:
-                    # Repo config merges last so project-specific settings win.
-                    config = deep_merge(config, json.load(f))
-            except (OSError, json.JSONDecodeError) as error:
-                print(
-                    f"Warning: could not load {repo_config_path}: {error}",
-                    file=sys.stderr,
-                )
-
+            print(f"Warning: could not load {path}: {error}", file=sys.stderr)
     config = validate_config(config)
     return config
 

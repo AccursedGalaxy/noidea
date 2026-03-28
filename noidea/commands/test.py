@@ -37,7 +37,8 @@ def test():
         with console.status("[grey]Checking systems...", spinner="dots"):
             test_msg = get_commit_message(
                 diff=f"tell a creative short coding joke about {topic}",
-                system_prompt="only output the joke nothing else. be original and avoid cliché jokes.",
+                system_prompt="only output the joke nothing else. "
+                "be original and avoid cliché jokes.",
                 model=llm["large_model"],
                 max_tokens=llm["max_tokens"],
                 temperature=1.0,
