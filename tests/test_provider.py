@@ -75,3 +75,53 @@ class TestGetCommitMessage:
         get_commit_message("diff", "prompt", "model", 10)
 
         mock_anthropic_cls.assert_called_once_with(api_key="fake-key")
+
+
+class TestGetCommitMessageValidation:
+    """Input validation fires before any network call, so no mocking needed."""
+
+    def test_rejects_empty_diff(self):
+        with pytest.raises(ValueError, match="diff"):
+            get_commit_message("", "prompt", "model", 100)
+
+    def test_rejects_whitespace_diff(self):
+        with pytest.raises(ValueError, match="diff"):
+            get_commit_message("   \n  ", "prompt", "model", 100)
+
+    def test_rejects_empty_model(self):
+        with pytest.raises(ValueError, match="model"):
+            get_commit_message("some diff", "prompt", "", 100)
+
+    def test_rejects_empty_system_prompt(self):
+        with pytest.raises(ValueError, match="system_prompt"):
+            get_commit_message("some diff", "", "model", 100)
+
+    def test_rejects_non_int_max_tokens(self):
+        with pytest.raises(TypeError, match="max_tokens"):
+            get_commit_message("diff", "prompt", "model", "100")
+
+    def test_rejects_zero_max_tokens(self):
+        with pytest.raises(TypeError, match="max_tokens"):
+            get_commit_message("diff", "prompt", "model", 0)
+
+    def test_rejects_negative_temperature(self):
+        with pytest.raises(TypeError, match="temperature"):
+            get_commit_message("diff", "prompt", "model", 100, temperature=-1)
+
+
+class TestGetCommitMessageNonTextBlock:
+    @patch("noidea.provider.get_api_key", return_value="fake-key")
+    @patch("noidea.provider.Anthropic")
+    def test_raises_on_non_text_block(self, mock_anthropic_cls, mock_get_key):
+        mock_block = MagicMock()
+        mock_block.__class__.__name__ = "ToolUseBlock"
+
+        mock_message = MagicMock()
+        mock_message.content = [mock_block]
+
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = mock_message
+        mock_anthropic_cls.return_value = mock_client
+
+        with pytest.raises(TypeError, match="Expected TextBlock"):
+            get_commit_message("some diff", "prompt", "model", 100)

@@ -75,3 +75,50 @@ def test_install_hook_backs_up_existing(tmp_path):
     assert backup_path.exists()
     assert backup_path.read_text() == "#!/bin/bash\necho old hook\n"
     assert hook_path.read_text() == '#!/bin/bash\nnoidea suggest --file "$1"\n'
+
+
+def test_install_hook_empty_hooks_dir():
+    with patch("noidea.git.get_hooks_dir", return_value=""):
+        result = install_hook()
+    assert not result.success
+    assert "empty" in result.error.lower() or "invalid" in result.error.lower()
+
+
+def test_install_hook_whitespace_hooks_dir():
+    with patch("noidea.git.get_hooks_dir", return_value="   "):
+        result = install_hook()
+    assert not result.success
+
+
+def test_get_diff_git_not_found():
+    with patch("noidea.git.subprocess.run", side_effect=FileNotFoundError("git not found")):
+        result = get_diff()
+    assert not result.has_changes
+    assert "git not found" in result.error
+
+
+def test_get_diff_git_command_fails():
+    import subprocess
+
+    error = subprocess.CalledProcessError(128, "git", stderr="fatal: not a git repo")
+    with patch("noidea.git.subprocess.run", side_effect=error):
+        result = get_diff()
+    assert not result.has_changes
+    assert result.error == "fatal: not a git repo"
+
+
+def test_install_hook_not_in_repo():
+    with patch("noidea.git.get_hooks_dir", return_value=None):
+        result = install_hook()
+    assert not result.success
+    assert "Not inside a git repository" in result.error
+
+
+def test_install_hook_makedirs_failure():
+    with (
+        patch("noidea.git.get_hooks_dir", return_value="/fake/hooks"),
+        patch("noidea.git.os.makedirs", side_effect=OSError("Permission denied")),
+    ):
+        result = install_hook()
+    assert not result.success
+    assert "Permission denied" in result.error

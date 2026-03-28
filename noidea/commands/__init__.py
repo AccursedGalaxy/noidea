@@ -1,3 +1,5 @@
+"""Re-exports command modules for CLI registration."""
+
 from noidea.commands import init, keys, status, suggest, test, update
 from noidea.commands.keys import keys_app
 

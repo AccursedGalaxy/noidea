@@ -1,3 +1,5 @@
+"""Typer application entry point: registers commands and runs global setup."""
+
 from typing import Optional
 
 import typer
