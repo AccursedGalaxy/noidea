@@ -1,6 +1,6 @@
 [project]
 name = "noidea"
-version = "0.5.4"
+version = "1.0.0"
 description = "You have no idea what to write? We've got you."
 authors = [
     {name = "AccursedGalaxy",email = "robinbohrer7@gmail.com"}
