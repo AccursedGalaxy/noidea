@@ -1,6 +1,7 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
+import anthropic
 from typer.testing import CliRunner
 
 from noidea.cli import app
@@ -58,6 +59,15 @@ class TestSuggest:
         assert result.exit_code == 0
         assert "Nothing staged" in result.output
 
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="   \n  "),
+    )
+    def test_suggest_empty_diff_content(self, mock_diff):
+        result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 0
+        assert "empty diff" in result.output.lower()
+
     @patch("noidea.commands.suggest.get_commit_message", return_value="feat: new thing")
     @patch(
         "noidea.commands.suggest.load_config",
@@ -96,7 +106,7 @@ class TestTestCommand:
 
     @patch(
         "noidea.commands.test.get_commit_message",
-        side_effect=Exception("API error"),
+        side_effect=anthropic.APIConnectionError(request=None),
     )
     def test_test_failure(self, mock_commit):
         result = runner.invoke(app, ["test"])

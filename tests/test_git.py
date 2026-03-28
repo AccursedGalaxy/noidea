@@ -75,3 +75,16 @@ def test_install_hook_backs_up_existing(tmp_path):
     assert backup_path.exists()
     assert backup_path.read_text() == "#!/bin/bash\necho old hook\n"
     assert hook_path.read_text() == '#!/bin/bash\nnoidea suggest --file "$1"\n'
+
+
+def test_install_hook_empty_hooks_dir():
+    with patch("noidea.git.get_hooks_dir", return_value=""):
+        result = install_hook()
+    assert not result.success
+    assert "empty" in result.error.lower() or "invalid" in result.error.lower()
+
+
+def test_install_hook_whitespace_hooks_dir():
+    with patch("noidea.git.get_hooks_dir", return_value="   "):
+        result = install_hook()
+    assert not result.success
