@@ -14,6 +14,7 @@ This project follows [TigerStyle](STYLE.md) — a coding style emphasizing safet
 - **Naming:** get the nouns and verbs right. Use `snake_case`. Do not abbreviate. Add units/qualifiers last, sorted by descending significance (e.g. `latency_ms_max`).
 - **Limits:** hard limit of 70 lines per function, 100 columns per line.
 - **Comments:** always say why. Comments are sentences with proper punctuation.
+- **Dependencies:** be deliberate — don't pull in what you don't need, but don't rewrite battle-tested libraries (`typer`, `rich`, `anthropic`, `keyring`, etc.) for no real gain. The spirit of TigerBeetle's zero-dependency rule applies; the letter doesn't fit a Python CLI.
 - **Commit messages:** descriptive, informative — explain the why, not just the what.
 
 Read [STYLE.md](STYLE.md) in full before writing code.

@@ -478,6 +478,13 @@ general, inevitably lead to supply chain attacks, safety and performance risk, a
 times. For foundational infrastructure in particular, the cost of any dependency is further
 amplified throughout the rest of the stack.
 
+> **noidea project adaptation:** TigerBeetle's zero-dependency rule makes sense for foundational
+> infrastructure written in Zig where every dependency is a supply-chain and performance risk. For a
+> Python CLI tool, dropping `typer`, `rich`, `anthropic`, `keyring` etc. would mean rewriting
+> battle-tested libraries for no real gain. The spirit of the rule — be deliberate about
+> dependencies, don't pull in things you don't need — absolutely applies. The letter of it doesn't
+> fit here.
+
 ### Tooling
 
 Similarly, tools have costs. A small standardized toolbox is simpler to operate than an array of
