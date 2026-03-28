@@ -38,6 +38,10 @@ CI runs the test suite on Python 3.10, 3.11, 3.12, and 3.13. All checks must pas
 
 ## Code Style
 
+This project follows **[TigerStyle](STYLE.md)** — read it before writing code. The style prioritizes safety, performance, and developer experience.
+
+### Tooling
+
 We use **isort** + **black** for formatting and **pyright** for type checking. All three are included as dev dependencies (`poetry install` pulls them in).
 
 **Format the entire project:**
@@ -53,9 +57,19 @@ poetry run black .
 poetry run pyright
 ```
 
-Additional guidelines:
-- Use type hints for function signatures
-- Use [`rich`](https://github.com/Textualize/rich) for all user-facing stderr output
+### Key Style Rules
+
+- **Assertions:** assert function arguments, return values, and invariants. Aim for at least two assertions per function.
+- **Naming:** use `snake_case`, do not abbreviate, add units/qualifiers last (e.g. `latency_ms_max`).
+- **Function length:** hard limit of 70 lines per function.
+- **Line length:** hard limit of 100 columns.
+- **Comments:** always explain *why*, not just *what*. Comments are full sentences with proper punctuation.
+- **Error handling:** handle all errors explicitly — never silently ignore failures.
+- **Control flow:** keep it simple and explicit. Centralize branching logic; keep leaf functions pure.
+- Use type hints for function signatures.
+- Use [`rich`](https://github.com/Textualize/rich) for all user-facing stderr output.
+
+See [STYLE.md](STYLE.md) for the full guide.
 
 ## Commit Conventions
 

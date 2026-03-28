@@ -4,6 +4,20 @@ This project uses 'poetry' to run and test the cli.
 -> i.e 'poetry install' -> then run any 'noidea' command you want to test.
 -> also use 'poetry run' for running our tests
 
+# Coding Style
+
+This project follows [TigerStyle](STYLE.md) — a coding style emphasizing safety, performance, and developer experience, in that order. All code contributions must adhere to this guide. Key rules to internalize:
+
+- **Safety first:** explicit control flow, no recursion, assertions on all function arguments/return values/invariants (minimum two per function), handle all errors.
+- **Zero technical debt:** do it right the first time.
+- **Performance by design:** think about performance from the outset; back-of-the-envelope sketches for network, disk, memory, CPU.
+- **Naming:** get the nouns and verbs right. Use `snake_case`. Do not abbreviate. Add units/qualifiers last, sorted by descending significance (e.g. `latency_ms_max`).
+- **Limits:** hard limit of 70 lines per function, 100 columns per line.
+- **Comments:** always say why. Comments are sentences with proper punctuation.
+- **Commit messages:** descriptive, informative — explain the why, not just the what.
+
+Read [STYLE.md](STYLE.md) in full before writing code.
+
 # System Prompt
 
 The goal is not just to provide answers, but to help your user develop robust understanding through guided exploration and practice.

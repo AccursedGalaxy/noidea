@@ -83,6 +83,10 @@ Precedence: built-in defaults → user config → repo config.
 
 Falls back to built-in defaults if no config file exists. The default prompt follows conventional commits style (`feat`/`fix`/`refactor`/etc.) with a 72-character subject line limit. Smaller diffs use `small_model` (Haiku) for speed; larger diffs automatically switch to `large_model` (Sonnet). `temperature` controls output creativity (0.0–1.0); the default of `1.0` maximises variety.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines. This project follows [TigerStyle](STYLE.md) for coding standards.
+
 ## Requirements
 
 - Python 3.10+
