@@ -9,8 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.1] - 2026-05-21
 
+### Fixed
+- Handle binary file diffs correctly: read `git diff` as bytes and strip binary hunks so non-UTF-8 content no longer crashes commit message generation (keeps a summary line so the AI still sees which binary files changed)
+
 ### Changed
-- Bump dependencies for security and maintenance, with no source or behavior changes:
+- Bump dependencies for security and maintenance:
   - `anthropic` 0.86.0 → 0.103.1
   - `cryptography` 46.0.6 → 48.0.0
   - `idna` 3.11 → 3.15
