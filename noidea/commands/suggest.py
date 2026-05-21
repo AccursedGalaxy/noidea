@@ -1,26 +1,29 @@
+import dataclasses
+
 import anthropic
 import typer
 from rich.console import Console
 
-from noidea.config import deep_merge, load_config
+from noidea.config import LlmConfig, load_config
 from noidea.git import get_branch_name, get_diff, get_staged_files
 from noidea.provider import get_commit_message
 
 console = Console(stderr=True)
 
 
-def _generate_message(diff, config, model, branch, staged_files) -> str | None:
+def _generate_message(diff, cfg: LlmConfig, model, branch, staged_files) -> str | None:
     """Call the API and return the commit message, or None on handled error."""
+    assert isinstance(cfg, LlmConfig), "cfg must be an LlmConfig"
     try:
         with console.status("[grey]Thinking of something clever...", spinner="dots"):
             return get_commit_message(
                 diff,
-                config["llm"]["system_prompt"],
+                cfg.system_prompt,
                 model,
-                config["llm"]["max_tokens"],
+                cfg.max_tokens,
                 branch=branch,
                 staged_files=staged_files,
-                temperature=config["llm"]["temperature"],
+                temperature=cfg.temperature,
             )
     # Errors handled here (not in provider.py) because each caller needs
     # different user-facing messages and recovery behavior.
@@ -35,13 +38,6 @@ def _generate_message(diff, config, model, branch, staged_files) -> str | None:
     except anthropic.APIStatusError as error:
         print(f"API error ({error.status_code}): {error.message}")
     return None
-
-
-def _select_model(config: dict, context_length_chars: int) -> str:
-    """Pick large or small model based on context size heuristic."""
-    if context_length_chars >= config["llm"]["context_limit"]:
-        return config["llm"]["large_model"]
-    return config["llm"]["small_model"]
 
 
 def suggest(
@@ -59,21 +55,22 @@ def suggest(
         print("Staged changes produced an empty diff. Nothing to do.")
         return
 
-    config = load_config()
+    cfg = load_config()
 
-    # CLI flag config override.
+    # CLI flag config override: both models become the requested one, so select_model
+    # returns it regardless of context size.
     if model:
-        config = deep_merge(config, {"llm": {"small_model": model, "large_model": model}})
+        cfg = dataclasses.replace(cfg, small_model=model, large_model=model)
 
     branch = get_branch_name()
     staged_files = get_staged_files()
     # Character count, not tokens: real tokenization needs the API, but char
     # count is cheap and sufficient for choosing between small and large model.
-    context_length_chars = len(config["llm"]["system_prompt"]) + len(diff.diff)
+    context_length_chars = len(cfg.system_prompt) + len(diff.diff)
 
-    selected_model = _select_model(config, context_length_chars)
+    selected_model = cfg.select_model(context_length_chars)
 
-    commit_message = _generate_message(diff.diff, config, selected_model, branch, staged_files)
+    commit_message = _generate_message(diff.diff, cfg, selected_model, branch, staged_files)
     if commit_message is None:
         return
 

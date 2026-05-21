@@ -3,7 +3,7 @@ import os
 from rich.console import Console
 
 from noidea import __version__
-from noidea.config import CONFIG_PATH, SERVICE_NAME, load_config
+from noidea.config import CONFIG_PATH, SERVICE_NAME, LlmConfig, load_config
 from noidea.git import HOOK_NAME, get_git_root, get_hooks_dir
 from noidea.key_store import KeyStatus, KeyStoreError, key_store
 
@@ -48,14 +48,13 @@ def _check_hook():
         )
 
 
-def _check_config() -> tuple[dict, dict]:
-    config = load_config()
-    llm = config["llm"]
+def _check_config() -> LlmConfig:
+    cfg = load_config()
     if os.path.exists(CONFIG_PATH):
         console.print(f"Config:         {OK} {CONFIG_PATH} loaded")
     else:
         console.print("Config:         [dim]using defaults[/dim]")
-    return config, llm
+    return cfg
 
 
 def _check_api_keys():
@@ -78,10 +77,10 @@ def status():
     console.print(f"\n[bold]noidea[/bold] v{__version__}\n")
     _check_repository()
     _check_hook()
-    _config, llm = _check_config()
+    cfg = _check_config()
     _check_api_keys()
-    console.print(f"Small Model:    {llm['small_model']}")
-    console.print(f"Large Model:    {llm['large_model']}")
-    console.print(f"Context Limit:  {llm['context_limit']}")
-    console.print(f"Temperature:    {llm['temperature']}")
+    console.print(f"Small Model:    {cfg.small_model}")
+    console.print(f"Large Model:    {cfg.large_model}")
+    console.print(f"Context Limit:  {cfg.context_limit}")
+    console.print(f"Temperature:    {cfg.temperature}")
     console.print()
