@@ -5,6 +5,7 @@ import anthropic
 from typer.testing import CliRunner
 
 from noidea.cli import app
+from noidea.config import LlmConfig
 from noidea.git import DiffResult, HookResult
 from noidea.key_store import KeyStoreError
 
@@ -31,16 +32,7 @@ class TestSuggest:
     @patch("noidea.commands.suggest.get_commit_message", return_value="fix: patch bug")
     @patch(
         "noidea.commands.suggest.load_config",
-        return_value={
-            "llm": {
-                "system_prompt": "gen msg",
-                "small_model": "claude-haiku-4-5",
-                "large_model": "claude-sonnet-4-6",
-                "context_limit": 600000,
-                "max_tokens": 1024,
-                "temperature": 1.0,
-            }
-        },
+        return_value=LlmConfig(system_prompt="gen msg"),
     )
     @patch(
         "noidea.commands.suggest.get_diff",
@@ -72,16 +64,7 @@ class TestSuggest:
     @patch("noidea.commands.suggest.get_commit_message", return_value="feat: new thing")
     @patch(
         "noidea.commands.suggest.load_config",
-        return_value={
-            "llm": {
-                "system_prompt": "gen msg",
-                "small_model": "claude-haiku-4-5",
-                "large_model": "claude-sonnet-4-6",
-                "context_limit": 600000,
-                "max_tokens": 1024,
-                "temperature": 1.0,
-            }
-        },
+        return_value=LlmConfig(system_prompt="gen msg"),
     )
     @patch(
         "noidea.commands.suggest.get_diff",
@@ -93,6 +76,22 @@ class TestSuggest:
         assert result.exit_code == 0
         with open(outfile) as f:
             assert f.read() == "feat: new thing"
+
+    @patch("noidea.commands.suggest.get_commit_message", return_value="fix: thing")
+    @patch("noidea.commands.suggest.get_branch_name", return_value="main")
+    @patch("noidea.commands.suggest.get_staged_files", return_value=["file.py"])
+    @patch("noidea.commands.suggest.load_config", return_value=LlmConfig())
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ change"),
+    )
+    def test_suggest_model_override_is_used(
+        self, mock_diff, mock_config, mock_staged, mock_branch, mock_commit
+    ):
+        # --model replaces both models, so the override reaches the API regardless of size.
+        result = runner.invoke(app, ["suggest", "--model", "claude-opus-4-7"])
+        assert result.exit_code == 0
+        assert mock_commit.call_args.args[2] == "claude-opus-4-7"
 
 
 class TestTestCommand:
@@ -142,16 +141,7 @@ class TestSuggestErrors:
 
     _SUGGEST_MOCKS = {
         "noidea.commands.suggest.load_config": {
-            "return_value": {
-                "llm": {
-                    "system_prompt": "gen msg",
-                    "small_model": "claude-haiku-4-5",
-                    "large_model": "claude-sonnet-4-6",
-                    "context_limit": 600000,
-                    "max_tokens": 1024,
-                    "temperature": 1.0,
-                }
-            }
+            "return_value": LlmConfig(system_prompt="gen msg"),
         },
         "noidea.commands.suggest.get_diff": {
             "return_value": DiffResult(has_changes=True, diff="+ change"),

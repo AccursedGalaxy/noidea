@@ -29,8 +29,7 @@ JOKE_TOPICS = [
 
 def test():
     """Ping the AI to make sure it's awake."""
-    config = load_config()
-    llm = config["llm"]
+    cfg = load_config()
     topic = random.choice(JOKE_TOPICS)
 
     try:
@@ -39,8 +38,8 @@ def test():
                 diff=f"tell a creative short coding joke about {topic}",
                 system_prompt="only output the joke nothing else. "
                 "be original and avoid cliché jokes.",
-                model=llm["large_model"],
-                max_tokens=llm["max_tokens"],
+                model=cfg.large_model,
+                max_tokens=cfg.max_tokens,
                 temperature=1.0,
             )
     # Same API error pattern as suggest.py, with messages suited to the test context.

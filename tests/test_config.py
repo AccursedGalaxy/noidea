@@ -2,12 +2,56 @@ import json
 from unittest.mock import patch
 
 from noidea.config import (
-    DEFAULTS,
+    LlmConfig,
     deep_merge,
     initialize,
     load_config,
-    validate_config,
 )
+
+
+class TestLlmConfig:
+    def test_defaults_match_known_values(self):
+        cfg = LlmConfig()
+        assert cfg.max_tokens == 1024
+        assert cfg.small_model == "claude-haiku-4-5"
+
+    def test_from_dict_keeps_valid_value(self):
+        cfg = LlmConfig.from_dict({"max_tokens": 512})
+        assert cfg.max_tokens == 512
+        # Untouched fields fall back to defaults.
+        assert cfg.small_model == "claude-haiku-4-5"
+
+    def test_from_dict_wrong_type_falls_back_to_default(self, capsys):
+        cfg = LlmConfig.from_dict({"max_tokens": "not a number"})
+        assert cfg.max_tokens == 1024
+        assert "Warning" in capsys.readouterr().err
+
+    def test_from_dict_missing_key_uses_default(self):
+        cfg = LlmConfig.from_dict({})
+        assert cfg.temperature == 1.0
+
+    def test_from_dict_accepts_float_context_limit(self):
+        cfg = LlmConfig.from_dict({"context_limit": 500000.0})
+        assert cfg.context_limit == 500000.0
+
+    def test_from_dict_rejects_float_max_tokens(self, capsys):
+        # max_tokens is int-only (the API wants an int); a float falls back with a warning.
+        cfg = LlmConfig.from_dict({"max_tokens": 512.5})
+        assert cfg.max_tokens == 1024
+        assert "Warning" in capsys.readouterr().err
+
+    def test_from_dict_rejects_bool_for_numeric(self):
+        # bool is an int subclass but is never a valid numeric config value.
+        cfg = LlmConfig.from_dict({"max_tokens": True})
+        assert cfg.max_tokens == 1024
+
+    def test_select_model_small_below_limit(self):
+        cfg = LlmConfig(context_limit=100)
+        assert cfg.select_model(50) == cfg.small_model
+
+    def test_select_model_large_at_limit(self):
+        cfg = LlmConfig(context_limit=100)
+        assert cfg.select_model(100) == cfg.large_model
 
 
 def _patch_paths(tmp_path):
@@ -57,7 +101,7 @@ def test_load_config_returns_defaults_after_initialize(tmp_path):
         initialize()
         result = load_config()
 
-    assert result["llm"]["max_tokens"] == 1024
+    assert result.max_tokens == 1024
 
 
 def test_load_config_user_overrides_defaults(tmp_path):
@@ -67,9 +111,9 @@ def test_load_config_user_overrides_defaults(tmp_path):
     with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
         result = load_config()
 
-    assert result["llm"]["max_tokens"] == 512
+    assert result.max_tokens == 512
     # defaults still present for keys not overridden
-    assert result["llm"]["small_model"] == "claude-haiku-4-5"
+    assert result.small_model == "claude-haiku-4-5"
 
 
 def test_load_config_repo_overrides_user(tmp_path):
@@ -90,8 +134,8 @@ def test_load_config_repo_overrides_user(tmp_path):
     ):
         result = load_config()
 
-    assert result["llm"]["max_tokens"] == 256
-    assert result["llm"]["small_model"] == "claude-haiku-4-5"
+    assert result.max_tokens == 256
+    assert result.small_model == "claude-haiku-4-5"
 
 
 def test_load_config_repo_partial_override(tmp_path):
@@ -108,49 +152,21 @@ def test_load_config_repo_partial_override(tmp_path):
     ):
         result = load_config()
 
-    assert result["llm"]["system_prompt"] == "Custom prompt"
-    assert result["llm"]["max_tokens"] == 1024
-    assert result["llm"]["small_model"] == "claude-haiku-4-5"
+    assert result.system_prompt == "Custom prompt"
+    assert result.max_tokens == 1024
+    assert result.small_model == "claude-haiku-4-5"
 
 
-def test_load_config_defaults_have_all_expected_keys(tmp_path):
-    p1, p2 = _patch_paths(tmp_path)
-    with p1, p2, _patch_no_repo():
-        initialize()
+def test_load_config_non_dict_llm_falls_back_to_defaults(tmp_path):
+    """A corrupt non-dict llm section yields an all-default config, not a crash."""
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({"llm": "broken"}))
+
+    with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
         result = load_config()
 
-    assert "small_model" in result["llm"]
-    assert "large_model" in result["llm"]
-    assert "context_limit" in result["llm"]
-    assert "system_prompt" in result["llm"]
-    assert "max_tokens" in result["llm"]
-
-
-class TestValidateConfig:
-    def test_valid_config_passes_through(self):
-        result = validate_config({"llm": {**DEFAULTS["llm"]}})
-        assert result["llm"]["max_tokens"] == 1024
-
-    def test_wrong_type_falls_back_to_default(self):
-        config = {"llm": {**DEFAULTS["llm"], "max_tokens": "not a number"}}
-        result = validate_config(config)
-        assert result["llm"]["max_tokens"] == 1024
-
-    def test_non_dict_llm_returns_defaults(self):
-        result = validate_config({"llm": "broken"})
-        assert result["llm"]["max_tokens"] == 1024
-        assert result["llm"]["small_model"] == "claude-haiku-4-5"
-
-    def test_missing_key_falls_back_to_default(self):
-        config = {"llm": {**DEFAULTS["llm"]}}
-        del config["llm"]["temperature"]
-        result = validate_config(config)
-        assert result["llm"]["temperature"] == 1.0
-
-    def test_float_context_limit_accepted(self):
-        config = {"llm": {**DEFAULTS["llm"], "context_limit": 500000.0}}
-        result = validate_config(config)
-        assert result["llm"]["context_limit"] == 500000.0
+    assert result.max_tokens == 1024
+    assert result.small_model == "claude-haiku-4-5"
 
 
 class TestLoadConfigErrors:
@@ -161,7 +177,7 @@ class TestLoadConfigErrors:
         with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
             result = load_config()
 
-        assert result["llm"]["max_tokens"] == 1024
+        assert result.max_tokens == 1024
 
     def test_unreadable_config_falls_back_to_defaults(self, tmp_path):
         config_file = tmp_path / "config.json"
@@ -171,7 +187,7 @@ class TestLoadConfigErrors:
         try:
             with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
                 result = load_config()
-            assert result["llm"]["max_tokens"] == 1024
+            assert result.max_tokens == 1024
         finally:
             config_file.chmod(0o644)
 
@@ -191,7 +207,7 @@ class TestLoadConfigErrors:
         ):
             result = load_config()
 
-        assert result["llm"]["max_tokens"] == 512
+        assert result.max_tokens == 512
 
 
 class TestInitializeErrors:
