@@ -1,6 +1,7 @@
 """Git subprocess wrappers that return structured dataclasses instead of raw output."""
 
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 
@@ -64,20 +65,54 @@ def get_staged_files() -> list[str]:
     return [f for f in result.stdout.strip().splitlines() if f]
 
 
+def _strip_binary_hunks(diff_text: str) -> str:
+    """Remove binary file hunks from a unified diff, keeping a summary line.
+
+    Binary hunks bloat the prompt without adding useful context for commit
+    message generation.  We keep the diff header so the AI knows *which*
+    binary files changed.
+    """
+    assert isinstance(diff_text, str), "diff_text must be a string"
+
+    # Split on "diff --git" boundaries, keeping the delimiter.
+    parts = re.split(r"(?=^diff --git )", diff_text, flags=re.MULTILINE)
+
+    cleaned: list[str] = []
+    for part in parts:
+        if not part:
+            continue
+        # Git marks binary content with this sentinel line.
+        if "Binary files" in part or "GIT binary patch" in part:
+            # Keep only the header line so the AI sees the filename.
+            header = part.split("\n", 1)[0]
+            cleaned.append(header + "\n[binary file — diff omitted]\n")
+        else:
+            cleaned.append(part)
+
+    result = "".join(cleaned)
+    assert isinstance(result, str), "result must be a string"
+    return result
+
+
 def get_diff() -> DiffResult:
     try:
-        # check=True: staged diff is required for the core feature, so failure is an error.
+        # text=False: binary diffs contain non-UTF-8 bytes that crash text mode.
         result = subprocess.run(
-            ["git", "diff", "--staged"], capture_output=True, text=True, check=True
+            ["git", "diff", "--staged"], capture_output=True, check=True
         )
 
         if not result.stdout:
             return DiffResult(has_changes=False)
-        else:
-            return DiffResult(has_changes=True, diff=result.stdout)
+
+        # Decode with replace to survive any stray non-UTF-8 bytes.
+        diff_text = result.stdout.decode("utf-8", errors="replace")
+        diff_text = _strip_binary_hunks(diff_text)
+
+        assert isinstance(diff_text, str), "diff must be a string after processing"
+        return DiffResult(has_changes=True, diff=diff_text)
 
     except subprocess.CalledProcessError as e:
-        return DiffResult(has_changes=False, error=e.stderr)
+        return DiffResult(has_changes=False, error=e.stderr.decode("utf-8", errors="replace"))
 
     except FileNotFoundError as e:
         return DiffResult(has_changes=False, error=str(e))

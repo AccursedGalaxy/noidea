@@ -1,12 +1,13 @@
 import os
 from unittest.mock import MagicMock, patch
 
-from noidea.git import get_diff, get_hooks_dir, install_hook
+from noidea.git import _strip_binary_hunks, get_diff, get_hooks_dir, install_hook
 
 
 def test_get_diff_nothing_staged():
     mock_result = MagicMock()
-    mock_result.stdout = ""
+    # subprocess.run runs without text=True, so stdout is bytes.
+    mock_result.stdout = b""
 
     with patch("noidea.git.subprocess.run", return_value=mock_result):
         result = get_diff()
@@ -16,7 +17,7 @@ def test_get_diff_nothing_staged():
 
 def test_get_diff_with_staged_changes():
     mock_result = MagicMock()
-    mock_result.stdout = "deff --git a/foo.py b/foo.py\n+some change"
+    mock_result.stdout = b"deff --git a/foo.py b/foo.py\n+some change"
 
     with patch("noidea.git.subprocess.run", return_value=mock_result):
         result = get_diff()
@@ -100,11 +101,56 @@ def test_get_diff_git_not_found():
 def test_get_diff_git_command_fails():
     import subprocess
 
-    error = subprocess.CalledProcessError(128, "git", stderr="fatal: not a git repo")
+    error = subprocess.CalledProcessError(128, "git", stderr=b"fatal: not a git repo")
     with patch("noidea.git.subprocess.run", side_effect=error):
         result = get_diff()
     assert not result.has_changes
     assert result.error == "fatal: not a git repo"
+
+
+def test_strip_binary_hunks_omits_binary_payload():
+    diff = (
+        "diff --git a/logo.png b/logo.png\n"
+        "new file mode 100644\n"
+        "index 0000000..abc1234\n"
+        "Binary files /dev/null and b/logo.png differ\n"
+    )
+    cleaned = _strip_binary_hunks(diff)
+    assert "diff --git a/logo.png b/logo.png" in cleaned
+    assert "[binary file — diff omitted]" in cleaned
+    assert "Binary files" not in cleaned
+
+
+def test_strip_binary_hunks_keeps_text_diffs():
+    diff = "diff --git a/foo.py b/foo.py\n@@ -1 +1 @@\n-old\n+new\n"
+    cleaned = _strip_binary_hunks(diff)
+    assert cleaned == diff
+
+
+def test_strip_binary_hunks_mixed_keeps_text_strips_binary():
+    diff = (
+        "diff --git a/foo.py b/foo.py\n@@ -1 +1 @@\n-old\n+new\n"
+        "diff --git a/logo.png b/logo.png\n"
+        "Binary files a/logo.png and b/logo.png differ\n"
+    )
+    cleaned = _strip_binary_hunks(diff)
+    assert "+new" in cleaned
+    assert "[binary file — diff omitted]" in cleaned
+    assert "Binary files" not in cleaned
+
+
+def test_get_diff_strips_binary_and_survives_bad_bytes():
+    mock_result = MagicMock()
+    # Invalid UTF-8 byte (0xff) plus a binary hunk: must not crash.
+    mock_result.stdout = (
+        b"diff --git a/logo.png b/logo.png\n"
+        b"Binary files a/logo.png and b/logo.png differ\xff\n"
+    )
+    with patch("noidea.git.subprocess.run", return_value=mock_result):
+        result = get_diff()
+    assert result.has_changes
+    assert "[binary file — diff omitted]" in result.diff
+    assert "Binary files" not in result.diff
 
 
 def test_install_hook_not_in_repo():
