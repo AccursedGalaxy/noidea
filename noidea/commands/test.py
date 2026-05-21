@@ -1,10 +1,9 @@
 import random
 
-import anthropic
 from rich.console import Console
 
 from noidea.config import load_config
-from noidea.provider import get_commit_message
+from noidea.provider import ErrorKind, ProviderError, complete
 
 console = Console()
 
@@ -26,37 +25,34 @@ JOKE_TOPICS = [
     "production bugs",
 ]
 
+# Wording per failure kind, suited to the test context; keyed on ErrorKind so a new kind
+# forces a deliberate update. The connection message differs from suggest's on purpose.
+TEST_WORDING = {
+    ErrorKind.AUTH: lambda e: f"Authentication failed. Check your API key: {e.message}",
+    ErrorKind.RATE_LIMIT: lambda e: f"Rate limited. Try again shortly: {e.message}",
+    ErrorKind.CONNECTION: lambda e: f"Couldn't reach the API: {e.message}",
+    ErrorKind.STATUS: lambda e: f"API error ({e.status_code}): {e.message}",
+}
+assert set(TEST_WORDING) == set(ErrorKind), "TEST_WORDING must cover every ErrorKind"
+
 
 def test():
     """Ping the AI to make sure it's awake."""
     cfg = load_config()
     topic = random.choice(JOKE_TOPICS)
 
+    # test calls complete() directly: it wants a generic completion, not a commit message.
     try:
         with console.status("[grey]Checking systems...", spinner="dots"):
-            test_msg = get_commit_message(
-                diff=f"tell a creative short coding joke about {topic}",
-                system_prompt="only output the joke nothing else. "
-                "be original and avoid cliché jokes.",
-                model=cfg.large_model,
-                max_tokens=cfg.max_tokens,
-                temperature=1.0,
+            joke = complete(
+                "only output the joke nothing else. be original and avoid cliché jokes.",
+                f"tell a creative short coding joke about {topic}",
+                cfg.large_model,
+                cfg.max_tokens,
             )
-    # Same API error pattern as suggest.py, with messages suited to the test context.
-    except KeyboardInterrupt:
-        raise
-    except anthropic.AuthenticationError as error:
-        print(f"Authentication failed. Check your API key: {error.message}")
-        return
-    except anthropic.RateLimitError as error:
-        print(f"Rate limited. Try again shortly: {error.message}")
-        return
-    except anthropic.APIConnectionError as error:
-        print(f"Couldn't reach the API: {error}")
-        return
-    except anthropic.APIStatusError as error:
-        print(f"API error ({error.status_code}): {error.message}")
+    except ProviderError as error:
+        print(TEST_WORDING[error.kind](error))
         return
 
     print("The AI is alive and well.")
-    print(f"It said: {test_msg}")
+    print(f"It said: {joke}")
