@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-05-21
+
+### Changed
+- Bump dependencies for security and maintenance, with no source or behavior changes:
+  - `anthropic` 0.86.0 → 0.103.1
+  - `cryptography` 46.0.6 → 48.0.0
+  - `idna` 3.11 → 3.15
+  - `pygments` 2.19.2 → 2.20.0
+  - `pytest` 9.0.2 → 9.0.3 (dev)
+  - `poetry` 2.3.2 → 2.3.3 (build)
+
 ## [1.0.0] - 2026-03-28
 
 ### Added
@@ -148,7 +159,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - Graceful early exit when no git diff is detected
 
-[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/AccursedGalaxy/noidea/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.4...v1.0.0
 [0.5.4]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.2...v0.5.3
