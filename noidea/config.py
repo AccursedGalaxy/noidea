@@ -10,11 +10,9 @@ from noidea.git import get_git_root
 SERVICE_NAME = "noidea"
 CONFIG_DIR_NAME = ".noidea"
 CONFIG_FILENAME = "config.json"
-KEYS_FILENAME = "keys.json"
 
 CONFIG_DIR = os.path.expanduser(f"~/{CONFIG_DIR_NAME}")
 CONFIG_PATH = os.path.join(CONFIG_DIR, CONFIG_FILENAME)
-KEYS_PATH = os.path.join(CONFIG_DIR, KEYS_FILENAME)
 
 DEFAULTS = {
     "llm": {
@@ -132,36 +130,4 @@ def initialize():
         except OSError as error:
             print(f"Warning: could not write {CONFIG_PATH}: {error}", file=sys.stderr)
 
-    if not os.path.exists(KEYS_PATH):
-        try:
-            with open(KEYS_PATH, "w") as f:
-                json.dump([], f)
-        except OSError as error:
-            print(f"Warning: could not write {KEYS_PATH}: {error}", file=sys.stderr)
-
-
-def save_key(name: str):
-    with open(KEYS_PATH) as f:
-        keys = json.load(f)
-    if name in keys:
-        return False
-    keys.append(name)
-    with open(KEYS_PATH, "w") as f:
-        json.dump(keys, f)
-    return True
-
-
-def remove_key(name: str):
-    with open(KEYS_PATH) as f:
-        keys = json.load(f)
-    if name not in keys:
-        return False
-    keys.remove(name)
-    with open(KEYS_PATH, "w") as f:
-        json.dump(keys, f)
-    return True
-
-
-def list_keys() -> list:
-    with open(KEYS_PATH) as f:
-        return json.load(f)
+    # The API-key registry is owned by key_store, which creates keys.json lazily on first add.

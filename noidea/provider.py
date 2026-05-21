@@ -1,25 +1,18 @@
 """Thin Anthropic API wrapper: key retrieval and commit message generation."""
 
-import os
-
-import keyring
 from anthropic import Anthropic
 from anthropic.types import TextBlock
-from dotenv import load_dotenv
 
-from noidea.config import SERVICE_NAME, Provider
-
-load_dotenv()
+from noidea.config import Provider
+from noidea.key_store import key_store
 
 
 def get_api_key(provider: Provider = Provider.ANTHROPIC) -> str:
-    # Keyring first: credentials stay out of the process environment.
-    key = keyring.get_password(service_name=SERVICE_NAME, username=provider.value)
-    if not key:
-        # Fall back to env var for CI and headless environments.
-        key = os.environ.get("ANTHROPIC_API_KEY")
+    # key_store consults the keyring first, then the ANTHROPIC_API_KEY env var for CI/headless.
+    key = key_store.get(provider.value)
     if not key:
         raise SystemExit("No API key found. Run 'noidea keys add'.")
+    assert isinstance(key, str) and key, "api key must be a non-empty string"
     return key
 
 

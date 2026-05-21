@@ -1,4 +1,3 @@
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -7,24 +6,15 @@ from noidea.provider import get_api_key, get_commit_message
 
 
 class TestGetApiKey:
-    @patch("noidea.provider.keyring")
-    def test_returns_keyring_key_first(self, mock_keyring):
-        mock_keyring.get_password.return_value = "kr-key-123"
+    @patch("noidea.provider.key_store")
+    def test_returns_key_from_store(self, mock_store):
+        mock_store.get.return_value = "kr-key-123"
         assert get_api_key() == "kr-key-123"
-        mock_keyring.get_password.assert_called_once_with(
-            service_name="noidea", username="anthropic"
-        )
+        mock_store.get.assert_called_once_with("anthropic")
 
-    @patch("noidea.provider.keyring")
-    def test_falls_back_to_env_var(self, mock_keyring, monkeypatch):
-        mock_keyring.get_password.return_value = None
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "env-key-456")
-        assert get_api_key() == "env-key-456"
-
-    @patch("noidea.provider.keyring")
-    def test_exits_when_no_key_found(self, mock_keyring, monkeypatch):
-        mock_keyring.get_password.return_value = None
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    @patch("noidea.provider.key_store")
+    def test_exits_when_no_key_found(self, mock_store):
+        mock_store.get.return_value = None
         with pytest.raises(SystemExit):
             get_api_key()
 

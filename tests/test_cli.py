@@ -6,6 +6,7 @@ from typer.testing import CliRunner
 
 from noidea.cli import app
 from noidea.git import DiffResult, HookResult
+from noidea.key_store import KeyStoreError
 
 runner = CliRunner()
 
@@ -220,67 +221,58 @@ class TestSuggestErrors:
 
 
 class TestKeysErrors:
-    """Error paths in keys commands."""
+    """Error paths in keys commands surface as a single KeyStoreError."""
 
     def test_show_keys_file_error(self):
-        with patch("noidea.commands.keys.list_keys", side_effect=OSError("read error")):
+        with patch("noidea.commands.keys.key_store.list", side_effect=KeyStoreError("read error")):
             result = runner.invoke(app, ["keys", "show"])
         assert "Couldn't read keys" in result.output
 
     def test_add_key_keyring_error(self):
-        import keyring.errors
-
-        with (
-            patch(
-                "noidea.commands.keys.keyring.set_password",
-                side_effect=keyring.errors.KeyringError("locked"),
-            ),
-        ):
+        with patch("noidea.commands.keys.key_store.add", side_effect=KeyStoreError("locked")):
             result = runner.invoke(app, ["keys", "add"], input="secret\n")
         assert "Couldn't save the key" in result.output
 
     def test_remove_key_keyring_error(self):
-        import keyring.errors
-
-        with (
-            patch(
-                "noidea.commands.keys.keyring.delete_password",
-                side_effect=keyring.errors.KeyringError("locked"),
-            ),
-        ):
+        with patch("noidea.commands.keys.key_store.remove", side_effect=KeyStoreError("locked")):
             result = runner.invoke(app, ["keys", "remove", "anthropic"])
         assert "Couldn't remove the key" in result.output
 
 
 class TestKeysAdd:
-    @patch("noidea.commands.keys.save_key")
-    @patch("noidea.commands.keys.keyring")
-    def test_add_key(self, mock_keyring, mock_save):
+    @patch("noidea.commands.keys.key_store.add", return_value=True)
+    def test_add_key(self, mock_add):
         result = runner.invoke(app, ["keys", "add"], input="secret-key\n")
         assert result.exit_code == 0
         assert "Key saved" in result.output
-        mock_keyring.set_password.assert_called_once_with(
-            service_name="noidea", username="anthropic", password="secret-key"
-        )
-        mock_save.assert_called_once_with("anthropic")
+        mock_add.assert_called_once_with("anthropic", "secret-key")
+
+    @patch("noidea.commands.keys.key_store.add", return_value=False)
+    def test_add_key_already_exists(self, mock_add):
+        result = runner.invoke(app, ["keys", "add"], input="secret-key\n")
+        assert result.exit_code == 0
+        assert "already have a key" in result.output
 
 
 class TestKeysRemove:
-    @patch("noidea.commands.keys.remove_key")
-    @patch("noidea.commands.keys.keyring")
-    def test_remove_key(self, mock_keyring, mock_remove):
+    @patch("noidea.commands.keys.key_store.remove", return_value=True)
+    def test_remove_key(self, mock_remove):
         result = runner.invoke(app, ["keys", "remove", "anthropic"])
         assert result.exit_code == 0
         assert "Key removed" in result.output
-        mock_keyring.delete_password.assert_called_once_with(
-            service_name="noidea", username="anthropic"
-        )
         mock_remove.assert_called_once_with("anthropic")
+
+    @patch("noidea.commands.keys.key_store.remove", return_value=False)
+    def test_remove_key_not_found(self, mock_remove):
+        result = runner.invoke(app, ["keys", "remove", "anthropic"])
+        assert result.exit_code == 0
+        assert "Key not found" in result.output
 
 
 class TestKeysList:
-    @patch("noidea.commands.keys.list_keys")
+    @patch("noidea.commands.keys.key_store.list", return_value=["anthropic"])
     def test_list_keys(self, mock_list):
         result = runner.invoke(app, ["keys", "show"])
         assert result.exit_code == 0
+        assert "anthropic" in result.output
         mock_list.assert_called_once()
