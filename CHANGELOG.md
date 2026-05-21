@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Introduce a `key_store` module that owns both API-key stores (the OS keyring secret and the `keys.json` registry) behind one interface (`add`/`remove`/`list`/`get`/`status_of`). `add` and `remove` now write both stores together and roll back on partial failure, so a failed operation leaves no half-written state. `provider.py`, `commands/keys.py`, and `commands/status.py` call this interface and no longer import `keyring` directly; the key-registry functions move out of `config.py`. Tests back the keyring with an in-memory fake instead of mocking the OS keyring.
+
 ## [1.0.1] - 2026-05-21
 
 ### Fixed

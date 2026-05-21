@@ -1,13 +1,11 @@
-import json
 import os
 
-import keyring
-import keyring.errors
 from rich.console import Console
 
 from noidea import __version__
-from noidea.config import CONFIG_PATH, SERVICE_NAME, list_keys, load_config
+from noidea.config import CONFIG_PATH, SERVICE_NAME, load_config
 from noidea.git import HOOK_NAME, get_git_root, get_hooks_dir
+from noidea.key_store import KeyStatus, KeyStoreError, key_store
 
 console = Console(stderr=True)
 
@@ -62,19 +60,16 @@ def _check_config() -> tuple[dict, dict]:
 
 def _check_api_keys():
     try:
-        keys = list_keys()
-        if keys:
-            for key in keys:
-                stored = keyring.get_password(SERVICE_NAME, key)
-                if stored:
-                    console.print(f"API Key:        {OK} {key} (keyring)")
-                else:
-                    console.print(
-                        f"API Key:        {FAIL} {key} registered but missing from keyring"
-                    )
-        else:
+        keys = key_store.list()
+        if not keys:
             console.print(f"API Key:        {FAIL} no key found (run 'noidea keys add')")
-    except (OSError, json.JSONDecodeError, keyring.errors.KeyringError):
+            return
+        for key in keys:
+            if key_store.status_of(key) is KeyStatus.PRESENT:
+                console.print(f"API Key:        {OK} {key} (keyring)")
+            else:
+                console.print(f"API Key:        {FAIL} {key} registered but missing from keyring")
+    except KeyStoreError:
         console.print(f"API Key:        {FAIL} could not read keys")
 
 

@@ -5,10 +5,7 @@ from noidea.config import (
     DEFAULTS,
     deep_merge,
     initialize,
-    list_keys,
     load_config,
-    remove_key,
-    save_key,
     validate_config,
 )
 
@@ -18,7 +15,6 @@ def _patch_paths(tmp_path):
     return (
         patch("noidea.config.CONFIG_DIR", str(tmp_path)),
         patch("noidea.config.CONFIG_PATH", str(tmp_path / "config.json")),
-        patch("noidea.config.KEYS_PATH", str(tmp_path / "keys.json")),
     )
 
 
@@ -56,8 +52,8 @@ class TestDeepMerge:
 
 
 def test_load_config_returns_defaults_after_initialize(tmp_path):
-    p1, p2, p3 = _patch_paths(tmp_path)
-    with p1, p2, p3, _patch_no_repo():
+    p1, p2 = _patch_paths(tmp_path)
+    with p1, p2, _patch_no_repo():
         initialize()
         result = load_config()
 
@@ -118,8 +114,8 @@ def test_load_config_repo_partial_override(tmp_path):
 
 
 def test_load_config_defaults_have_all_expected_keys(tmp_path):
-    p1, p2, p3 = _patch_paths(tmp_path)
-    with p1, p2, p3, _patch_no_repo():
+    p1, p2 = _patch_paths(tmp_path)
+    with p1, p2, _patch_no_repo():
         initialize()
         result = load_config()
 
@@ -128,65 +124,6 @@ def test_load_config_defaults_have_all_expected_keys(tmp_path):
     assert "context_limit" in result["llm"]
     assert "system_prompt" in result["llm"]
     assert "max_tokens" in result["llm"]
-
-
-class TestSaveKey:
-    def test_save_key_creates_new_file(self, tmp_path):
-        p1, p2, p3 = _patch_paths(tmp_path)
-        with p1, p2, p3:
-            initialize()
-            save_key("Anthropic")
-
-        with open(tmp_path / "keys.json") as f:
-            assert json.load(f) == ["Anthropic"]
-
-    def test_save_key_appends_to_existing(self, tmp_path):
-        keys_file = tmp_path / "keys.json"
-        keys_file.write_text(json.dumps(["Anthropic"]))
-
-        with patch("noidea.config.KEYS_PATH", str(keys_file)):
-            save_key("OpenAI")
-
-        with open(keys_file) as f:
-            assert json.load(f) == ["Anthropic", "OpenAI"]
-
-
-class TestRemoveKey:
-    def test_remove_key_removes_from_list(self, tmp_path):
-        keys_file = tmp_path / "keys.json"
-        keys_file.write_text(json.dumps(["Anthropic", "OpenAI"]))
-
-        with patch("noidea.config.KEYS_PATH", str(keys_file)):
-            remove_key("Anthropic")
-
-        with open(keys_file) as f:
-            assert json.load(f) == ["OpenAI"]
-
-    def test_remove_key_missing_key_does_nothing(self, tmp_path):
-        p1, p2, p3 = _patch_paths(tmp_path)
-        with p1, p2, p3:
-            initialize()
-            result = remove_key("Anthropic")  # key not in list, should not raise
-        assert result is False
-
-
-class TestListKeys:
-    def test_list_keys_prints_keys(self, tmp_path):
-        keys_file = tmp_path / "keys.json"
-        keys_file.write_text(json.dumps(["Anthropic"]))
-
-        with patch("noidea.config.KEYS_PATH", str(keys_file)):
-            result = list_keys()
-
-        assert "Anthropic" in result
-
-    def test_list_keys_empty_after_initialize(self, tmp_path):
-        p1, p2, p3 = _patch_paths(tmp_path)
-        with p1, p2, p3:
-            initialize()
-            result = list_keys()
-
-        assert result == []
 
 
 class TestValidateConfig:
@@ -263,7 +200,6 @@ class TestInitializeErrors:
             patch("noidea.config.CONFIG_DIR", str(tmp_path / "no" / "way")),
             patch("noidea.config.os.makedirs", side_effect=OSError("Permission denied")),
             patch("noidea.config.CONFIG_PATH", str(tmp_path / "config.json")),
-            patch("noidea.config.KEYS_PATH", str(tmp_path / "keys.json")),
         ):
             initialize()
 
@@ -272,8 +208,8 @@ class TestInitializeErrors:
         assert "Permission denied" in captured.err
 
     def test_config_write_failure_prints_warning(self, tmp_path, capsys):
-        p1, p2, p3 = _patch_paths(tmp_path)
-        with p1, p2, p3:
+        p1, p2 = _patch_paths(tmp_path)
+        with p1, p2:
             # Create dir but make config write fail.
             with patch("builtins.open", side_effect=OSError("Disk full")):
                 initialize()
