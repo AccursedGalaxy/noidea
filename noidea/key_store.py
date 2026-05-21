@@ -5,6 +5,10 @@ enumerates the provider names. This module owns the coordination between them â€
 name has a keyring secret and vice-versa â€” so callers never touch keyring or the registry directly.
 """
 
+# Defer annotation evaluation: the `list` method below shadows the builtin `list`, which would
+# otherwise break `-> list[str]` annotations at class-definition time on Python < 3.14.
+from __future__ import annotations
+
 import json
 import os
 from enum import Enum
