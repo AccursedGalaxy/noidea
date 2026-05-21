@@ -1,15 +1,31 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
-import anthropic
 from typer.testing import CliRunner
 
 from noidea.cli import app
 from noidea.config import LlmConfig
 from noidea.git import DiffResult, HookResult
 from noidea.key_store import KeyStoreError
+from noidea.provider import ErrorKind, ProviderError
 
 runner = CliRunner()
+
+
+class TestBuildUserContent:
+    """Prompt assembly is pure — testable without touching the API."""
+
+    def test_assembles_branch_files_and_diff(self):
+        from noidea.commands.suggest import _build_user_content
+
+        result = _build_user_content("+ added x", "feature/x", ["a.py", "b.py"])
+        assert result == ("Branch: feature/x\nStaged files:\n- a.py\n- b.py\n\nDiff:\n+ added x")
+
+    def test_empty_branch_and_files_returns_just_diff(self):
+        from noidea.commands.suggest import _build_user_content
+
+        # The test command path: no git context, so the content is the diff alone.
+        assert _build_user_content("+ added x", "", []) == "+ added x"
 
 
 class TestVersion:
@@ -29,7 +45,7 @@ class TestInit:
 
 
 class TestSuggest:
-    @patch("noidea.commands.suggest.get_commit_message", return_value="fix: patch bug")
+    @patch("noidea.commands.suggest.complete", return_value="fix: patch bug")
     @patch(
         "noidea.commands.suggest.load_config",
         return_value=LlmConfig(system_prompt="gen msg"),
@@ -61,7 +77,7 @@ class TestSuggest:
         assert result.exit_code == 0
         assert "empty diff" in result.output.lower()
 
-    @patch("noidea.commands.suggest.get_commit_message", return_value="feat: new thing")
+    @patch("noidea.commands.suggest.complete", return_value="feat: new thing")
     @patch(
         "noidea.commands.suggest.load_config",
         return_value=LlmConfig(system_prompt="gen msg"),
@@ -77,7 +93,7 @@ class TestSuggest:
         with open(outfile) as f:
             assert f.read() == "feat: new thing"
 
-    @patch("noidea.commands.suggest.get_commit_message", return_value="fix: thing")
+    @patch("noidea.commands.suggest.complete", return_value="fix: thing")
     @patch("noidea.commands.suggest.get_branch_name", return_value="main")
     @patch("noidea.commands.suggest.get_staged_files", return_value=["file.py"])
     @patch("noidea.commands.suggest.load_config", return_value=LlmConfig())
@@ -95,7 +111,7 @@ class TestSuggest:
 
 
 class TestTestCommand:
-    @patch("noidea.commands.test.get_commit_message", return_value="hello!")
+    @patch("noidea.commands.test.complete", return_value="hello!")
     def test_test_success(self, mock_commit):
         result = runner.invoke(app, ["test"])
         assert result.exit_code == 0
@@ -103,8 +119,8 @@ class TestTestCommand:
         assert "hello!" in result.output
 
     @patch(
-        "noidea.commands.test.get_commit_message",
-        side_effect=anthropic.APIConnectionError(request=None),
+        "noidea.commands.test.complete",
+        side_effect=ProviderError(ErrorKind.CONNECTION, "network down"),
     )
     def test_test_failure(self, mock_commit):
         result = runner.invoke(app, ["test"])
@@ -162,28 +178,24 @@ class TestSuggestErrors:
                     **self._SUGGEST_MOCKS["noidea.commands.suggest.get_diff"],
                 }
             ),
-            patch("noidea.commands.suggest.get_commit_message", side_effect=error),
+            patch("noidea.commands.suggest.complete", side_effect=error),
             patch("noidea.commands.suggest.get_branch_name", return_value="main"),
             patch("noidea.commands.suggest.get_staged_files", return_value=["file.py"]),
         ):
             return runner.invoke(app, ["suggest"])
 
     def test_suggest_auth_error(self):
-        error = anthropic.AuthenticationError(
-            message="bad key", response=MagicMock(status_code=401), body={}
-        )
+        error = ProviderError(ErrorKind.AUTH, "bad key")
         result = self._invoke_suggest_with_api_error(error)
         assert "Authentication failed" in result.output
 
     def test_suggest_rate_limit_error(self):
-        error = anthropic.RateLimitError(
-            message="slow down", response=MagicMock(status_code=429), body={}
-        )
+        error = ProviderError(ErrorKind.RATE_LIMIT, "slow down")
         result = self._invoke_suggest_with_api_error(error)
         assert "Rate limited" in result.output
 
     def test_suggest_connection_error(self):
-        error = anthropic.APIConnectionError(request=None)
+        error = ProviderError(ErrorKind.CONNECTION, "network down")
         result = self._invoke_suggest_with_api_error(error)
         assert "Could not connect" in result.output
 
@@ -202,7 +214,7 @@ class TestSuggestErrors:
                     **self._SUGGEST_MOCKS["noidea.commands.suggest.get_diff"],
                 }
             ),
-            patch("noidea.commands.suggest.get_commit_message", return_value="feat: stuff"),
+            patch("noidea.commands.suggest.complete", return_value="feat: stuff"),
             patch("noidea.commands.suggest.get_branch_name", return_value="main"),
             patch("noidea.commands.suggest.get_staged_files", return_value=["file.py"]),
         ):
@@ -214,7 +226,10 @@ class TestKeysErrors:
     """Error paths in keys commands surface as a single KeyStoreError."""
 
     def test_show_keys_file_error(self):
-        with patch("noidea.commands.keys.key_store.list", side_effect=KeyStoreError("read error")):
+        with patch(
+            "noidea.commands.keys.key_store.list",
+            side_effect=KeyStoreError("read error"),
+        ):
             result = runner.invoke(app, ["keys", "show"])
         assert "Couldn't read keys" in result.output
 
