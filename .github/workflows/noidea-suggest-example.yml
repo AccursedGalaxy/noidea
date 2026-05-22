@@ -1,0 +1,40 @@
+# Example: noidea GitHub Action
+#
+# Copy this file into your own repo's .github/workflows/ and set the
+# ANTHROPIC_API_KEY (or your chosen provider's key) in repo secrets.
+#
+# This copy is for documentation purposes — it runs on workflow_dispatch only
+# so it does not fire on every PR in the noidea repo itself.
+
+name: AI commit suggestion (example)
+
+on:
+  workflow_dispatch:    # remove this line and uncomment below to activate
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
+
+jobs:
+  suggest:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write   # required to post the PR comment
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # full history lets noidea learn your repo's style
+
+      - name: Generate and post commit message suggestion
+        uses: AccursedGalaxy/noidea@main
+        with:
+          # Paste your provider key into Settings → Secrets → Actions
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          # Switch providers by changing this one line:
+          #   anthropic (default) | openai | groq | deepseek | gemini | ollama
+          provider: anthropic
+
+          # Optional: pin a specific model instead of using cost-aware auto-routing
+          # model: claude-haiku-4-5
+
+          # Set to 'false' to suppress the PR comment and only use the output
+          post-comment: 'true'
