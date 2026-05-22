@@ -7,6 +7,7 @@ collapse their SDK's exception hierarchy into one ProviderError here, so callers
 error type and never import a provider SDK.
 """
 
+import re
 from enum import Enum
 
 import anthropic
@@ -54,6 +55,13 @@ _DEFAULT_BASE_URLS = {
 # string, so we pass a harmless placeholder that the local backend ignores.
 _NO_KEY_PROVIDERS = {"ollama"}
 
+# OpenAI reasoning models (o-series, gpt-5) reject max_tokens and any non-default temperature;
+# they require max_completion_tokens instead. This name pattern is an OpenAI-only *hint* that lets
+# us map parameters up front and skip a wasted round-trip — it is not the correctness guarantee.
+# The structured-error retry in _create_with_param_fallback is; see issue #29. The 'chat' exclusion
+# keeps gpt-5-chat-latest (a non-reasoning endpoint) on the standard path.
+_REASONING_NAME_PATTERN = re.compile(r"^(o\d|gpt-5)")
+
 
 def get_api_key(provider: str = "anthropic") -> str:
     # key_store consults the keyring first, then the provider's *_API_KEY env var for CI/headless.
@@ -83,9 +91,13 @@ def complete(
     if not isinstance(model, str) or not model.strip():
         raise ValueError("model must be a non-empty string")
     if not isinstance(max_tokens, int) or max_tokens <= 0:
-        raise TypeError(f"max_tokens must be a positive integer, got {type(max_tokens).__name__}")
+        raise TypeError(
+            f"max_tokens must be a positive integer, got {type(max_tokens).__name__}"
+        )
     if not isinstance(temperature, (int, float)) or temperature < 0:
-        raise TypeError(f"temperature must be a non-negative number, got {temperature!r}")
+        raise TypeError(
+            f"temperature must be a non-negative number, got {temperature!r}"
+        )
     assert isinstance(provider, str) and provider, "provider must be a non-empty string"
     assert isinstance(base_url, str), "base_url must be a string"
 
@@ -104,7 +116,9 @@ def _complete_anthropic(
 ) -> str:
     """Anthropic transport: build a client, translate its errors to one ProviderError."""
     assert isinstance(model, str) and model, "model must be a non-empty string"
-    assert isinstance(max_tokens, int) and max_tokens > 0, "max_tokens must be a positive int"
+    assert isinstance(max_tokens, int) and max_tokens > 0, (
+        "max_tokens must be a positive int"
+    )
     client = Anthropic(api_key=get_api_key())
     # Specific kinds first; APIError is the catch-all base last.
     try:
@@ -122,7 +136,9 @@ def _complete_anthropic(
     except anthropic.APIConnectionError as error:
         raise ProviderError(ErrorKind.CONNECTION, str(error)) from error
     except anthropic.APIStatusError as error:
-        raise ProviderError(ErrorKind.STATUS, error.message, error.status_code) from error
+        raise ProviderError(
+            ErrorKind.STATUS, error.message, error.status_code
+        ) from error
     except anthropic.APIError as error:
         raise ProviderError(ErrorKind.STATUS, str(error)) from error
     block = message.content[0]
@@ -130,6 +146,118 @@ def _complete_anthropic(
     if not isinstance(block, TextBlock):
         raise TypeError(f"Expected TextBlock, got {type(block).__name__}")
     return block.text
+
+
+def _is_reasoning_model(model: str) -> bool:
+    """True for an OpenAI reasoning model name (o-series or gpt-5, excluding the chat endpoint).
+
+    A name *hint* only: the caller still gates this on provider == 'openai', and the real
+    correctness guarantee is the structured-error retry, not this match. See issue #29.
+    """
+    assert isinstance(model, str) and model, "model must be a non-empty string"
+    name = model.lower()
+    result = bool(_REASONING_NAME_PATTERN.match(name)) and "chat" not in name
+    assert isinstance(result, bool), "result must be a bool"
+    return result
+
+
+def _build_completion_kwargs(
+    messages: list, model: str, max_tokens: int, temperature: float, *, reasoning: bool
+) -> dict:
+    """Map a completion call to a provider's parameter dialect — the one place the split lives.
+
+    Reasoning models take max_completion_tokens and reject temperature; every other model takes
+    the classic max_tokens + temperature pair. See issue #29.
+    """
+    assert isinstance(model, str) and model, "model must be a non-empty string"
+    assert isinstance(max_tokens, int) and max_tokens > 0, (
+        "max_tokens must be a positive int"
+    )
+    kwargs: dict = {"model": model, "messages": messages}
+    if reasoning:
+        kwargs["max_completion_tokens"] = max_tokens
+    else:
+        kwargs["max_tokens"] = max_tokens
+        kwargs["temperature"] = temperature
+    assert "max_tokens" in kwargs or "max_completion_tokens" in kwargs, (
+        "must request output tokens"
+    )
+    return kwargs
+
+
+def _create_with_param_fallback(
+    client,
+    model: str,
+    messages: list,
+    max_tokens: int,
+    temperature: float,
+    *,
+    reasoning: bool,
+):
+    """Create a chat completion, collapsing openai's exception hierarchy into one ProviderError.
+
+    A reasoning model the name hint missed rejects max_tokens with a structured 400; flip to
+    reasoning params and retry once. The retry keys off the error, not the provider, so it
+    self-corrects for any compat backend, not just OpenAI. See issue #29.
+    """
+    import openai
+
+    assert isinstance(reasoning, bool), "reasoning must be a bool"
+    kwargs = _build_completion_kwargs(
+        messages, model, max_tokens, temperature, reasoning=reasoning
+    )
+    try:
+        return client.chat.completions.create(**kwargs)
+    except openai.AuthenticationError as error:
+        raise ProviderError(ErrorKind.AUTH, str(error)) from error
+    except openai.RateLimitError as error:
+        raise ProviderError(ErrorKind.RATE_LIMIT, str(error)) from error
+    except openai.APIConnectionError as error:
+        raise ProviderError(ErrorKind.CONNECTION, str(error)) from error
+    except openai.BadRequestError as error:
+        # BadRequestError subclasses APIStatusError, so this clause must precede the generic one.
+        unsupported = error.code == "unsupported_parameter" or error.param in (
+            "max_tokens",
+            "temperature",
+        )
+        if reasoning or not unsupported:
+            raise ProviderError(
+                ErrorKind.STATUS, str(error), error.status_code
+            ) from error
+        retry_kwargs = _build_completion_kwargs(
+            messages, model, max_tokens, temperature, reasoning=True
+        )
+        try:
+            return client.chat.completions.create(**retry_kwargs)
+        except openai.OpenAIError as retry_error:
+            # The reasoning-param retry also failed; collapse it rather than leak a raw SDK error.
+            raise ProviderError(ErrorKind.STATUS, str(retry_error)) from retry_error
+    except openai.APIStatusError as error:
+        raise ProviderError(ErrorKind.STATUS, str(error), error.status_code) from error
+    except openai.OpenAIError as error:
+        raise ProviderError(ErrorKind.STATUS, str(error)) from error
+
+
+def _extract_text(response) -> str:
+    """Pull the text completion, mapping an empty or budget-starved response to a ProviderError.
+
+    An empty completion is a provider failure, not a Python type error: callers only catch
+    ProviderError, so leaking anything else would crash them with an unhandled traceback.
+    """
+    assert response.choices, "response must contain at least one choice"
+    choice = response.choices[0]
+    content = choice.message.content
+    if isinstance(content, str) and content:
+        return content
+    # A length finish with no text means the token budget was spent before any visible output —
+    # typical when a reasoning model burns it all on hidden reasoning tokens — so name the fix.
+    if choice.finish_reason == "length":
+        raise ProviderError(
+            ErrorKind.STATUS,
+            "The model produced no text before exhausting its token budget. Raise llm.max_tokens"
+            " — reasoning models also spend it on hidden reasoning tokens.",
+        )
+    raise ProviderError(ErrorKind.STATUS, "The provider returned an empty completion.")
 
 
 def _complete_openai_compat(
@@ -146,35 +274,20 @@ def _complete_openai_compat(
     assert isinstance(base_url, str), "base_url must be a string"
     # openai is a core dependency, imported lazily so the Anthropic default path never pays
     # its import cost. A missing openai is an install fault, not a runtime error to handle.
-    import openai
     from openai import OpenAI
 
     # base_url precedence: explicit config > per-provider default > the SDK's own default (None).
     resolved_base_url = base_url or _DEFAULT_BASE_URLS.get(provider, "")
     api_key = "ollama" if provider in _NO_KEY_PROVIDERS else get_api_key(provider)
     client = OpenAI(api_key=api_key, base_url=resolved_base_url or None)
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-    except openai.AuthenticationError as error:
-        raise ProviderError(ErrorKind.AUTH, str(error)) from error
-    except openai.RateLimitError as error:
-        raise ProviderError(ErrorKind.RATE_LIMIT, str(error)) from error
-    except openai.APIConnectionError as error:
-        raise ProviderError(ErrorKind.CONNECTION, str(error)) from error
-    except openai.APIStatusError as error:
-        raise ProviderError(ErrorKind.STATUS, str(error), error.status_code) from error
-    except openai.OpenAIError as error:
-        raise ProviderError(ErrorKind.STATUS, str(error)) from error
-    content = response.choices[0].message.content
-    # A compat backend can return None or a non-string when no text was produced.
-    if not isinstance(content, str) or not content:
-        raise TypeError(f"Expected a text completion, got {type(content).__name__}")
-    return content
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    # The name hint is an OpenAI-only optimization; the retry inside the fallback is what makes a
+    # missed reasoning model still work. See issue #29.
+    reasoning = provider == "openai" and _is_reasoning_model(model)
+    response = _create_with_param_fallback(
+        client, model, messages, max_tokens, temperature, reasoning=reasoning
+    )
+    return _extract_text(response)
