@@ -187,6 +187,63 @@ class TestSuggest:
         assert "feat: thing" in result.output  # the mocked message still flows through
         assert "Repo commit conventions:" not in mock_complete.call_args.args[1]
 
+    @patch("noidea.commands.suggest.complete", return_value="fix: x")
+    @patch("noidea.commands.suggest.get_branch_name", return_value="main")
+    @patch("noidea.commands.suggest.get_staged_files", return_value=["a.py"])
+    @patch("noidea.commands.suggest.load_config", return_value=LlmConfig())
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ tiny"),
+    )
+    @patch("noidea.commands.suggest.get_recent_commits", return_value=[])
+    def test_suggest_announces_small_model_routing(
+        self, mock_log, mock_diff, mock_config, mock_staged, mock_branch, mock_complete
+    ):
+        # A tiny diff stays on the fast/cheap model, and the routing is made visible.
+        result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 0
+        assert "Small diff" in result.output
+        assert "claude-haiku-4-5" in result.output
+
+    @patch("noidea.commands.suggest.complete", return_value="feat: big")
+    @patch("noidea.commands.suggest.get_branch_name", return_value="main")
+    @patch("noidea.commands.suggest.get_staged_files", return_value=["a.py"])
+    @patch(
+        "noidea.commands.suggest.load_config",
+        return_value=LlmConfig(context_limit=1.0),
+    )
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ a substantial change"),
+    )
+    @patch("noidea.commands.suggest.get_recent_commits", return_value=[])
+    def test_suggest_announces_escalation_routing(
+        self, mock_log, mock_diff, mock_config, mock_staged, mock_branch, mock_complete
+    ):
+        # A diff over the threshold escalates to the strong model, and that is announced.
+        result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 0
+        assert "escalating" in result.output
+        assert "claude-sonnet-4-6" in result.output
+
+    @patch("noidea.commands.suggest.complete", return_value="fix: thing")
+    @patch("noidea.commands.suggest.get_branch_name", return_value="main")
+    @patch("noidea.commands.suggest.get_staged_files", return_value=["a.py"])
+    @patch("noidea.commands.suggest.load_config", return_value=LlmConfig())
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ change"),
+    )
+    @patch("noidea.commands.suggest.get_recent_commits", return_value=[])
+    def test_suggest_suppresses_routing_notice_when_model_forced(
+        self, mock_log, mock_diff, mock_config, mock_staged, mock_branch, mock_complete
+    ):
+        # --model forces a single model, so there is no routing decision to report.
+        result = runner.invoke(app, ["suggest", "--model", "claude-opus-4-7"])
+        assert result.exit_code == 0
+        assert "Small diff" not in result.output
+        assert "escalating" not in result.output
+
 
 class TestTestCommand:
     @patch("noidea.commands.test.complete", return_value="hello!")
