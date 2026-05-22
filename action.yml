@@ -1,8 +1,7 @@
 name: 'noidea — AI commit message suggestion'
-description: >
-  Generates an AI commit message suggestion for your PR diff and optionally
-  posts it as a PR comment. Supports Anthropic, OpenAI, Ollama, Gemini,
-  DeepSeek, and Groq — switching is a one-line input change.
+description: >-
+  AI commit messages for your PR diffs. Posts as PR comments. Supports
+  Anthropic, OpenAI, Ollama, Gemini, DeepSeek, and Groq.
 author: 'AccursedGalaxy'
 
 branding:
