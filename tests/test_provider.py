@@ -208,6 +208,42 @@ class TestCompleteDispatch:
             complete("s", "u", "m", 10, provider="not-a-provider")
 
 
+class TestProviderTablesStayInSync:
+    """Guard against drift between the Provider enum and the routing tables. Adding a provider
+    to the enum without wiring it into every table fails loudly here, not silently at runtime."""
+
+    def _provider_values(self) -> set[str]:
+        from noidea.config import Provider
+
+        values = {member.value for member in Provider}
+        assert "anthropic" in values, "anthropic must stay the default provider"
+        return values
+
+    def test_every_non_anthropic_provider_is_openai_compat(self):
+        # An enum member not in _OPENAI_COMPAT would be accepted by config but raise
+        # "unknown provider" inside complete(); a stray compat entry would never be reachable.
+        from noidea.provider import _OPENAI_COMPAT
+
+        assert self._provider_values() - {"anthropic"} == _OPENAI_COMPAT
+
+    def test_default_base_urls_only_name_compat_providers(self):
+        from noidea.provider import _DEFAULT_BASE_URLS, _OPENAI_COMPAT
+
+        assert set(_DEFAULT_BASE_URLS).issubset(_OPENAI_COMPAT)
+
+    def test_no_key_providers_are_known_providers(self):
+        from noidea.provider import _NO_KEY_PROVIDERS
+
+        assert _NO_KEY_PROVIDERS.issubset(self._provider_values())
+
+    def test_every_key_needing_provider_has_an_env_var(self):
+        # Miss an entry here and the keyring→env-var fallback silently never fires for it.
+        from noidea.key_store import _PROVIDER_ENV_VARS
+        from noidea.provider import _NO_KEY_PROVIDERS
+
+        assert self._provider_values() - _NO_KEY_PROVIDERS == set(_PROVIDER_ENV_VARS)
+
+
 class TestCompleteOpenAiCompatErrors:
     """complete() collapses openai's exception hierarchy into one ProviderError, like anthropic's."""
 

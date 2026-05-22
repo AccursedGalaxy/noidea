@@ -144,14 +144,11 @@ def _complete_openai_compat(
     """Shared transport for the OpenAI-compatible providers; one error ladder serves all of them."""
     assert provider in _OPENAI_COMPAT, "provider must be an OpenAI-compatible provider"
     assert isinstance(base_url, str), "base_url must be a string"
-    try:
-        import openai
-        from openai import OpenAI
-    except ImportError as error:
-        raise ProviderError(
-            ErrorKind.STATUS,
-            "The 'openai' package is required for this provider. Run 'pip install openai'.",
-        ) from error
+    # openai is a core dependency, imported lazily so the Anthropic default path never pays
+    # its import cost. A missing openai is an install fault, not a runtime error to handle.
+    import openai
+    from openai import OpenAI
+
     # base_url precedence: explicit config > per-provider default > the SDK's own default (None).
     resolved_base_url = base_url or _DEFAULT_BASE_URLS.get(provider, "")
     api_key = "ollama" if provider in _NO_KEY_PROVIDERS else get_api_key(provider)
