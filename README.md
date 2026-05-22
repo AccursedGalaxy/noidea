@@ -74,7 +74,7 @@ Set `provider` in your config (see [Config](#config)) to route every request to 
 
 Set `base_url` to override the endpoint — e.g. point `openai` at a self-hosted vLLM server. Remember to also set `small_model`/`large_model` to models the provider actually serves (e.g. `"small_model": "llama3.2"` for Ollama).
 
-> **Note:** the OpenAI-compatible path sends `max_tokens`, so it targets standard chat models (e.g. `gpt-4o`, `llama3.2`). OpenAI's reasoning models (the `o1`/`o3`/`gpt-5` family) reject `max_tokens` in favour of `max_completion_tokens` and are not yet supported — pick a chat model for `small_model`/`large_model`.
+> **Reasoning models:** OpenAI's reasoning models (the `o1`/`o3`/`gpt-5` family) are supported. They take `max_completion_tokens` instead of `max_tokens` and ignore `temperature`; noidea maps the parameters automatically and, for any provider, recovers if a model unexpectedly rejects `max_tokens`. Note that reasoning models spend part of the token budget on hidden reasoning, so a low `max_tokens` may leave no room for the message — raise `llm.max_tokens` if you get an empty-completion error.
 
 ## Commands
 
