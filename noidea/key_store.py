@@ -25,7 +25,15 @@ load_dotenv()
 KEYS_FILENAME = "keys.json"
 KEYS_PATH = os.path.join(CONFIG_DIR, KEYS_FILENAME)
 
-ANTHROPIC_ENV_VAR = "ANTHROPIC_API_KEY"
+# The env var each provider's key falls back to, for CI/headless use. Ollama is absent on
+# purpose: it needs no key, so it never reads one. This table is the only provider→env-var map.
+_PROVIDER_ENV_VARS = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "groq": "GROQ_API_KEY",
+}
 
 
 class KeyStoreError(Exception):
@@ -100,11 +108,14 @@ class KeyStore:
         return names
 
     def get(self, provider: str) -> str | None:
-        """Return the secret from the keyring, falling back to the env var for Anthropic."""
+        """Return the keyring secret, falling back to the provider's env var if it has one."""
         assert isinstance(provider, str) and provider, "provider must be a non-empty string"
         secret = self._read_secret(provider)
-        if not secret and provider == "anthropic":
-            secret = os.environ.get(ANTHROPIC_ENV_VAR)
+        if not secret:
+            # No keyless provider (e.g. ollama) is in the table, so it never reads an env var.
+            env_var = _PROVIDER_ENV_VARS.get(provider)
+            if env_var:
+                secret = os.environ.get(env_var)
         assert secret is None or isinstance(secret, str), "secret must be a string or None"
         return secret
 

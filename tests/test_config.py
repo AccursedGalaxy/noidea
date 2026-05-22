@@ -19,6 +19,33 @@ class TestLlmConfig:
         # The differentiator ships on by default so every user gets repo-matched messages.
         assert LlmConfig().learn_commit_style is True
 
+    def test_provider_defaults_to_anthropic(self):
+        # Backward compatible: an unconfigured install keeps talking to Anthropic.
+        cfg = LlmConfig()
+        assert cfg.provider == "anthropic"
+        assert cfg.base_url == ""
+
+    def test_from_dict_picks_up_provider_and_base_url(self):
+        cfg = LlmConfig.from_dict({"provider": "ollama", "base_url": "http://host:11434/v1"})
+        assert cfg.provider == "ollama"
+        assert cfg.base_url == "http://host:11434/v1"
+
+    def test_from_dict_rejects_non_str_provider(self, capsys):
+        cfg = LlmConfig.from_dict({"provider": 123})
+        assert cfg.provider == "anthropic"
+        assert "Warning" in capsys.readouterr().err
+
+    def test_from_dict_rejects_unknown_provider(self, capsys):
+        # A hand-edited typo must be coerced back to the default and warned, not carried
+        # forward to crash later inside complete() with an uncaught ValueError.
+        cfg = LlmConfig.from_dict({"provider": "claude"})
+        assert cfg.provider == "anthropic"
+        assert "Warning" in capsys.readouterr().err
+
+    def test_from_dict_accepts_every_known_provider(self):
+        for name in ("anthropic", "openai", "ollama", "gemini", "deepseek", "groq"):
+            assert LlmConfig.from_dict({"provider": name}).provider == name
+
     def test_from_dict_keeps_valid_value(self):
         cfg = LlmConfig.from_dict({"max_tokens": 512})
         assert cfg.max_tokens == 512

@@ -21,7 +21,7 @@ def show():
 
 @keys_app.command()
 def add(provider: Provider = typer.Argument(default=Provider.ANTHROPIC)):
-    """Stash an API key in your keyring."""
+    """Stash an API key in your keyring. Ollama is local and needs no key — skip this for it."""
     try:
         key = typer.prompt("Enter your key:", hide_input=True)
         if key_store.add(provider.value, key):

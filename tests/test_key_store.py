@@ -37,6 +37,28 @@ class TestAddAndGet:
         store = _make_store(tmp_path)
         assert store.get("anthropic") == "env-key-456"
 
+    def test_get_falls_back_to_env_var_for_openai(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-789")
+        store = _make_store(tmp_path)
+        assert store.get("openai") == "sk-openai-789"
+
+    def test_get_falls_back_to_env_var_for_groq(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("GROQ_API_KEY", "gsk-groq-1")
+        store = _make_store(tmp_path)
+        assert store.get("groq") == "gsk-groq-1"
+
+    def test_get_returns_none_for_keyless_ollama(self, tmp_path, monkeypatch):
+        # Ollama needs no key, so it has no env var and never reads one.
+        monkeypatch.setenv("OLLAMA_API_KEY", "should-be-ignored")
+        store = _make_store(tmp_path)
+        assert store.get("ollama") is None
+
+    def test_keyring_secret_wins_over_env_var(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "env-loses")
+        store = _make_store(tmp_path)
+        store.add("openai", "keyring-wins")
+        assert store.get("openai") == "keyring-wins"
+
 
 class TestList:
     def test_list_is_empty_for_fresh_store(self, tmp_path):

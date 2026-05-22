@@ -92,6 +92,8 @@ def _generate_message(
                 model,
                 cfg.max_tokens,
                 cfg.temperature,
+                provider=cfg.provider,
+                base_url=cfg.base_url,
             )
     except ProviderError as error:
         print(SUGGEST_WORDING[error.kind](error))
