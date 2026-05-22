@@ -4,7 +4,7 @@
 
 **Because you shouldn't have to think about commit messages.**
 
-Stages your diff, sends it to an AI, and pre-fills your commit editor — so you never have to write a commit message again.
+*Python-native AI commit message generator — hooks into `git commit`, learns your repo's voice, routes small diffs to cheap models. No Node.js required.*
 
 [![PyPI](https://img.shields.io/pypi/v/noidea?style=flat-square&color=blue)](https://pypi.org/project/noidea/)
 [![Downloads](https://img.shields.io/pypi/dm/noidea?style=flat-square&color=green)](https://pypi.org/project/noidea/)
@@ -21,12 +21,25 @@ Stages your diff, sends it to an AI, and pre-fills your commit editor — so you
 
 ## Why noidea?
 
-There are plenty of AI commit tools. noidea is the one that fits the way you already work:
+Most AI commit message tools require Node.js, generate the same boilerplate every time, and run as a separate command you have to remember to call. noidea is a Python-native alternative that works differently in the ways that actually matter:
 
 - **Writes in your repo's voice, not generic AI boilerplate.** Before generating, noidea reads how your repo already commits — its scope vocabulary, body habits, subject length, gitmoji or not — and matches it. Your history stays consistent instead of looking like a bot dropped in.
 - **Spends pennies and milliseconds on trivial commits.** Small diffs go to a fast, cheap model; only substantial changes escalate to the strong one — automatically, and it tells you which it chose. No paying premium rates to commit a typo fix.
 - **Never auto-commits — you always get the last word.** It pre-fills your editor on `git commit`. No new command to remember, no message committed behind your back. Edit or delete it like any draft.
 - **Terminal-native and private by design.** A small, MIT-licensed Python CLI built to a strict [safety-first style guide](STYLE.md). Your diffs go straight to your chosen model and nowhere else.
+
+### How noidea compares
+
+|  | **noidea** | opencommit | aicommits | gptcommit |
+|--|--|--|--|--|
+| **Install** | `pipx install noidea` | `npm i -g opencommit` | `npm i -g aicommits` | `cargo` / `brew` |
+| **Language** | Python | Node.js | Node.js | Rust |
+| Hooks into `git commit` | ✅ | ✅ | ✅ | ✅ |
+| Learns your repo's style | ✅ | ❌ | ❌ | ❌ |
+| Cost-aware model routing | ✅ | ❌ | ❌ | ❌ |
+| Multi-provider (6+) | ✅ | ✅ | ✅ | partial |
+| No Node.js required | ✅ | ❌ | ❌ | ✅ |
+| GitHub Action | ✅ | ❌ | ❌ | ❌ |
 
 ## Quick Start
 
@@ -94,6 +107,33 @@ Set `base_url` to override the endpoint — e.g. point `openai` at a self-hosted
 -F, --file TEXT    Write message to file instead of stdout (used by the hook)
 -M, --model TEXT   Override the model used for generation
 ```
+
+## GitHub Action
+
+noidea is also a [GitHub Action](https://github.com/marketplace/actions/noidea-ai-commit-message-suggestion). Add it to any repo and get AI-suggested commit messages posted as PR comments automatically.
+
+```yaml
+# .github/workflows/noidea-suggest.yml
+name: AI commit suggestion
+on: [pull_request]
+
+jobs:
+  suggest:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: AccursedGalaxy/noidea@main
+        with:
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          provider: anthropic        # or openai, groq, deepseek, gemini, ollama
+          post-comment: 'true'
+```
+
+Switch to a free local model with `provider: ollama` and no `api-key` — no cost, no key rotation.
 
 ## Config
 
