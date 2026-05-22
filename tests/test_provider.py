@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import anthropic
+import httpx
 import pytest
 
 from noidea.provider import ErrorKind, ProviderError, complete, get_api_key
@@ -82,7 +83,7 @@ class TestCompleteErrors:
         assert exc.value.kind is ErrorKind.RATE_LIMIT
 
     def test_connection_error_maps_to_connection_kind(self):
-        error = anthropic.APIConnectionError(request=None)
+        error = anthropic.APIConnectionError(request=httpx.Request("POST", "http://test"))
         with pytest.raises(ProviderError) as exc:
             self._complete_raising(error)
         assert exc.value.kind is ErrorKind.CONNECTION
@@ -98,7 +99,7 @@ class TestCompleteErrors:
 
     def test_unknown_api_error_falls_through_to_status_kind(self):
         # Any anthropic.APIError not matched above must still not leak past the seam.
-        error = anthropic.APIError("boom", request=None, body=None)
+        error = anthropic.APIError("boom", request=httpx.Request("POST", "http://test"), body=None)
         with pytest.raises(ProviderError) as exc:
             self._complete_raising(error)
         assert exc.value.kind is ErrorKind.STATUS
@@ -125,7 +126,8 @@ class TestCompleteValidation:
 
     def test_rejects_non_int_max_tokens(self):
         with pytest.raises(TypeError, match="max_tokens"):
-            complete("system", "user", "model", "100")
+            # The str is the point: the runtime guard must reject a non-int max_tokens.
+            complete("system", "user", "model", "100")  # type: ignore[arg-type]
 
     def test_rejects_zero_max_tokens(self):
         with pytest.raises(TypeError, match="max_tokens"):

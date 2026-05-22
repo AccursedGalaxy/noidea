@@ -97,9 +97,7 @@ def _strip_binary_hunks(diff_text: str) -> str:
 def get_diff() -> DiffResult:
     try:
         # text=False: binary diffs contain non-UTF-8 bytes that crash text mode.
-        result = subprocess.run(
-            ["git", "diff", "--staged"], capture_output=True, check=True
-        )
+        result = subprocess.run(["git", "diff", "--staged"], capture_output=True, check=True)
 
         if not result.stdout:
             return DiffResult(has_changes=False)

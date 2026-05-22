@@ -143,8 +143,7 @@ def test_get_diff_strips_binary_and_survives_bad_bytes():
     mock_result = MagicMock()
     # Invalid UTF-8 byte (0xff) plus a binary hunk: must not crash.
     mock_result.stdout = (
-        b"diff --git a/logo.png b/logo.png\n"
-        b"Binary files a/logo.png and b/logo.png differ\xff\n"
+        b"diff --git a/logo.png b/logo.png\n" b"Binary files a/logo.png and b/logo.png differ\xff\n"
     )
     with patch("noidea.git.subprocess.run", return_value=mock_result):
         result = get_diff()

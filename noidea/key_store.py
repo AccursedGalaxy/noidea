@@ -14,6 +14,7 @@ import os
 from enum import Enum
 
 import keyring
+import keyring.errors  # Explicit import so `keyring.errors.*` resolves under static analysis.
 from dotenv import load_dotenv
 
 from noidea.config import CONFIG_DIR, SERVICE_NAME
