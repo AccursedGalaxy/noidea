@@ -59,6 +59,23 @@ def _learn_style(cfg: LlmConfig) -> str:
     return profile_text
 
 
+def _print_routing_notice(cfg: LlmConfig, selected_model: str) -> None:
+    """Surface the cost-aware routing decision so its value is felt, not buried in config.
+
+    Printed to stderr (the message itself goes to stdout / the hook file), so it never
+    pollutes what the hook consumes. The caller skips it when --model forces a single
+    model, since then there is no routing decision to report.
+    """
+    assert isinstance(cfg, LlmConfig), "cfg must be an LlmConfig"
+    assert isinstance(selected_model, str) and selected_model, "selected_model must be non-empty"
+    if selected_model == cfg.small_model:
+        console.print(f"[dim]Small diff → {selected_model} · fast & cheap[/dim]")
+    else:
+        console.print(
+            f"[dim]Large change → escalating to {selected_model} · the strong model[/dim]"
+        )
+
+
 def _generate_message(
     diff, cfg: LlmConfig, model, branch, staged_files, profile_text
 ) -> str | None:
@@ -111,6 +128,9 @@ def suggest(
     context_length_chars = len(cfg.system_prompt) + len(diff.diff)
 
     selected_model = cfg.select_model(context_length_chars)
+    # Show the routing decision, except when --model forced a single model (no decision made).
+    if not model:
+        _print_routing_notice(cfg, selected_model)
 
     commit_message = _generate_message(
         diff.diff, cfg, selected_model, branch, staged_files, profile_text

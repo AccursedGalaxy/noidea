@@ -19,6 +19,15 @@ Stages your diff, sends it to an AI, and pre-fills your commit editor — so you
 
 ---
 
+## Why noidea?
+
+There are plenty of AI commit tools. noidea is the one that fits the way you already work:
+
+- **Writes in your repo's voice, not generic AI boilerplate.** Before generating, noidea reads how your repo already commits — its scope vocabulary, body habits, subject length, gitmoji or not — and matches it. Your history stays consistent instead of looking like a bot dropped in.
+- **Spends pennies and milliseconds on trivial commits.** Small diffs go to a fast, cheap model; only substantial changes escalate to the strong one — automatically, and it tells you which it chose. No paying premium rates to commit a typo fix.
+- **Never auto-commits — you always get the last word.** It pre-fills your editor on `git commit`. No new command to remember, no message committed behind your back. Edit or delete it like any draft.
+- **Terminal-native and private by design.** A small, MIT-licensed Python CLI built to a strict [safety-first style guide](STYLE.md). Your diffs go straight to your chosen model and nowhere else.
+
 ## Quick Start
 
 ```bash
