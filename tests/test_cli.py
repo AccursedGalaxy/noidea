@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 
 from noidea.cli import app
 from noidea.config import LlmConfig
-from noidea.git import DiffResult, HookResult
+from noidea.git import Commit, DiffResult, HookResult
 from noidea.key_store import KeyStoreError
 from noidea.provider import ErrorKind, ProviderError
 
@@ -26,6 +26,23 @@ class TestBuildUserContent:
 
         # The test command path: no git context, so the content is the diff alone.
         assert _build_user_content("+ added x", "", []) == "+ added x"
+
+    def test_includes_repo_conventions_when_profile_present(self):
+        from noidea.commands.suggest import _build_user_content
+
+        # When style learning produced guidance, it appears before the diff so the model
+        # reads the repo's conventions alongside the change.
+        result = _build_user_content(
+            "+ added x", "main", ["a.py"], "Repo commit conventions:\n- keep it terse"
+        )
+        assert "Repo commit conventions:\n- keep it terse" in result
+        assert result.index("Repo commit conventions:") < result.index("Diff:")
+
+    def test_omits_conventions_when_profile_absent(self):
+        from noidea.commands.suggest import _build_user_content
+
+        result = _build_user_content("+ added x", "main", ["a.py"], "")
+        assert "Repo commit conventions:" not in result
 
 
 class TestVersion:
@@ -108,6 +125,67 @@ class TestSuggest:
         result = runner.invoke(app, ["suggest", "--model", "claude-opus-4-7"])
         assert result.exit_code == 0
         assert mock_commit.call_args.args[2] == "claude-opus-4-7"
+
+    @patch("noidea.commands.suggest.complete", return_value="feat: thing")
+    @patch("noidea.commands.suggest.get_branch_name", return_value="main")
+    @patch("noidea.commands.suggest.get_staged_files", return_value=["a.py"])
+    @patch("noidea.commands.suggest.load_config", return_value=LlmConfig())
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ change"),
+    )
+    @patch(
+        "noidea.commands.suggest.get_recent_commits",
+        return_value=[Commit(f"feat(cli): change {i}", "") for i in range(6)],
+    )
+    def test_suggest_injects_learned_style_into_prompt(
+        self, mock_log, mock_diff, mock_config, mock_staged, mock_branch, mock_complete
+    ):
+        # With style learning on and real history, the model sees the repo's conventions.
+        result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 0
+        user_content = mock_complete.call_args.args[1]
+        assert "Repo commit conventions:" in user_content
+        assert "cli" in user_content  # the repo's observed scope is surfaced
+
+    @patch("noidea.commands.suggest.complete", return_value="feat: thing")
+    @patch("noidea.commands.suggest.get_branch_name", return_value="main")
+    @patch("noidea.commands.suggest.get_staged_files", return_value=["a.py"])
+    @patch(
+        "noidea.commands.suggest.load_config",
+        return_value=LlmConfig(learn_commit_style=False),
+    )
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ change"),
+    )
+    @patch("noidea.commands.suggest.get_recent_commits")
+    def test_suggest_skips_style_learning_when_disabled(
+        self, mock_log, mock_diff, mock_config, mock_staged, mock_branch, mock_complete
+    ):
+        # The kill-switch must avoid the git-log work entirely, not just drop the section.
+        result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 0
+        mock_log.assert_not_called()
+        assert "Repo commit conventions:" not in mock_complete.call_args.args[1]
+
+    @patch("noidea.commands.suggest.complete", return_value="feat: thing")
+    @patch("noidea.commands.suggest.get_branch_name", return_value="main")
+    @patch("noidea.commands.suggest.get_staged_files", return_value=["a.py"])
+    @patch("noidea.commands.suggest.load_config", return_value=LlmConfig())
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ change"),
+    )
+    @patch("noidea.commands.suggest.get_recent_commits", return_value=[])
+    def test_suggest_degrades_when_no_history(
+        self, mock_log, mock_diff, mock_config, mock_staged, mock_branch, mock_complete
+    ):
+        # Thin/shallow history yields no profile; suggest still works, just without the section.
+        result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 0
+        assert "feat: thing" in result.output  # the mocked message still flows through
+        assert "Repo commit conventions:" not in mock_complete.call_args.args[1]
 
 
 class TestTestCommand:

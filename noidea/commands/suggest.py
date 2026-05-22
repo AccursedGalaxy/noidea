@@ -4,8 +4,9 @@ import typer
 from rich.console import Console
 
 from noidea.config import LlmConfig, load_config
-from noidea.git import get_branch_name, get_diff, get_staged_files
+from noidea.git import get_branch_name, get_diff, get_recent_commits, get_staged_files
 from noidea.provider import ErrorKind, ProviderError, complete
+from noidea.style import SAMPLE_SIZE, analyze_commits, render_profile
 
 console = Console(stderr=True)
 
@@ -20,15 +21,21 @@ SUGGEST_WORDING = {
 assert set(SUGGEST_WORDING) == set(ErrorKind), "SUGGEST_WORDING must cover every ErrorKind"
 
 
-def _build_user_content(diff: str, branch: str, staged_files: list[str]) -> str:
+def _build_user_content(
+    diff: str, branch: str, staged_files: list[str], profile_text: str = ""
+) -> str:
     """Assemble the user message from git context. The only commit-specific logic, kept pure."""
     assert isinstance(diff, str), "diff must be a string"
     assert isinstance(staged_files, list), "staged_files must be a list"
+    assert isinstance(profile_text, str), "profile_text must be a string"
     context_parts = []
     if branch:
         context_parts.append(f"Branch: {branch}")
     if staged_files:
         context_parts.append("Staged files:\n" + "\n".join(f"- {f}" for f in staged_files))
+    # The learned conventions sit with the other context, before the diff.
+    if profile_text:
+        context_parts.append(profile_text)
     user_content = ""
     if context_parts:
         user_content = "\n".join(context_parts) + "\n\nDiff:\n"
@@ -37,11 +44,28 @@ def _build_user_content(diff: str, branch: str, staged_files: list[str]) -> str:
     return user_content
 
 
-def _generate_message(diff, cfg: LlmConfig, model, branch, staged_files) -> str | None:
+def _learn_style(cfg: LlmConfig) -> str:
+    """Distil the repo's commit conventions into a prompt block, or "" if off/insufficient.
+
+    Best-effort: get_recent_commits never raises and analyze_commits returns None below the
+    minimum sample, so this degrades to "" (today's behavior) rather than blocking a commit.
+    """
+    assert isinstance(cfg, LlmConfig), "cfg must be an LlmConfig"
+    if not cfg.learn_commit_style:
+        return ""
+    profile = analyze_commits(get_recent_commits(SAMPLE_SIZE))
+    profile_text = render_profile(profile) if profile is not None else ""
+    assert isinstance(profile_text, str), "profile_text must be a string"
+    return profile_text
+
+
+def _generate_message(
+    diff, cfg: LlmConfig, model, branch, staged_files, profile_text
+) -> str | None:
     """Call the API and return the commit message, or None on a handled provider error."""
     assert isinstance(cfg, LlmConfig), "cfg must be an LlmConfig"
     assert isinstance(model, str) and model, "model must be a non-empty string"
-    user_content = _build_user_content(diff, branch, staged_files)
+    user_content = _build_user_content(diff, branch, staged_files, profile_text)
     # complete() raises one ProviderError; wording per kind stays local to this command.
     try:
         with console.status("[grey]Thinking of something clever...", spinner="dots"):
@@ -81,13 +105,16 @@ def suggest(
 
     branch = get_branch_name()
     staged_files = get_staged_files()
+    profile_text = _learn_style(cfg)
     # Character count, not tokens: real tokenization needs the API, but char
     # count is cheap and sufficient for choosing between small and large model.
     context_length_chars = len(cfg.system_prompt) + len(diff.diff)
 
     selected_model = cfg.select_model(context_length_chars)
 
-    commit_message = _generate_message(diff.diff, cfg, selected_model, branch, staged_files)
+    commit_message = _generate_message(
+        diff.diff, cfg, selected_model, branch, staged_files, profile_text
+    )
     if commit_message is None:
         return
 
