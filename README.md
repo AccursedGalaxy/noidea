@@ -39,15 +39,40 @@ That's it. Every `git commit` now opens your editor with a suggested message pre
 
 > Requires [pipx](https://pipx.pypa.io). Alternatively: `pip install noidea`
 
+Works with **Claude, GPT, and local Ollama models** (plus Gemini, DeepSeek, Groq) — switching is a one-line config change, see [Multi-provider](#multi-provider). Want to try it with zero setup and no API key? Point it at a local Ollama model.
+
 ## API Key Setup
 
-noidea needs an Anthropic API key. Three options (checked in order):
+By default noidea uses Anthropic (Claude). The key is looked up in three places, in order:
 
 | Method | Command |
 |--------|---------|
 | **Keyring** (recommended) | `noidea keys add` |
 | **Environment variable** | `export ANTHROPIC_API_KEY=sk-ant-...` |
 | **`.env` file** | `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file |
+
+Other providers follow the same pattern with their own env var (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `GROQ_API_KEY`) or `noidea keys add <provider>`.
+
+**Ollama needs no key.** It runs locally, so once `provider` is set to `ollama` (below) you can generate commit messages with nothing else configured.
+
+### Multi-provider
+
+Set `provider` in your config (see [Config](#config)) to route every request to a different backend — no code change, no extra install:
+
+```json
+{ "llm": { "provider": "ollama" } }
+```
+
+| `provider` | Needs a key? | Default endpoint |
+|------------|--------------|------------------|
+| `anthropic` (default) | yes | Anthropic SDK default |
+| `openai` | yes | OpenAI SDK default |
+| `ollama` | **no** | `http://localhost:11434/v1` |
+| `gemini` | yes | Google's OpenAI-compatible endpoint |
+| `deepseek` | yes | `https://api.deepseek.com` |
+| `groq` | yes | `https://api.groq.com/openai/v1` |
+
+Set `base_url` to override the endpoint — e.g. point `openai` at a self-hosted vLLM server. Remember to also set `small_model`/`large_model` to models the provider actually serves (e.g. `"small_model": "llama3.2"` for Ollama).
 
 ## Commands
 
@@ -86,6 +111,8 @@ Precedence: built-in defaults → user config → repo config.
     "context_limit": 600000,
     "temperature": 1.0,
     "learn_commit_style": true,
+    "provider": "anthropic",
+    "base_url": "",
     "system_prompt": "Your custom prompt here"
   }
 }
@@ -104,4 +131,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines. Thi
 ## Requirements
 
 - Python 3.10+
-- Anthropic API key
+- An LLM provider: an Anthropic, OpenAI, Gemini, DeepSeek, or Groq API key — or a local [Ollama](https://ollama.com) install (no key needed)

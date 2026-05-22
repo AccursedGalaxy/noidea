@@ -49,6 +49,8 @@ def test():
                 f"tell a creative short coding joke about {topic}",
                 cfg.large_model,
                 cfg.max_tokens,
+                provider=cfg.provider,
+                base_url=cfg.base_url,
             )
     except ProviderError as error:
         print(TEST_WORDING[error.kind](error))

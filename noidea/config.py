@@ -31,6 +31,11 @@ _DEFAULT_SYSTEM_PROMPT = (
 
 class Provider(str, Enum):
     ANTHROPIC = "anthropic"
+    OPENAI = "openai"
+    OLLAMA = "ollama"
+    GEMINI = "gemini"
+    DEEPSEEK = "deepseek"
+    GROQ = "groq"
 
 
 @dataclass(frozen=True)
@@ -49,6 +54,8 @@ class LlmConfig:
     system_prompt: str = _DEFAULT_SYSTEM_PROMPT
     temperature: float = 1.0
     learn_commit_style: bool = True  # Match the repo's observed commit conventions.
+    provider: str = "anthropic"  # Which backend complete() dispatches to; see provider.py.
+    base_url: str = ""  # Overrides the per-provider default endpoint (e.g. a custom vLLM host).
 
     def __post_init__(self):
         # The pair to from_dict's pre-construction type check: assert the invariants
@@ -62,6 +69,8 @@ class LlmConfig:
         assert isinstance(self.temperature, (int, float))
         assert not isinstance(self.temperature, bool)
         assert isinstance(self.learn_commit_style, bool)
+        assert isinstance(self.provider, str)
+        assert isinstance(self.base_url, str)
 
     @classmethod
     def from_dict(cls, data: dict) -> "LlmConfig":
@@ -85,6 +94,16 @@ class LlmConfig:
                     file=sys.stderr,
                 )
                 values[spec.name] = default
+        # A type-valid but unknown provider (a hand-edited typo) is coerced back to the default
+        # here, so it warns now rather than crashing later inside complete() with a raw ValueError.
+        known_providers = {member.value for member in Provider}
+        if values["provider"] not in known_providers:
+            print(
+                f"Warning: llm.provider {values['provider']!r} is not a known provider,"
+                " using default.",
+                file=sys.stderr,
+            )
+            values["provider"] = defaults.provider
         result = cls(**values)
         assert isinstance(result, LlmConfig), "from_dict must return an LlmConfig"
         return result
