@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-05-22
+
+### Added
+- **Repo-native commit style learning** (`learn_commit_style`, on by default): before generating, noidea samples recent `git log` and infers the repo's own conventions — scope vocabulary, whether commits carry a body, typical subject length, and gitmoji usage — then conditions the prompt on them so suggestions read like the project's existing commits rather than generic boilerplate. Activates once a repo has at least 5 commits and degrades to default behaviour below that; set `"learn_commit_style": false` to disable. Sees through gitmoji prefixes (`:shortcode:` and leading emoji with variation selectors / ZWJ / skin-tone modifiers) when detecting conventional-commit subjects.
+- **Visible cost-aware model routing**: `noidea suggest` now reports which model tier it selected and why (`small diff → fast & cheap` / `large change → escalating to the strong model`), printed to stderr so the `prepare-commit-msg` hook still consumes only the message. Suppressed when `--model` forces a single model.
+- A "Why noidea?" section in the README leading with the project's differentiators.
+
+### Changed
+- PyPI discoverability metadata: keyword-rich `description`, `keywords`, full `classifiers`, and `[project.urls]`; license modernised to the SPDX `MIT` expression.
+
 ## [1.0.2] - 2026-05-22
 
 ### Changed
