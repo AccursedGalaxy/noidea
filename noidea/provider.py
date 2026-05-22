@@ -203,6 +203,7 @@ def _create_with_param_fallback(
     import openai
 
     assert isinstance(reasoning, bool), "reasoning must be a bool"
+    assert isinstance(messages, list) and messages, "messages must be a non-empty list"
     kwargs = _build_completion_kwargs(
         messages, model, max_tokens, temperature, reasoning=reasoning
     )
@@ -216,6 +217,10 @@ def _create_with_param_fallback(
         raise ProviderError(ErrorKind.CONNECTION, str(error)) from error
     except openai.BadRequestError as error:
         # BadRequestError subclasses APIStatusError, so this clause must precede the generic one.
+        # We also accept the bare param name, not just code == "unsupported_parameter", so the
+        # retry survives the SDK changing or dropping the code; the cost is that an unrelated 400
+        # naming these params (e.g. an out-of-range max_tokens) triggers one wasted retry that
+        # then collapses to ProviderError anyway.
         unsupported = error.code == "unsupported_parameter" or error.param in (
             "max_tokens",
             "temperature",
@@ -247,6 +252,9 @@ def _extract_text(response) -> str:
     assert response.choices, "response must contain at least one choice"
     choice = response.choices[0]
     content = choice.message.content
+    assert content is None or isinstance(content, str), (
+        "content must be a string or None"
+    )
     if isinstance(content, str) and content:
         return content
     # A length finish with no text means the token budget was spent before any visible output —
