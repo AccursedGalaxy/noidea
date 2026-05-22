@@ -28,8 +28,14 @@ _CONVENTIONAL_RE = re.compile(r"^(\w+)(?:\(([^)]+)\))?!?: ")
 
 # A gitmoji prefix: either a :shortcode: or a leading emoji from the common emoji blocks
 # (misc symbols/dingbats U+2600-27BF, misc symbols-and-arrows U+2B00-2BFF, and the
-# supplementary emoji plane U+1F000-1FAFF that covers most gitmoji).
-_GITMOJI_RE = re.compile(r"^\s*(?::[a-z0-9_+-]+:|[☀-➿⬀-⯿\U0001f000-\U0001faff])")
+# supplementary emoji plane U+1F000-1FAFF that covers most gitmoji). The base emoji may carry
+# trailing variation selectors / ZWJ / skin-tone modifiers (e.g. ♻️, ⚡️), which we consume so
+# the conventional check downstream sees a clean type, not an invisible leading codepoint.
+# U+FE0E/U+FE0F variation selectors, U+200D zero-width joiner, U+1F3FB-1F3FF skin tones.
+_GITMOJI_RE = re.compile(
+    r"^\s*(?::[a-z0-9_+-]+:"
+    r"|[☀-➿⬀-⯿\U0001f000-\U0001faff][\ufe0e\ufe0f\u200d\U0001f3fb-\U0001f3ff]*)"
+)
 
 # A repo "uses gitmoji" only when the habit is dominant, not when one commit slipped one in.
 _GITMOJI_RATIO_MIN = 0.5
@@ -42,6 +48,20 @@ CONVENTIONAL_THRESHOLD = 0.7
 # does; between, we state the observed share rather than push either way.
 _BODY_RATIO_HIGH = 0.5
 _BODY_RATIO_LOW = 0.15
+
+
+def _strip_gitmoji_prefix(subject: str) -> str:
+    """Drop a leading gitmoji (emoji or :shortcode:) and its trailing space from a subject.
+
+    A subject like '✨ feat(cli): x' is conventional underneath the emoji, but \\w in the
+    conventional regex cannot match an emoji, so we peel the prefix off first. Subjects with
+    no gitmoji are returned unchanged.
+    """
+    assert isinstance(subject, str), "subject must be a string"
+    match = _GITMOJI_RE.match(subject)
+    stripped = subject[match.end() :].lstrip() if match else subject
+    assert isinstance(stripped, str), "stripped subject must be a string"
+    return stripped
 
 
 def _median_int(values: list[int]) -> int:
@@ -93,7 +113,9 @@ def analyze_commits(commits: list[Commit]) -> StyleProfile | None:
             body_count += 1
         if _GITMOJI_RE.match(commit.subject):
             gitmoji_count += 1
-        match = _CONVENTIONAL_RE.match(commit.subject)
+        # Peel any leading gitmoji first so a '✨ feat(cli): x' subject still reads as
+        # conventional and its scope is captured, instead of being scored as plain.
+        match = _CONVENTIONAL_RE.match(_strip_gitmoji_prefix(commit.subject))
         if match:
             conventional_count += 1
             scope = match.group(2)

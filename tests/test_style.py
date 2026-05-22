@@ -1,5 +1,7 @@
 """Tests for repo-native commit style learning: analysis and rendering."""
 
+from dataclasses import replace
+
 from noidea.git import Commit
 from noidea.style import StyleProfile, analyze_commits, render_profile
 
@@ -102,17 +104,36 @@ def test_gitmoji_repo_is_recognized():
     assert plain_profile is not None and plain_profile.uses_gitmoji is False
 
 
+def test_gitmoji_prefix_does_not_hide_conventional_structure():
+    """A repo that uses gitmoji AND conventional commits is recognized as both: the
+    leading gitmoji must not stop the conventional type/scope from being detected."""
+    commits = [
+        Commit("✨ feat(cli): add suggest command", ""),
+        Commit("🐛 fix(provider): handle rate limits", ""),
+        Commit(":rocket: chore(release): cut 1.0.3", ""),
+        Commit("✨ feat(cli): add status output", ""),
+        Commit("♻️ refactor(config): collapse merge", ""),
+    ]
+
+    profile = analyze_commits(commits)
+
+    assert profile is not None
+    # The gitmoji prefix is stripped before the conventional check, so every subject counts.
+    assert profile.conventional_ratio == 1.0
+    assert profile.uses_gitmoji is True
+    assert set(profile.scopes) == {"cli", "provider", "release", "config"}
+
+
 def _profile(**overrides) -> StyleProfile:
     """A StyleProfile with sane defaults, overridable per render test."""
-    base = dict(
+    base = StyleProfile(
         scopes=(),
         conventional_ratio=1.0,
         body_ratio=0.0,
         subject_length_chars_median=50,
         uses_gitmoji=False,
     )
-    base.update(overrides)
-    return StyleProfile(**base)
+    return replace(base, **overrides)
 
 
 def test_render_conventional_repo_instructs_conventional_format_with_scopes():
