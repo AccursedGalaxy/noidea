@@ -48,6 +48,7 @@ class LlmConfig:
     context_limit: float = 600000.0  # Character threshold for model selection, not a token limit.
     system_prompt: str = _DEFAULT_SYSTEM_PROMPT
     temperature: float = 1.0
+    learn_commit_style: bool = True  # Match the repo's observed commit conventions.
 
     def __post_init__(self):
         # The pair to from_dict's pre-construction type check: assert the invariants
@@ -60,6 +61,7 @@ class LlmConfig:
         assert isinstance(self.system_prompt, str)
         assert isinstance(self.temperature, (int, float))
         assert not isinstance(self.temperature, bool)
+        assert isinstance(self.learn_commit_style, bool)
 
     @classmethod
     def from_dict(cls, data: dict) -> "LlmConfig":
@@ -98,7 +100,10 @@ class LlmConfig:
 
 def _matches_default_type(value, default) -> bool:
     """True if ``value`` is type-compatible with ``default`` (numeric defaults accept int/float)."""
-    # bool is an int subclass but is never a valid config value, so reject it up front.
+    # A bool default (e.g. learn_commit_style) accepts only a bool.
+    if isinstance(default, bool):
+        return isinstance(value, bool)
+    # bool is an int subclass but is never a valid value for a numeric/str field, so reject it.
     if isinstance(value, bool):
         return False
     if isinstance(default, float):
@@ -156,7 +161,10 @@ def load_config() -> LlmConfig:
     llm_section = config.get("llm")
     if not isinstance(llm_section, dict):
         # A non-dict llm section is corrupt; fall back to an all-default config.
-        print("Warning: config 'llm' section is not a dict, using defaults.", file=sys.stderr)
+        print(
+            "Warning: config 'llm' section is not a dict, using defaults.",
+            file=sys.stderr,
+        )
         llm_section = {}
     cfg = LlmConfig.from_dict(llm_section)
     assert isinstance(cfg, LlmConfig), "load_config must return an LlmConfig"

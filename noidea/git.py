@@ -7,6 +7,14 @@ from dataclasses import dataclass
 
 
 @dataclass
+class Commit:
+    """One sampled commit, split into its subject line and the remaining body."""
+
+    subject: str
+    body: str = ""
+
+
+@dataclass
 class DiffResult:
     has_changes: bool
     diff: str = ""
@@ -52,6 +60,50 @@ def get_branch_name() -> str:
         check=False,
     )
     return result.stdout.strip()
+
+
+# git log format separators: US (0x1f) between subject and body, RS (0x1e) between records.
+# These bytes never occur in commit text, so they parse unambiguously.
+_FIELD_SEP = "\x1f"
+_RECORD_SEP = "\x1e"
+
+
+def get_recent_commits(count: int) -> list[Commit]:
+    """Return up to ``count`` recent non-merge commits as Commit objects (subject + body).
+
+    Best-effort like the other wrappers: any failure (shallow clone, git missing, parse
+    surprise) returns an empty list rather than raising, so the commit hook never breaks.
+    """
+    assert isinstance(count, int) and count > 0, "count must be a positive integer"
+    # check=False + catching FileNotFoundError: a degraded result must fall back to no style
+    # profile, never abort a commit. git missing entirely is just another empty result.
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "log",
+                "-n",
+                str(count),
+                "--no-merges",
+                f"--format=%s{_FIELD_SEP}%b{_RECORD_SEP}",
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return []
+    if result.returncode != 0:
+        return []
+    commits: list[Commit] = []
+    for record in result.stdout.split(_RECORD_SEP):
+        record = record.strip("\n")
+        if not record:
+            continue
+        subject, _, body = record.partition(_FIELD_SEP)
+        commits.append(Commit(subject=subject.strip(), body=body.strip()))
+    assert isinstance(commits, list), "get_recent_commits must return a list"
+    return commits
 
 
 def get_staged_files() -> list[str]:

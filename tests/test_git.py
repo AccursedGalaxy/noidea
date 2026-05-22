@@ -1,7 +1,48 @@
 import os
 from unittest.mock import MagicMock, patch
 
-from noidea.git import _strip_binary_hunks, get_diff, get_hooks_dir, install_hook
+from noidea.git import (
+    Commit,
+    _strip_binary_hunks,
+    get_diff,
+    get_hooks_dir,
+    get_recent_commits,
+    install_hook,
+)
+
+
+def test_get_recent_commits_parses_subjects_and_bodies():
+    """Recent commits are parsed into Commit objects with subject and body split out,
+    so the style analysis can read them without knowing the git log format."""
+    # Records terminated by 0x1e; subject and body separated by 0x1f (matches the format).
+    stdout = (
+        "feat(cli): add suggest\x1fwhy it was added\nmore detail\x1e"
+        "fix: handle empty diff\x1f\x1e"
+    )
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = stdout
+
+    with patch("noidea.git.subprocess.run", return_value=mock_result):
+        commits = get_recent_commits(50)
+
+    assert commits == [
+        Commit("feat(cli): add suggest", "why it was added\nmore detail"),
+        Commit("fix: handle empty diff", ""),
+    ]
+
+
+def test_get_recent_commits_degrades_to_empty_and_never_raises():
+    """Any failure (git error exit, or git not installed) yields an empty list rather
+    than raising, because the prepare-commit-msg hook aborts the commit on a crash."""
+    failed = MagicMock()
+    failed.returncode = 128
+    failed.stdout = ""
+    with patch("noidea.git.subprocess.run", return_value=failed):
+        assert get_recent_commits(50) == []
+
+    with patch("noidea.git.subprocess.run", side_effect=FileNotFoundError("git missing")):
+        assert get_recent_commits(50) == []
 
 
 def test_get_diff_nothing_staged():

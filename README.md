@@ -76,12 +76,17 @@ Precedence: built-in defaults → user config → repo config.
     "large_model": "claude-sonnet-4-6",
     "context_limit": 600000,
     "temperature": 1.0,
+    "learn_commit_style": true,
     "system_prompt": "Your custom prompt here"
   }
 }
 ```
 
 Falls back to built-in defaults if no config file exists. The default prompt follows conventional commits style (`feat`/`fix`/`refactor`/etc.) with a 72-character subject line limit. Smaller diffs use `small_model` (Haiku) for speed; larger diffs automatically switch to `large_model` (Sonnet). `temperature` controls output creativity (0.0–1.0); the default of `1.0` maximises variety.
+
+### Repo-native style learning
+
+`learn_commit_style` (on by default) samples your recent `git log` and matches the repo's own conventions — its scope vocabulary, whether commits carry a body, typical subject length, and gitmoji usage — so suggestions read like your project's existing commits rather than generic boilerplate. It activates automatically once a repo has at least 5 commits; below that it stays out of the way. Set `"learn_commit_style": false` to disable it.
 
 ## Contributing
 

@@ -15,6 +15,10 @@ class TestLlmConfig:
         assert cfg.max_tokens == 1024
         assert cfg.small_model == "claude-haiku-4-5"
 
+    def test_learn_commit_style_defaults_on(self):
+        # The differentiator ships on by default so every user gets repo-matched messages.
+        assert LlmConfig().learn_commit_style is True
+
     def test_from_dict_keeps_valid_value(self):
         cfg = LlmConfig.from_dict({"max_tokens": 512})
         assert cfg.max_tokens == 512
@@ -44,6 +48,17 @@ class TestLlmConfig:
         # bool is an int subclass but is never a valid numeric config value.
         cfg = LlmConfig.from_dict({"max_tokens": True})
         assert cfg.max_tokens == 1024
+
+    def test_from_dict_accepts_bool_for_learn_commit_style(self):
+        # The kill-switch is a real bool field, so an explicit false must be honored.
+        cfg = LlmConfig.from_dict({"learn_commit_style": False})
+        assert cfg.learn_commit_style is False
+
+    def test_from_dict_rejects_non_bool_learn_commit_style(self, capsys):
+        # A wrong-typed kill-switch falls back to the default with a warning, like any field.
+        cfg = LlmConfig.from_dict({"learn_commit_style": "yes"})
+        assert cfg.learn_commit_style is True
+        assert "Warning" in capsys.readouterr().err
 
     def test_select_model_small_below_limit(self):
         cfg = LlmConfig(context_limit=100)
