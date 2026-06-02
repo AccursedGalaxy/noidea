@@ -33,6 +33,7 @@ _PROVIDER_ENV_VARS = {
     "gemini": "GEMINI_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
     "groq": "GROQ_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
 }
 
 
@@ -44,7 +45,9 @@ class KeyStatus(Enum):
     """The reconciliation state of a provider across the two stores."""
 
     PRESENT = "present"  # Registered and the keyring holds its secret.
-    MISSING_SECRET = "missing_secret"  # Registered but the keyring has no secret (drift).
+    MISSING_SECRET = (
+        "missing_secret"  # Registered but the keyring has no secret (drift).
+    )
     UNREGISTERED = "unregistered"  # Not in the registry at all.
 
 
@@ -53,7 +56,9 @@ class KeyStore:
 
     def __init__(self, keyring_backend, registry_path: str):
         assert keyring_backend is not None, "keyring_backend must be provided"
-        assert isinstance(registry_path, str) and registry_path, "registry_path must be non-empty"
+        assert isinstance(registry_path, str) and registry_path, (
+            "registry_path must be non-empty"
+        )
         self._keyring = keyring_backend
         self._registry_path = registry_path
 
@@ -64,13 +69,17 @@ class KeyStore:
         If the registry write fails after the keyring write, the keyring secret is rolled
         back so no orphan secret survives the failure.
         """
-        assert isinstance(provider, str) and provider, "provider must be a non-empty string"
+        assert isinstance(provider, str) and provider, (
+            "provider must be a non-empty string"
+        )
         assert isinstance(secret, str) and secret, "secret must be a non-empty string"
         names = self._read_registry()
         try:
             self._keyring.set_password(SERVICE_NAME, provider, secret)
         except keyring.errors.KeyringError as error:
-            raise KeyStoreError(f"could not write secret to keyring: {error}") from error
+            raise KeyStoreError(
+                f"could not write secret to keyring: {error}"
+            ) from error
         if provider in names:
             return False
         names.append(provider)
@@ -83,7 +92,9 @@ class KeyStore:
 
     def remove(self, provider: str) -> bool:
         """Remove the name from the registry and the secret from the keyring; True if it existed."""
-        assert isinstance(provider, str) and provider, "provider must be a non-empty string"
+        assert isinstance(provider, str) and provider, (
+            "provider must be a non-empty string"
+        )
         names = self._read_registry()
         if provider not in names:
             return False
@@ -98,7 +109,9 @@ class KeyStore:
             # Roll back the registry so the two stores never disagree after a failure.
             names.append(provider)
             self._write_registry(names)
-            raise KeyStoreError(f"could not delete secret from keyring: {error}") from error
+            raise KeyStoreError(
+                f"could not delete secret from keyring: {error}"
+            ) from error
         return True
 
     def list(self) -> list[str]:
@@ -109,19 +122,25 @@ class KeyStore:
 
     def get(self, provider: str) -> str | None:
         """Return the keyring secret, falling back to the provider's env var if it has one."""
-        assert isinstance(provider, str) and provider, "provider must be a non-empty string"
+        assert isinstance(provider, str) and provider, (
+            "provider must be a non-empty string"
+        )
         secret = self._read_secret(provider)
         if not secret:
             # No keyless provider (e.g. ollama) is in the table, so it never reads an env var.
             env_var = _PROVIDER_ENV_VARS.get(provider)
             if env_var:
                 secret = os.environ.get(env_var)
-        assert secret is None or isinstance(secret, str), "secret must be a string or None"
+        assert secret is None or isinstance(secret, str), (
+            "secret must be a string or None"
+        )
         return secret
 
     def status_of(self, provider: str) -> KeyStatus:
         """Reconcile the two stores for one provider into a single status."""
-        assert isinstance(provider, str) and provider, "provider must be a non-empty string"
+        assert isinstance(provider, str) and provider, (
+            "provider must be a non-empty string"
+        )
         registered = provider in self._read_registry()
         # Read the keyring directly, bypassing the env fallback, so real drift stays visible.
         has_secret = bool(self._read_secret(provider))
@@ -134,7 +153,9 @@ class KeyStore:
         try:
             return self._keyring.get_password(SERVICE_NAME, provider)
         except keyring.errors.KeyringError as error:
-            raise KeyStoreError(f"could not read secret from keyring: {error}") from error
+            raise KeyStoreError(
+                f"could not read secret from keyring: {error}"
+            ) from error
 
     def _delete_quietly(self, provider: str) -> None:
         """Best-effort keyring delete used to roll back a half-written add; never raises."""
