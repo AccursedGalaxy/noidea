@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-02
+
+### Added
+- **OpenRouter provider support**: set `"provider": "openrouter"` to route requests through [OpenRouter](https://openrouter.ai), the OpenAI-compatible aggregator that fronts many upstream models behind one endpoint. Store a key with `noidea keys add openrouter` or the `OPENROUTER_API_KEY` env var. Because OpenRouter is an aggregator, models are addressed by their namespaced name (e.g. `anthropic/claude-3.5-sonnet`). Wired entirely through the existing OpenAI-compatible transport, so it inherits the shared error taxonomy and the reasoning-parameter fallback for free.
+
 ## [1.1.0] - 2026-05-22
 
 ### Added

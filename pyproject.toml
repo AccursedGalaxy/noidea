@@ -1,6 +1,6 @@
 [project]
 name = "noidea"
-version = "1.1.0"
+version = "1.2.0"
 description = "AI commit messages that pre-fill your git editor — Claude-powered, conventional-commits aware, learns your repo's style."
 authors = [
     {name = "AccursedGalaxy",email = "robinbohrer7@gmail.com"}
