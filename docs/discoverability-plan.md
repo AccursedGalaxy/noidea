@@ -18,7 +18,7 @@ PyPI page, social preview) are sharp. Launching Anthropic-only invites the
   keyword-rich `description` in `pyproject.toml`. Ships on next release.
 - [x] **README repositioning** — H1 now leads with the function; added a "Why noidea?"
   section that differentiates honestly against aicommits/opencommit.
-- [ ] **GitHub topics** — run:
+- [x] **GitHub topics** — added (commit, conventional-commits, ollama, openai, deepseek, groq, …):
   ```bash
   gh repo edit AccursedGalaxy/noidea \
     --add-topic commit --add-topic commit-messages --add-topic git-commit \
@@ -29,10 +29,13 @@ PyPI page, social preview) are sharp. Launching Anthropic-only invites the
 - [ ] **Custom OpenGraph image** — repo currently uses GitHub's default gray preview.
   A 1280×640 PNG with the name + one-line value prop makes every shared link look
   intentional. Upload via repo Settings → Social preview.
-- [ ] **Enable Discussions** — a low-friction place for "how do I…" that doesn't clutter
+- [x] **Enable Discussions** — a low-friction place for "how do I…" that doesn't clutter
   Issues, and a signal the project is alive.
 
 ## Phase 1 — Close the credibility gap (the gating build)
+
+> **Status: shipped.** Multi-provider landed (PR #28: Anthropic/OpenAI/Ollama/Gemini/
+> DeepSeek/Groq; PR #33: OpenRouter). README now says "works with Claude, GPT, local Ollama."
 
 **Multi-provider support (OpenAI + Ollama).** This is the single biggest functional
 gap vs. every incumbent, and the #1 try-it blocker: today you cannot even *try* noidea
@@ -47,7 +50,7 @@ without a paid Anthropic key. Ollama removes that blocker entirely (free + local
 
 ## Phase 2 — Widen install paths
 
-- [ ] **GitHub Action** — publish a `noidea` Action to the Marketplace. opencommit's
+- [x] **GitHub Action** — published (PR #31). opencommit's
   Action is a real discovery surface; the Marketplace is searchable and indexed.
 - [ ] **Homebrew formula** — `brew install noidea`. Removes the "is pipx even installed?"
   friction for Mac users.

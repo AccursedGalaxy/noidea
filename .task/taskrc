@@ -1,0 +1,11 @@
+data.location=/home/aki/dev/noidea/.task
+confirmation=no
+verbose=label,blank
+news.version=999.0.0
+
+# Compact agent-facing report: drop age/urgency columns to save tokens.
+report.brief.description=Compact pending/active view
+report.brief.columns=id,status.short,priority,depends.indicator,description
+report.brief.labels=ID,S,P,D,Task
+report.brief.sort=urgency-
+report.brief.filter=status:pending or status:active
