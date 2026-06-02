@@ -193,6 +193,25 @@ class TestCompleteOpenAiCompat:
         mock_openai_cls.assert_called_once_with(api_key="sk-test", base_url=None)
         mock_key.assert_called_once_with("openai")
 
+    @patch("noidea.provider.get_api_key", return_value="sk-or-test")
+    @patch("openai.OpenAI")
+    def test_openrouter_resolves_key_and_uses_aggregator_endpoint(
+        self, mock_openai_cls, mock_key
+    ):
+        # OpenRouter is keyed like any compat provider but fronts upstream models behind one
+        # endpoint, so the model name is namespaced and the base URL is its aggregator default.
+        mock_openai_cls.return_value = self._mock_client("feat: add thing")
+
+        result = complete(
+            "s", "u", "anthropic/claude-3.5-sonnet", 50, provider="openrouter"
+        )
+
+        assert result == "feat: add thing"
+        mock_openai_cls.assert_called_once_with(
+            api_key="sk-or-test", base_url="https://openrouter.ai/api/v1"
+        )
+        mock_key.assert_called_once_with("openrouter")
+
     @patch("openai.OpenAI")
     def test_base_url_overrides_provider_default(self, mock_openai_cls):
         mock_openai_cls.return_value = self._mock_client("ok")

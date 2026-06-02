@@ -36,6 +36,7 @@ class Provider(str, Enum):
     GEMINI = "gemini"
     DEEPSEEK = "deepseek"
     GROQ = "groq"
+    OPENROUTER = "openrouter"
 
 
 @dataclass(frozen=True)
@@ -50,17 +51,25 @@ class LlmConfig:
     max_tokens: int = 1024
     small_model: str = "claude-haiku-4-5"
     large_model: str = "claude-sonnet-4-6"
-    context_limit: float = 600000.0  # Character threshold for model selection, not a token limit.
+    context_limit: float = (
+        600000.0  # Character threshold for model selection, not a token limit.
+    )
     system_prompt: str = _DEFAULT_SYSTEM_PROMPT
     temperature: float = 1.0
     learn_commit_style: bool = True  # Match the repo's observed commit conventions.
-    provider: str = "anthropic"  # Which backend complete() dispatches to; see provider.py.
-    base_url: str = ""  # Overrides the per-provider default endpoint (e.g. a custom vLLM host).
+    provider: str = (
+        "anthropic"  # Which backend complete() dispatches to; see provider.py.
+    )
+    base_url: str = (
+        ""  # Overrides the per-provider default endpoint (e.g. a custom vLLM host).
+    )
 
     def __post_init__(self):
         # The pair to from_dict's pre-construction type check: assert the invariants
         # after construction, so a bad dataclasses.replace is caught as a programmer error.
-        assert isinstance(self.max_tokens, int) and not isinstance(self.max_tokens, bool)
+        assert isinstance(self.max_tokens, int) and not isinstance(
+            self.max_tokens, bool
+        )
         assert isinstance(self.small_model, str)
         assert isinstance(self.large_model, str)
         assert isinstance(self.context_limit, (int, float))
@@ -110,7 +119,9 @@ class LlmConfig:
 
     def select_model(self, context_length_chars: int) -> str:
         """Pick the large or small model based on a character-count heuristic."""
-        assert isinstance(context_length_chars, int), "context_length_chars must be an int"
+        assert isinstance(context_length_chars, int), (
+            "context_length_chars must be an int"
+        )
         assert context_length_chars >= 0, "context_length_chars must be non-negative"
         if context_length_chars >= self.context_limit:
             return self.large_model
@@ -143,7 +154,11 @@ def deep_merge(base, override):
     while stack:
         target, source = stack.pop()
         for key, value in source.items():
-            if key in target and isinstance(value, dict) and isinstance(target[key], dict):
+            if (
+                key in target
+                and isinstance(value, dict)
+                and isinstance(target[key], dict)
+            ):
                 target[key] = target[key].copy()
                 stack.append((target[key], value))
             else:

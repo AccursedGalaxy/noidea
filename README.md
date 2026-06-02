@@ -64,7 +64,7 @@ By default noidea uses Anthropic (Claude). The key is looked up in three places,
 | **Environment variable** | `export ANTHROPIC_API_KEY=sk-ant-...` |
 | **`.env` file** | `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file |
 
-Other providers follow the same pattern with their own env var (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `GROQ_API_KEY`) or `noidea keys add <provider>`.
+Other providers follow the same pattern with their own env var (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`) or `noidea keys add <provider>`.
 
 **Ollama needs no key.** It runs locally, so once `provider` is set to `ollama` (below) you can generate commit messages with nothing else configured.
 
@@ -84,6 +84,7 @@ Set `provider` in your config (see [Config](#config)) to route every request to 
 | `gemini` | yes | Google's OpenAI-compatible endpoint |
 | `deepseek` | yes | `https://api.deepseek.com` |
 | `groq` | yes | `https://api.groq.com/openai/v1` |
+| `openrouter` | yes | `https://openrouter.ai/api/v1` |
 
 Set `base_url` to override the endpoint — e.g. point `openai` at a self-hosted vLLM server. Remember to also set `small_model`/`large_model` to models the provider actually serves (e.g. `"small_model": "llama3.2"` for Ollama).
 

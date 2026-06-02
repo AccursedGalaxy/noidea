@@ -39,7 +39,7 @@ class ProviderError(Exception):
 
 
 # Providers that speak OpenAI's chat-completions format, served by the one shared transport.
-_OPENAI_COMPAT = {"openai", "ollama", "gemini", "deepseek", "groq"}
+_OPENAI_COMPAT = {"openai", "ollama", "gemini", "deepseek", "groq", "openrouter"}
 
 # The default endpoint per OpenAI-compat provider; config base_url overrides any of these.
 # OpenAI itself has no entry, so it falls through to the SDK's own default base URL.
@@ -49,6 +49,9 @@ _DEFAULT_BASE_URLS = {
     # DeepSeek's base intentionally has no /v1 suffix: its API also serves the OpenAI path here.
     "deepseek": "https://api.deepseek.com",
     "groq": "https://api.groq.com/openai/v1",
+    # OpenRouter is a pure aggregator: one OpenAI-compat endpoint fronting many upstream models,
+    # selected by a namespaced model name (e.g. "anthropic/claude-3.5-sonnet").
+    "openrouter": "https://openrouter.ai/api/v1",
 }
 
 # Providers that need no API key (local, keyless). The OpenAI SDK still wants a non-empty key
