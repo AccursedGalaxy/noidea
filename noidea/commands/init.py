@@ -1,5 +1,3 @@
-import typer
-
 from noidea.git import install_hook
 
 

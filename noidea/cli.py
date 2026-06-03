@@ -5,7 +5,7 @@ from typing import Optional
 import typer
 
 from noidea import __version__
-from noidea.commands import init, keys_app, status, suggest, test, update
+from noidea.commands import init, keys_app, reconcile, status, suggest, test, update
 from noidea.config import initialize
 
 app = typer.Typer(
@@ -21,6 +21,9 @@ app.command()(status.status)
 app.command()(suggest.suggest)
 app.command()(test.test)
 app.command()(update.update)
+# Hidden: the post-commit hook calls this to capture the accept/edit/discard signal. It is
+# plumbing, not a user-facing command, so it stays out of --help.
+app.command(name="_reconcile", hidden=True)(reconcile.reconcile)
 
 
 def version_callback(value: bool):

@@ -27,13 +27,21 @@ class HookResult:
     error: str = ""
 
 
-HOOK_NAME = "prepare-commit-msg"
 HOOK_BACKUP_SUFFIX = ".bak"
-HOOK_SCRIPT = '#!/bin/bash\nnoidea suggest --file "$1"\n'
 
-# TigerStyle: compile-time-style constant assertion.
-if not HOOK_SCRIPT.strip():
-    raise RuntimeError("HOOK_SCRIPT must not be empty")
+# The hooks noidea installs, name → script. prepare-commit-msg writes the message into the
+# commit buffer (seeding a queued agent proposal when one exists, else the fast single-shot —
+# see suggest.suggest). post-commit reconciles the committed message against any seeded agent
+# proposal to capture the accept/edit/discard signal (see dogfood.reconcile). post-commit's
+# exit status is ignored by git, so reconcile can never block a commit.
+HOOKS = {
+    "prepare-commit-msg": '#!/bin/bash\nnoidea suggest --file "$1"\n',
+    "post-commit": "#!/bin/bash\nnoidea _reconcile\n",
+}
+
+# TigerStyle: compile-time-style constant assertion — every hook must carry a real script.
+if not all(script.strip() for script in HOOKS.values()):
+    raise RuntimeError("every HOOKS script must be non-empty")
 
 
 def get_git_root() -> str:
@@ -48,7 +56,12 @@ def get_git_root() -> str:
 
 
 def is_git_repo() -> bool:
-    return subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True).returncode == 0
+    return (
+        subprocess.run(
+            ["git", "rev-parse", "--git-dir"], capture_output=True
+        ).returncode
+        == 0
+    )
 
 
 def get_branch_name() -> str:
@@ -117,6 +130,35 @@ def get_staged_files() -> list[str]:
     return [f for f in result.stdout.strip().splitlines() if f]
 
 
+def get_commit_message(ref: str = "HEAD") -> str:
+    """Return the full commit message (subject + body) of a ref; "" on any failure.
+
+    Best-effort like the other wrappers: the post-commit reconcile reads this and must
+    never crash the commit, so a missing ref or absent git degrades to an empty string.
+    """
+    assert isinstance(ref, str) and ref, "ref must be a non-empty string"
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%B", ref],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def get_head_sha() -> str:
+    """Return HEAD's full commit SHA, or "" if there is no commit yet / git is missing."""
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    sha = result.stdout.strip() if result.returncode == 0 else ""
+    assert isinstance(sha, str), "sha must be a string"
+    return sha
+
+
 def _strip_binary_hunks(diff_text: str) -> str:
     """Remove binary file hunks from a unified diff, keeping a summary line.
 
@@ -149,7 +191,9 @@ def _strip_binary_hunks(diff_text: str) -> str:
 def get_diff() -> DiffResult:
     try:
         # text=False: binary diffs contain non-UTF-8 bytes that crash text mode.
-        result = subprocess.run(["git", "diff", "--staged"], capture_output=True, check=True)
+        result = subprocess.run(
+            ["git", "diff", "--staged"], capture_output=True, check=True
+        )
 
         if not result.stdout:
             return DiffResult(has_changes=False)
@@ -162,7 +206,9 @@ def get_diff() -> DiffResult:
         return DiffResult(has_changes=True, diff=diff_text)
 
     except subprocess.CalledProcessError as e:
-        return DiffResult(has_changes=False, error=e.stderr.decode("utf-8", errors="replace"))
+        return DiffResult(
+            has_changes=False, error=e.stderr.decode("utf-8", errors="replace")
+        )
 
     except FileNotFoundError as e:
         return DiffResult(has_changes=False, error=str(e))
@@ -172,7 +218,9 @@ def get_hooks_dir() -> str | None:
     if not is_git_repo():
         return None
 
-    result = subprocess.run(["git", "config", "core.hooksPath"], capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "config", "core.hooksPath"], capture_output=True, text=True
+    )
 
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
@@ -192,6 +240,17 @@ def _backup_existing_hook(hook_path: str) -> None:
     os.rename(hook_path, hook_path + HOOK_BACKUP_SUFFIX)
 
 
+def _write_hook(hooks_dir: str, name: str, script: str) -> None:
+    """Back up any existing hook of this name, then write ours and make it executable."""
+    assert isinstance(name, str) and name, "hook name must be non-empty"
+    assert isinstance(script, str) and script.strip(), "hook script must be non-empty"
+    hook_path = os.path.join(hooks_dir, name)
+    _backup_existing_hook(hook_path)
+    with open(hook_path, "w") as f:
+        f.write(script)
+    os.chmod(hook_path, mode=0o755)
+
+
 def install_hook() -> HookResult:
     hooks_dir = get_hooks_dir()
 
@@ -202,17 +261,13 @@ def install_hook() -> HookResult:
     if not isinstance(hooks_dir, str) or not hooks_dir.strip():
         return HookResult(success=False, error="hooks_dir is empty or invalid")
 
-    hook_path = os.path.join(hooks_dir, HOOK_NAME)
-
+    # Install every hook in HOOKS; the first failure aborts so we never leave a half-wired
+    # setup (e.g. prepare-commit-msg present but post-commit missing, which would seed agent
+    # proposals but never capture the human verdict).
     try:
         os.makedirs(hooks_dir, exist_ok=True)
-        _backup_existing_hook(hook_path)
-
-        with open(hook_path, "w") as f:
-            f.write(HOOK_SCRIPT)
-
-        os.chmod(hook_path, mode=0o755)
-
+        for name, script in HOOKS.items():
+            _write_hook(hooks_dir, name, script)
     except OSError as e:
         return HookResult(success=False, error=str(e))
 

@@ -63,6 +63,17 @@ class LlmConfig:
     base_url: str = (
         ""  # Overrides the per-provider default endpoint (e.g. a custom vLLM host).
     )
+    # The agent backend (driver-os): an alternative generator that explores the repo (git log,
+    # style docs, the changed files) over several turns instead of one single-shot call. See
+    # dogfood.py / agent_backend.py.
+    use_agent: bool = False  # Default backend: when true, `noidea suggest` and the commit hook run the agent.
+    agent_binary: str = ""  # Path to the driver-os commit-msg binary; "" falls back to NOIDEA_AGENT_BIN / PATH.
+    agent_model: str = (
+        "google/gemini-3-flash-preview"  # OpenRouter model the agent runs on.
+    )
+    agent_proposal_ttl_seconds: int = (
+        3600  # How long a queued agent proposal stays eligible to seed a commit.
+    )
 
     def __post_init__(self):
         # The pair to from_dict's pre-construction type check: assert the invariants
@@ -80,6 +91,12 @@ class LlmConfig:
         assert isinstance(self.learn_commit_style, bool)
         assert isinstance(self.provider, str)
         assert isinstance(self.base_url, str)
+        assert isinstance(self.use_agent, bool)
+        assert isinstance(self.agent_binary, str)
+        assert isinstance(self.agent_model, str)
+        assert isinstance(self.agent_proposal_ttl_seconds, int) and not isinstance(
+            self.agent_proposal_ttl_seconds, bool
+        )
 
     @classmethod
     def from_dict(cls, data: dict) -> "LlmConfig":

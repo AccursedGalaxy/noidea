@@ -3,8 +3,23 @@ import dataclasses
 import typer
 from rich.console import Console
 
+from noidea.agent_backend import generate_with_agent
 from noidea.config import LlmConfig, load_config
-from noidea.git import get_branch_name, get_diff, get_recent_commits, get_staged_files
+from noidea.dogfood import (
+    clear_seeded,
+    find_fresh_proposal,
+    mark_seeded,
+    new_run_id,
+    record_proposal,
+    run_file_for,
+)
+from noidea.git import (
+    get_branch_name,
+    get_diff,
+    get_git_root,
+    get_recent_commits,
+    get_staged_files,
+)
 from noidea.provider import ErrorKind, ProviderError, complete
 from noidea.style import SAMPLE_SIZE, analyze_commits, render_profile
 
@@ -18,7 +33,9 @@ SUGGEST_WORDING = {
     ErrorKind.CONNECTION: lambda e: f"Could not connect to the API: {e.message}",
     ErrorKind.STATUS: lambda e: f"API error ({e.status_code}): {e.message}",
 }
-assert set(SUGGEST_WORDING) == set(ErrorKind), "SUGGEST_WORDING must cover every ErrorKind"
+assert set(SUGGEST_WORDING) == set(ErrorKind), (
+    "SUGGEST_WORDING must cover every ErrorKind"
+)
 
 
 def _build_user_content(
@@ -32,7 +49,9 @@ def _build_user_content(
     if branch:
         context_parts.append(f"Branch: {branch}")
     if staged_files:
-        context_parts.append("Staged files:\n" + "\n".join(f"- {f}" for f in staged_files))
+        context_parts.append(
+            "Staged files:\n" + "\n".join(f"- {f}" for f in staged_files)
+        )
     # The learned conventions sit with the other context, before the diff.
     if profile_text:
         context_parts.append(profile_text)
@@ -40,7 +59,9 @@ def _build_user_content(
     if context_parts:
         user_content = "\n".join(context_parts) + "\n\nDiff:\n"
     user_content += diff
-    assert isinstance(user_content, str) and user_content, "user_content must be non-empty"
+    assert isinstance(user_content, str) and user_content, (
+        "user_content must be non-empty"
+    )
     return user_content
 
 
@@ -67,7 +88,9 @@ def _print_routing_notice(cfg: LlmConfig, selected_model: str) -> None:
     model, since then there is no routing decision to report.
     """
     assert isinstance(cfg, LlmConfig), "cfg must be an LlmConfig"
-    assert isinstance(selected_model, str) and selected_model, "selected_model must be non-empty"
+    assert isinstance(selected_model, str) and selected_model, (
+        "selected_model must be non-empty"
+    )
     if selected_model == cfg.small_model:
         console.print(f"[dim]Small diff → {selected_model} · fast & cheap[/dim]")
     else:
@@ -100,14 +123,97 @@ def _generate_message(
         return None
 
 
+def _emit_message(message: str, file: str) -> None:
+    """Write the message to the commit-msg file, or print it to stdout when no file is given."""
+    assert isinstance(message, str) and message, "message must be a non-empty string"
+    if not file:
+        print(message)
+        return
+    try:
+        with open(file, "w") as handle:
+            handle.write(message)
+    except OSError as error:
+        print(f"Could not write to {file}: {error}")
+        return
+    console.print("[bold green]Done. You're welcome.[/bold green]")
+
+
+def _seed_pending(
+    repo_root: str, file: str, branch: str, staged_files: list[str], cfg: LlmConfig
+) -> bool:
+    """Seed an already-queued agent proposal into the commit buffer (no model call); True if one matched.
+
+    Preferred over regenerating: an earlier explicit `noidea suggest --agent` already paid for
+    this message. If a fresh proposal matches the staged change, write it verbatim and record the
+    seed pointer so post-commit reconciles it. The caller clears the pointer first (see suggest).
+    """
+    assert isinstance(repo_root, str) and repo_root, "repo_root must be non-empty"
+    assert isinstance(file, str) and file, "file must be a non-empty path"
+    proposal = find_fresh_proposal(
+        repo_root, staged_files, branch, cfg.agent_proposal_ttl_seconds
+    )
+    if proposal is None:
+        return False
+    try:
+        with open(file, "w") as handle:
+            handle.write(proposal.proposed_message)
+    except OSError as error:
+        console.print(f"[dim]could not seed agent message into {file}: {error}[/dim]")
+        return False
+    mark_seeded(repo_root, proposal.run_id)
+    console.print(f"[dim]Using queued agent commit message ({proposal.run_id}).[/dim]")
+    return True
+
+
+def _run_agent_backend(
+    diff: str, branch: str, staged_files: list[str], repo_root: str, cfg: LlmConfig
+) -> tuple[str, str] | None:
+    """Generate via the driver-os agent and queue the proposal; returns (message, run_id) or None.
+
+    None means the agent was unavailable or failed, so the caller falls back to the fast path —
+    an agent failure must never block a commit. The run_id lets the caller mark the seed pointer
+    when it writes the message straight into the commit buffer (the inline-hook path).
+    """
+    assert isinstance(diff, str) and diff.strip(), "diff must be a non-empty string"
+    run_id = new_run_id()
+    run_file = run_file_for(run_id)
+    with console.status("[grey]Agent investigating the repo...", spinner="dots"):
+        message = generate_with_agent(
+            repo_root, diff, branch, staged_files, run_file, cfg
+        )
+    if message is None:
+        return None
+    record_proposal(
+        repo_root,
+        run_id,
+        branch,
+        staged_files,
+        message,
+        run_file,
+        cfg.agent_proposal_ttl_seconds,
+    )
+    return message, run_id
+
+
 def suggest(
-    file: str = typer.Option(None, "--file", "-F", help="Write output to a file instead of stdout"),
-    model: str = typer.Option(None, "--model", "-M", help="Run suggestion with a different model"),
+    file: str = typer.Option(
+        None, "--file", "-F", help="Write output to a file instead of stdout"
+    ),
+    model: str = typer.Option(
+        None, "--model", "-M", help="Run suggestion with a different model"
+    ),
+    agent: bool = typer.Option(
+        None,
+        "--agent/--no-agent",
+        help="Use the driver-os agent backend (richer, slower). Defaults to llm.use_agent.",
+    ),
 ):
     """Let AI do the thinking. Generates a commit message from your staged changes."""
     diff = get_diff()
     if not diff.has_changes:
-        print("Nothing staged yet. Stage some changes first" " — we can't read your mind (yet).")
+        print(
+            "Nothing staged yet. Stage some changes first — we can't read your mind (yet)."
+        )
         return
 
     # TigerStyle: validate external data before sending to API.
@@ -116,22 +222,54 @@ def suggest(
         return
 
     cfg = load_config()
-
     # CLI flag config override: both models become the requested one, so select_model
     # returns it regardless of context size.
     if model:
         cfg = dataclasses.replace(cfg, small_model=model, large_model=model)
-
     branch = get_branch_name()
     staged_files = get_staged_files()
+    repo_root = get_git_root()
+    # The flag (--agent/--no-agent) overrides the configured default; absent, the config decides.
+    use_agent = agent if agent is not None else cfg.use_agent
+
+    # Each commit attempt starts by clearing the seed pointer so a fast-path commit is never
+    # mis-reconciled as an agent one. The hook is the only caller that passes --file.
+    if file and repo_root:
+        clear_seeded(repo_root)
+
+    # Prefer an already-queued proposal from an earlier explicit `--agent` run: it is paid for,
+    # so seed it rather than regenerate. Hook only (--file), and skipped when a flag forces a
+    # fresh decision (--agent regenerates; --no-agent opts out entirely).
+    if (
+        file
+        and agent is None
+        and repo_root
+        and _seed_pending(repo_root, file, branch, staged_files, cfg)
+    ):
+        return
+
+    # Agent generation: explicit --agent, or the use_agent default. Runs inline even on the
+    # commit hook (the chosen "agent by default" behavior). Falls through to the fast path on any
+    # agent failure, so an unavailable backend never blocks a commit.
+    if use_agent and repo_root:
+        result = _run_agent_backend(diff.diff, branch, staged_files, repo_root, cfg)
+        if result is not None:
+            message, run_id = result
+            if file:
+                mark_seeded(
+                    repo_root, run_id
+                )  # so post-commit reconciles this inline run.
+            _emit_message(message, file)
+            return
+
+    # Fast single-shot path (the default when the agent is off or unavailable).
     profile_text = _learn_style(cfg)
     # Character count, not tokens: real tokenization needs the API, but char
     # count is cheap and sufficient for choosing between small and large model.
     context_length_chars = len(cfg.system_prompt) + len(diff.diff)
-
     selected_model = cfg.select_model(context_length_chars)
-    # Show the routing decision, except when --model forced a single model (no decision made).
-    if not model:
+    # Show the routing decision, except when --model or the agent meant no decision was made.
+    if not model and not use_agent:
         _print_routing_notice(cfg, selected_model)
 
     commit_message = _generate_message(
@@ -139,14 +277,4 @@ def suggest(
     )
     if commit_message is None:
         return
-
-    if file:
-        try:
-            with open(file, "w") as f:
-                f.write(commit_message)
-        except OSError as error:
-            print(f"Could not write to {file}: {error}")
-            return
-        console.print("[bold green]Done. You're welcome.[/bold green]")
-    else:
-        print(commit_message)
+    _emit_message(commit_message, file)
