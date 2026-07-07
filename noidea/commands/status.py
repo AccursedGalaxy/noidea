@@ -2,7 +2,7 @@ import os
 
 from rich.console import Console
 
-from noidea import __version__
+from noidea import build_version
 from noidea.config import CONFIG_PATH, SERVICE_NAME, LlmConfig, load_config
 from noidea.git import HOOKS, get_git_root, get_hooks_dir
 from noidea.key_store import KeyStatus, KeyStoreError, key_store
@@ -84,7 +84,7 @@ def _check_api_keys():
 
 def status():
     """Check if everything's wired up and ready to go."""
-    console.print(f"\n[bold]noidea[/bold] v{__version__}\n")
+    console.print(f"\n[bold]noidea[/bold] v{build_version()}\n")
     _check_repository()
     _check_hook()
     cfg = _check_config()

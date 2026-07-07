@@ -19,7 +19,9 @@ class TestBuildUserContent:
         from noidea.commands.suggest import _build_user_content
 
         result = _build_user_content("+ added x", "feature/x", ["a.py", "b.py"])
-        assert result == ("Branch: feature/x\nStaged files:\n- a.py\n- b.py\n\nDiff:\n+ added x")
+        assert result == (
+            "Branch: feature/x\nStaged files:\n- a.py\n- b.py\n\nDiff:\n+ added x"
+        )
 
     def test_empty_branch_and_files_returns_just_diff(self):
         from noidea.commands.suggest import _build_user_content
@@ -50,6 +52,80 @@ class TestVersion:
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
         assert "noidea" in result.output
+
+
+class TestBuildVersion:
+    """build_version() shows the released string for wheels, and enriches source builds with the
+    git commit so any commit is identifiable — without paying git's cost on the CLI's hot path."""
+
+    @patch("noidea.Path.exists", return_value=False)
+    def test_released_wheel_without_git_shows_plain_version(self, mock_exists):
+        # A wheel/PyPI install has no .git beside its source, so users see only the clean version.
+        from noidea import __version__, build_version
+
+        assert build_version() == __version__
+
+    @patch("noidea._run_git")
+    @patch("noidea.Path.exists", return_value=True)
+    def test_clean_checkout_on_release_tag_shows_plain_version(
+        self, mock_exists, mock_git
+    ):
+        # HEAD exactly on the matching tag with a clean tree IS the released build: no commit tag.
+        from noidea import __version__, build_version
+
+        def fake_git(repo_root, *args):
+            if args[0] == "rev-parse":
+                return "abc1234"
+            if args[0] == "status":
+                return None  # Clean tree: git status --porcelain prints nothing.
+            if args[0] == "describe":
+                return f"v{__version__}"
+            return None
+
+        mock_git.side_effect = fake_git
+        assert build_version() == __version__
+
+    @patch("noidea._run_git")
+    @patch("noidea.Path.exists", return_value=True)
+    def test_clean_dev_commit_appends_short_hash(self, mock_exists, mock_git):
+        from noidea import __version__, build_version
+
+        def fake_git(repo_root, *args):
+            if args[0] == "rev-parse":
+                return "abc1234"
+            if args[0] == "status":
+                return None
+            if args[0] == "describe":
+                return None  # Not on any tag: a build from an arbitrary commit.
+            return None
+
+        mock_git.side_effect = fake_git
+        assert build_version() == f"{__version__}+abc1234"
+
+    @patch("noidea._run_git")
+    @patch("noidea.Path.exists", return_value=True)
+    def test_dirty_tree_marks_the_build(self, mock_exists, mock_git):
+        from noidea import __version__, build_version
+
+        def fake_git(repo_root, *args):
+            if args[0] == "rev-parse":
+                return "abc1234"
+            if args[0] == "status":
+                return " M noidea/provider.py"  # Uncommitted edits present.
+            if args[0] == "describe":
+                return f"v{__version__}"  # Even on the tag, a dirty tree is not the release.
+            return None
+
+        mock_git.side_effect = fake_git
+        assert build_version() == f"{__version__}+abc1234.dirty"
+
+    @patch("noidea._run_git", return_value=None)
+    @patch("noidea.Path.exists", return_value=True)
+    def test_git_unavailable_falls_back_to_plain_version(self, mock_exists, mock_git):
+        # A .git dir but no usable git output (missing binary, timeout) collapses to the version.
+        from noidea import __version__, build_version
+
+        assert build_version() == __version__
 
 
 class TestInit:
@@ -103,7 +179,9 @@ class TestSuggest:
         "noidea.commands.suggest.get_diff",
         return_value=DiffResult(has_changes=True, diff="+ new feature"),
     )
-    def test_suggest_writes_to_file(self, mock_diff, mock_config, mock_commit, tmp_path):
+    def test_suggest_writes_to_file(
+        self, mock_diff, mock_config, mock_commit, tmp_path
+    ):
         outfile = str(tmp_path / "msg.txt")
         result = runner.invoke(app, ["suggest", "--file", outfile])
         assert result.exit_code == 0
@@ -369,12 +447,16 @@ class TestKeysErrors:
         assert "Couldn't read keys" in result.output
 
     def test_add_key_keyring_error(self):
-        with patch("noidea.commands.keys.key_store.add", side_effect=KeyStoreError("locked")):
+        with patch(
+            "noidea.commands.keys.key_store.add", side_effect=KeyStoreError("locked")
+        ):
             result = runner.invoke(app, ["keys", "add"], input="secret\n")
         assert "Couldn't save the key" in result.output
 
     def test_remove_key_keyring_error(self):
-        with patch("noidea.commands.keys.key_store.remove", side_effect=KeyStoreError("locked")):
+        with patch(
+            "noidea.commands.keys.key_store.remove", side_effect=KeyStoreError("locked")
+        ):
             result = runner.invoke(app, ["keys", "remove", "anthropic"])
         assert "Couldn't remove the key" in result.output
 

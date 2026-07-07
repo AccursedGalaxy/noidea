@@ -4,7 +4,7 @@ from typing import Optional
 
 import typer
 
-from noidea import __version__
+from noidea import build_version
 from noidea.commands import init, keys_app, reconcile, status, suggest, test, update
 from noidea.config import initialize
 
@@ -28,7 +28,7 @@ app.command(name="_reconcile", hidden=True)(reconcile.reconcile)
 
 def version_callback(value: bool):
     if value:
-        typer.echo(f"noidea {__version__} — no idea required")
+        typer.echo(f"noidea {build_version()} — no idea required")
         raise typer.Exit()
 
 
