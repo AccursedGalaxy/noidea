@@ -65,6 +65,48 @@ _NO_KEY_PROVIDERS = {"ollama"}
 # keeps gpt-5-chat-latest (a non-reasoning endpoint) on the standard path.
 _REASONING_NAME_PATTERN = re.compile(r"^(o\d|gpt-5)")
 
+# Approximate input context window per model *family*, in tokens. Matched by substring against the
+# model name (after any "provider/" prefix), first hit wins, so order most-specific first. This is
+# only ever used to bound how much diff we send, so an unknown model must fall back to a value that
+# is safe (small) rather than optimistic; see _DEFAULT_CONTEXT_TOKENS. Values are conservative
+# floors — a family's smallest current window — because over-truncating a diff is a far cheaper
+# failure than a request that overflows the window and returns nothing.
+_MODEL_CONTEXT_TOKENS = (
+    (
+        "gemini",
+        1_048_576,
+    ),  # Gemini 1.5/2.x/3 flash & pro all expose at least a 1M window.
+    (
+        "claude",
+        200_000,
+    ),  # Claude's standard window; the 1M tier is opt-in beta, so assume 200k.
+    ("gpt-4o", 128_000),  # gpt-4o and gpt-4o-mini.
+    ("gpt-5", 200_000),
+    ("deepseek", 131_072),
+    ("llama", 128_000),
+    ("mixtral", 32_768),
+    ("mistral", 32_768),
+)
+# The window assumed for any model we do not recognize: a modern-but-modest floor, so an unknown
+# model is bounded rather than trusted with an unbounded diff.
+_DEFAULT_CONTEXT_TOKENS = 128_000
+
+
+def context_window_tokens(model: str) -> int:
+    """The assumed input context window, in tokens, for a model name (namespaced or bare).
+
+    A best-effort lookup used only to size the diff we send, never a correctness guarantee: an
+    unrecognized model returns the safe default floor rather than an optimistic large window.
+    """
+    assert isinstance(model, str) and model, "model must be a non-empty string"
+    # Strip a "provider/" prefix (OpenRouter names like "google/gemini-2.5-flash") before matching.
+    bare_name = model.rsplit("/", 1)[-1].lower()
+    for family, tokens in _MODEL_CONTEXT_TOKENS:
+        if family in bare_name:
+            assert tokens > 0, "a context window must be positive"
+            return tokens
+    return _DEFAULT_CONTEXT_TOKENS
+
 
 def get_api_key(provider: str = "anthropic") -> str:
     # key_store consults the keyring first, then the provider's *_API_KEY env var for CI/headless.

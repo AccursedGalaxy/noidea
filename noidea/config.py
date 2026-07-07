@@ -54,6 +54,13 @@ class LlmConfig:
     context_limit: float = (
         600000.0  # Character threshold for model selection, not a token limit.
     )
+    # Optional hard ceiling on the diff characters sent to the model. 0 means "auto": derive the
+    # bound from the selected model's own context window (see suggest._diff_budget_chars), which is
+    # the right default now that windows range from 128k to 1M+ tokens. A positive value caps below
+    # that — useful to bound cost/latency. Either way an enormous staged change (e.g. a commit of
+    # generated artifacts) is truncated rather than allowed to overflow the window and fail; the
+    # full changed-file list travels separately in the prompt, so every file is still named.
+    diff_chars_max: int = 0
     system_prompt: str = _DEFAULT_SYSTEM_PROMPT
     temperature: float = 1.0
     learn_commit_style: bool = True  # Match the repo's observed commit conventions.
@@ -85,6 +92,12 @@ class LlmConfig:
         assert isinstance(self.large_model, str)
         assert isinstance(self.context_limit, (int, float))
         assert not isinstance(self.context_limit, bool)
+        assert isinstance(self.diff_chars_max, int) and not isinstance(
+            self.diff_chars_max, bool
+        )
+        assert self.diff_chars_max >= 0, (
+            "diff_chars_max must be non-negative (0 = auto)"
+        )
         assert isinstance(self.system_prompt, str)
         assert isinstance(self.temperature, (int, float))
         assert not isinstance(self.temperature, bool)

@@ -4,7 +4,38 @@ import anthropic
 import httpx
 import pytest
 
-from noidea.provider import ErrorKind, ProviderError, complete, get_api_key
+from noidea.provider import (
+    ErrorKind,
+    ProviderError,
+    complete,
+    context_window_tokens,
+    get_api_key,
+)
+from noidea.provider import _DEFAULT_CONTEXT_TOKENS
+
+
+class TestContextWindowTokens:
+    """The diff-sizing lookup: known families get their real window, unknowns a safe floor."""
+
+    def test_gemini_gets_a_million_window(self):
+        assert context_window_tokens("google/gemini-2.5-flash") == 1_048_576
+
+    def test_provider_prefix_is_stripped_before_matching(self):
+        # An OpenRouter-namespaced name must resolve to the same window as the bare model.
+        assert context_window_tokens("openai/gpt-4o-mini") == context_window_tokens(
+            "gpt-4o-mini"
+        )
+
+    def test_gpt_4o_mini_gets_the_128k_window(self):
+        assert context_window_tokens("openai/gpt-4o-mini") == 128_000
+
+    def test_claude_gets_the_conservative_200k_window(self):
+        # The 1M tier is opt-in beta, so we assume the standard 200k to avoid overflowing.
+        assert context_window_tokens("claude-haiku-4-5") == 200_000
+
+    def test_unknown_model_falls_back_to_the_safe_default(self):
+        # An unrecognized model must be bounded by the modest floor, never trusted with a big window.
+        assert context_window_tokens("some-brand-new-model") == _DEFAULT_CONTEXT_TOKENS
 
 
 class TestGetApiKey:

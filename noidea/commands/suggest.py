@@ -20,7 +20,12 @@ from noidea.git import (
     get_recent_commits,
     get_staged_files,
 )
-from noidea.provider import ErrorKind, ProviderError, complete
+from noidea.provider import (
+    ErrorKind,
+    ProviderError,
+    complete,
+    context_window_tokens,
+)
 from noidea.style import SAMPLE_SIZE, analyze_commits, render_profile
 
 console = Console(stderr=True)
@@ -36,6 +41,60 @@ SUGGEST_WORDING = {
 assert set(SUGGEST_WORDING) == set(ErrorKind), (
     "SUGGEST_WORDING must cover every ErrorKind"
 )
+
+
+# Fraction of a model's context window we allow the diff to fill, leaving headroom for the system
+# prompt, the branch/file scaffolding, and the model's own output. 10% headroom on a 1M window is
+# ~100k tokens — far more than we ever need.
+_DIFF_CONTEXT_SAFETY_FRACTION = 0.9
+# Characters per token assumed when converting a token window to a character budget. Measured ~3.1
+# on dense JSON diffs (the worst case); using a low ratio keeps the char budget conservative, so
+# denser-than-prose content still fits rather than overflowing.
+_CHARS_PER_TOKEN = 3.0
+
+
+def _diff_budget_chars(model: str, cfg: LlmConfig) -> int:
+    """The maximum diff characters to send to `model`, from its context window and any config cap.
+
+    Auto by default: the selected model's own window sets the bound, so a 1M-token model gets a
+    large budget and a 128k one a small budget (which also prevents a mis-routed diff from
+    overflowing the smaller model). A positive cfg.diff_chars_max caps below that for cost control.
+    """
+    assert isinstance(model, str) and model, "model must be a non-empty string"
+    assert isinstance(cfg, LlmConfig), "cfg must be an LlmConfig"
+    window_tokens = context_window_tokens(model)
+    auto_budget = int(window_tokens * _DIFF_CONTEXT_SAFETY_FRACTION * _CHARS_PER_TOKEN)
+    # A positive config value is a hard ceiling; 0 means "auto", so the window-derived budget wins.
+    if cfg.diff_chars_max > 0:
+        auto_budget = min(auto_budget, cfg.diff_chars_max)
+    assert auto_budget > 0, "diff budget must be positive"
+    return auto_budget
+
+
+def _cap_diff(diff: str, chars_max: int) -> str:
+    """Bound the diff sent to the model so an enormous staged change can't blow the context window.
+
+    A commit of generated artifacts or a vendored tree can run to hundreds of thousands of tokens,
+    exceeding every provider's context window and failing the request outright. The full list of
+    changed files travels separately in the prompt (staged_files), so a truncated diff still names
+    every file; only the hunk bodies past the cap are dropped. Returns diff unchanged when it fits.
+    """
+    assert isinstance(diff, str), "diff must be a string"
+    assert isinstance(chars_max, int) and chars_max > 0, (
+        "chars_max must be a positive int"
+    )
+    if len(diff) <= chars_max:
+        return diff
+    dropped_chars = len(diff) - chars_max
+    notice = (
+        f"\n\n[diff truncated: {dropped_chars} of {len(diff)} characters omitted to fit the"
+        " model context window; the full changed-file list is listed above]"
+    )
+    result = diff[:chars_max] + notice
+    assert result.startswith(diff[:chars_max]), (
+        "capped diff must retain the head up to the cap"
+    )
+    return result
 
 
 def _build_user_content(
@@ -250,9 +309,11 @@ def suggest(
 
     # Agent generation: explicit --agent, or the use_agent default. Runs inline even on the
     # commit hook (the chosen "agent by default" behavior). Falls through to the fast path on any
-    # agent failure, so an unavailable backend never blocks a commit.
+    # agent failure, so an unavailable backend never blocks a commit. Bound the seed diff to the
+    # agent model's own window so a huge staged change can't overflow it.
     if use_agent and repo_root:
-        result = _run_agent_backend(diff.diff, branch, staged_files, repo_root, cfg)
+        agent_diff = _cap_diff(diff.diff, _diff_budget_chars(cfg.agent_model, cfg))
+        result = _run_agent_backend(agent_diff, branch, staged_files, repo_root, cfg)
         if result is not None:
             message, run_id = result
             if file:
@@ -272,8 +333,11 @@ def suggest(
     if not model and not use_agent:
         _print_routing_notice(cfg, selected_model)
 
+    # Bound the diff to the selected model's own window; this also protects the small model when a
+    # borderline-size diff routes to it, since the cap follows the model that will receive it.
+    capped_diff = _cap_diff(diff.diff, _diff_budget_chars(selected_model, cfg))
     commit_message = _generate_message(
-        diff.diff, cfg, selected_model, branch, staged_files, profile_text
+        capped_diff, cfg, selected_model, branch, staged_files, profile_text
     )
     if commit_message is None:
         return

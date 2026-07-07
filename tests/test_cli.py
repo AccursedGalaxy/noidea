@@ -47,6 +47,73 @@ class TestBuildUserContent:
         assert "Repo commit conventions:" not in result
 
 
+class TestCapDiff:
+    """The diff sent to the model is bounded so an enormous staged change (generated artifacts,
+    vendored trees) can't blow past the provider's context window and fail the whole request."""
+
+    def test_diff_within_cap_is_returned_unchanged(self):
+        from noidea.commands.suggest import _cap_diff
+
+        diff = "+ small change\n"
+        assert _cap_diff(diff, 200000) == diff
+
+    def test_diff_exactly_at_cap_is_unchanged(self):
+        from noidea.commands.suggest import _cap_diff
+
+        diff = "x" * 500
+        assert _cap_diff(diff, 500) == diff
+
+    def test_oversized_diff_is_truncated_with_a_notice(self):
+        from noidea.commands.suggest import _cap_diff
+
+        diff = "x" * 1000
+        result = _cap_diff(diff, 400)
+        # The head up to the cap is preserved so the model still sees real diff content.
+        assert result.startswith("x" * 400)
+        # The dropped bytes are named so the model (and reader) know the diff was cut.
+        assert "truncated" in result
+        assert "600" in result  # 1000 - 400 characters omitted.
+
+    def test_truncation_keeps_payload_bounded(self):
+        from noidea.commands.suggest import _cap_diff
+
+        # A 5 MB diff must collapse to roughly the cap plus a short notice, never the full size.
+        diff = "d" * 5_000_000
+        result = _cap_diff(diff, 200000)
+        assert len(result) < 201000
+
+
+class TestDiffBudgetChars:
+    """The per-model budget: a big-window model gets a large diff allowance, a small one a small
+    allowance, and an explicit config cap overrides both downward for cost control."""
+
+    def test_large_window_model_gets_a_large_budget(self):
+        from noidea.commands.suggest import _diff_budget_chars
+
+        # gemini's ~1M window yields a multi-MB char budget, so normal diffs are never truncated.
+        budget = _diff_budget_chars(
+            "google/gemini-2.5-flash", LlmConfig(diff_chars_max=0)
+        )
+        assert budget > 2_000_000
+
+    def test_small_window_model_gets_a_small_budget(self):
+        from noidea.commands.suggest import _diff_budget_chars
+
+        # gpt-4o-mini's 128k window must yield a far smaller budget so a mis-routed diff still fits.
+        budget = _diff_budget_chars("openai/gpt-4o-mini", LlmConfig(diff_chars_max=0))
+        assert budget < 500_000
+        assert budget > 0
+
+    def test_positive_config_cap_overrides_the_window_budget(self):
+        from noidea.commands.suggest import _diff_budget_chars
+
+        # A user who sets diff_chars_max caps below the window-derived budget, never above it.
+        budget = _diff_budget_chars(
+            "google/gemini-2.5-flash", LlmConfig(diff_chars_max=50_000)
+        )
+        assert budget == 50_000
+
+
 class TestVersion:
     def test_version_flag(self):
         result = runner.invoke(app, ["--version"])
@@ -187,6 +254,57 @@ class TestSuggest:
         assert result.exit_code == 0
         with open(outfile) as f:
             assert f.read() == "feat: new thing"
+
+    @patch("noidea.commands.suggest.complete", return_value="chore: big change")
+    @patch("noidea.commands.suggest.get_branch_name", return_value="main")
+    @patch("noidea.commands.suggest.get_staged_files", return_value=["gen.txt"])
+    @patch(
+        "noidea.commands.suggest.load_config",
+        return_value=LlmConfig(diff_chars_max=1000),
+    )
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ " + "x" * 500_000),
+    )
+    def test_suggest_caps_oversized_diff_before_calling_the_model(
+        self, mock_diff, mock_config, mock_staged, mock_branch, mock_complete
+    ):
+        # An oversized staged change must reach the model truncated, not whole: otherwise the
+        # request blows past the context window and fails (the gemini 1M-token error).
+        result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 0
+        user_content = mock_complete.call_args.args[1]
+        # The 500 KB diff collapses to roughly the cap plus prompt scaffolding, never its full size.
+        assert len(user_content) < 3000
+        assert "truncated" in user_content
+
+    @patch("noidea.commands.suggest.complete", return_value="chore: big change")
+    @patch("noidea.commands.suggest.get_branch_name", return_value="main")
+    @patch("noidea.commands.suggest.get_staged_files", return_value=["gen.txt"])
+    @patch(
+        "noidea.commands.suggest.load_config",
+        return_value=LlmConfig(
+            diff_chars_max=0, small_model="openai/gpt-4o-mini", provider="openrouter"
+        ),
+    )
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        # 500 KB: under the 600k-char routing threshold, so it stays on the small model, yet larger
+        # than that model's ~350 KB window budget — so the auto cap must still bite.
+        return_value=DiffResult(has_changes=True, diff="+ " + "x" * 500_000),
+    )
+    def test_suggest_auto_budget_truncates_to_the_small_model_window(
+        self, mock_diff, mock_config, mock_staged, mock_branch, mock_complete
+    ):
+        # With diff_chars_max=0 (auto), a diff routed to gpt-4o-mini (128k tokens) must be truncated
+        # to that model's window-derived budget (~350 KB), not sent whole.
+        result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 0
+        user_content = mock_complete.call_args.args[1]
+        assert "truncated" in user_content
+        assert (
+            len(user_content) < 400_000
+        )  # Bounded near the 128k-token budget, not 500 KB.
 
     @patch("noidea.commands.suggest.complete", return_value="fix: thing")
     @patch("noidea.commands.suggest.get_branch_name", return_value="main")
