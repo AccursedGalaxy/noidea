@@ -232,6 +232,29 @@ class TestCompleteOpenAiCompat:
             complete("s", "u", "m", 10, provider="ollama")
         assert exc.value.kind is ErrorKind.STATUS
 
+    @patch("openai.OpenAI")
+    def test_no_choices_with_embedded_error_raises_provider_error(
+        self, mock_openai_cls
+    ):
+        # Aggregators (OpenRouter) return HTTP 200 with an error embedded in the body when an
+        # upstream model fails: the SDK does not raise, so an empty choices list must collapse to
+        # ProviderError — not an AssertionError that escapes the caller's ProviderError-only catch.
+        mock_response = MagicMock()
+        mock_response.choices = []
+        mock_response.error = {
+            "message": "The input token count exceeds the maximum allowed."
+        }
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_openai_cls.return_value = mock_client
+
+        with pytest.raises(ProviderError) as exc:
+            complete("s", "u", "m", 10, provider="openrouter")
+
+        assert exc.value.kind is ErrorKind.STATUS
+        # The upstream detail is surfaced so the user sees why, not just "empty".
+        assert "input token count" in exc.value.message
+
 
 class TestReasoningModels:
     """OpenAI reasoning models (o-series, gpt-5) reject max_tokens and a non-default temperature;

@@ -252,7 +252,21 @@ def _extract_text(response) -> str:
     An empty completion is a provider failure, not a Python type error: callers only catch
     ProviderError, so leaking anything else would crash them with an unhandled traceback.
     """
-    assert response.choices, "response must contain at least one choice"
+    # A missing/empty choices list is a provider failure, not an internal invariant: aggregators
+    # like OpenRouter return HTTP 200 with an error embedded in the body when an upstream model
+    # fails, so the SDK never raises and we land here with no choice. Surface the embedded error
+    # if present, else a generic message — always as ProviderError so callers handle it.
+    if not response.choices:
+        embedded_error = getattr(response, "error", None)
+        detail = ""
+        if isinstance(embedded_error, dict):
+            detail = str(embedded_error.get("message", "")).strip()
+        elif embedded_error is not None:
+            detail = str(embedded_error).strip()
+        message = "The provider returned no completion choices."
+        if detail:
+            message = f"{message} Upstream error: {detail}"
+        raise ProviderError(ErrorKind.STATUS, message)
     choice = response.choices[0]
     content = choice.message.content
     assert content is None or isinstance(content, str), (
