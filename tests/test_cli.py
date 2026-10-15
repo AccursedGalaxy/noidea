@@ -100,6 +100,14 @@ class TestDiffBudgetChars:
         assert budget < 500_000
         assert budget > 0
 
+    def test_default_cap_bounds_a_large_window_model(self):
+        from noidea.commands.suggest import _diff_budget_chars
+
+        # The default is a cost guard: a 1M-token window alone would allow ~2.7M characters, so a
+        # hook could send a vendored tree on every commit attempt. The default caps well below it.
+        budget = _diff_budget_chars("claude-sonnet-5-5", LlmConfig())
+        assert budget == 200_000
+
     def test_positive_config_cap_overrides_the_window_budget(self):
         from noidea.commands.suggest import _diff_budget_chars
 

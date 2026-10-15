@@ -91,22 +91,25 @@ runs:
           exit 1
         fi
 
-        # Write the inputs as the runner's user-level config, not the repo's .noidea/config.json:
+        # Write the provider as the runner's user-level config, not the repo's .noidea/config.json:
         # the checkout stays clean, and a repo config (e.g. a custom system_prompt) still applies
-        # on top of it.
+        # on top of it. The model goes on the command line: noidea ignores user-config values
+        # that equal an old default, so a model name like claude-haiku-4-5 would otherwise be
+        # dropped from the config.
         python3 - <<'PY'
         import json, os
-        llm = {"provider": os.environ["PROVIDER"]}
-        if os.environ["MODEL"]:
-            llm["small_model"] = llm["large_model"] = os.environ["MODEL"]
         os.makedirs(os.path.expanduser("~/.noidea"), exist_ok=True)
         with open(os.path.expanduser("~/.noidea/config.json"), "w") as handle:
-            json.dump({"llm": llm}, handle)
+            json.dump({"llm": {"provider": os.environ["PROVIDER"]}}, handle)
         PY
+        MODEL_ARGS=()
+        if [ -n "$MODEL" ]; then
+          MODEL_ARGS=(--model "$MODEL")
+        fi
 
         # stdout is only ever the message; errors and the routing notice go to stderr, which
         # stays in the job log. A failed suggestion warns instead of failing the PR's checks.
-        if ! MESSAGE=$(noidea suggest); then
+        if ! MESSAGE=$(noidea suggest "${MODEL_ARGS[@]}"); then
           echo "::warning::noidea could not generate a commit message; see the log above."
           MESSAGE=""
         fi

@@ -56,13 +56,14 @@ class LlmConfig:
     # Characters (prompt plus diff) at which a change escalates to the large model: ~10k tokens,
     # well inside the small model's window, so the strong model sees big diffs uncut.
     context_limit: float = 40000.0
-    # Optional hard ceiling on the diff characters sent to the model. 0 means "auto": derive the
-    # bound from the selected model's own context window (see suggest._diff_budget_chars), which is
-    # the right default now that windows range from 128k to 1M+ tokens. A positive value caps below
-    # that — useful to bound cost/latency. Either way an enormous staged change (e.g. a commit of
-    # generated artifacts) is truncated rather than allowed to overflow the window and fail; the
-    # full changed-file list travels separately in the prompt, so every file is still named.
-    diff_chars_max: int = 0
+    # Hard ceiling on the diff characters sent to the model, applied below the selected model's own
+    # context window (see suggest._diff_budget_chars). The default is a cost guard: with 1M-token
+    # windows the window alone would let a hook send a vendored tree (hundreds of thousands of
+    # tokens) on every commit attempt. 200k characters is ~65k tokens, far more than a commit
+    # message needs. 0 means "auto": the window alone bounds the diff. Either way an enormous
+    # staged change is truncated rather than allowed to overflow the window and fail; the full
+    # changed-file list travels separately in the prompt, so every file is still named.
+    diff_chars_max: int = 200_000
     system_prompt: str = _DEFAULT_SYSTEM_PROMPT
     temperature: float = 1.0
     learn_commit_style: bool = True  # Match the repo's observed commit conventions.

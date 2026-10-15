@@ -44,11 +44,12 @@ Large change → escalating to claude-sonnet-5-5 · the strong model
 Counting characters needs no API call, which keeps routing instant. `--model` skips routing and
 prints no notice.
 
-After routing, the diff is trimmed if it would not fit the chosen model's context window. noidea
-estimates the window from the model name (200,000 tokens for Claude models, 128,000 for an
-unrecognised name) and sends at most 90% of it, at 3 characters per token. Trimming drops the end
-of the diff and adds a note saying how much was left out; the staged file list is always sent in
-full. `diff_chars_max` sets a lower limit.
+After routing, the diff is trimmed to `diff_chars_max` (200,000 characters by default) or to the
+chosen model's context window, whichever is smaller. noidea estimates the window from the model
+name (1,000,000 tokens for the Claude 5 generation, 200,000 for older Claude models, 128,000 for
+an unrecognised name) and allows at most 90% of it, at 3 characters per token. Trimming drops the
+end of the diff and adds a note saying how much was left out; the staged file list is always sent
+in full.
 
 ## Style learning
 

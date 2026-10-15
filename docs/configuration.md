@@ -37,7 +37,7 @@ Warning: llm.temperature has wrong type (str), using default.
 | `small_model` | string | `"claude-haiku-5-5"` | Model for ordinary diffs. |
 | `large_model` | string | `"claude-sonnet-5-5"` | Model for diffs at or over `context_limit`, and for `noidea test`. |
 | `context_limit` | number | `40000` | Size in characters where routing switches to `large_model`. |
-| `diff_chars_max` | integer | `0` | Upper limit on diff characters sent. `0` sizes it from the model's context window. |
+| `diff_chars_max` | integer | `200000` | Upper limit on diff characters sent. `0` sizes it from the model's context window alone. |
 | `max_tokens` | integer | `8192` | Output token budget per request. Current Claude models spend part of it thinking before they answer. |
 | `temperature` | number | `1.0` | Sampling temperature. Lower values give more predictable wording. Current Claude models (the 5.5 generation) only accept `1.0`. |
 | `learn_commit_style` | boolean | `true` | Match the repo's own commit conventions. |
@@ -60,13 +60,14 @@ For a one-off override, `noidea suggest --model <name>` uses that model regardle
 
 ## Large diffs
 
-A commit of generated files can be bigger than any model's context window. noidea trims the diff
-to fit the model that will receive it and keeps the complete list of changed file names, so the
-message can still mention every file. Set `diff_chars_max` to trim earlier, which bounds cost and
-latency on huge commits:
+A commit of generated files can be bigger than any model's context window, and a 1M-token window
+would let a hook send a vendored tree on every commit attempt. noidea trims the diff to 200,000
+characters (about 65,000 tokens) or the model's context window, whichever is smaller, and keeps
+the complete list of changed file names, so the message can still mention every file. Raise
+`diff_chars_max` to send more, or set it to `0` to let the context window alone decide:
 
 ```json
-{ "llm": { "diff_chars_max": 100000 } }
+{ "llm": { "diff_chars_max": 500000 } }
 ```
 
 ## Style learning
