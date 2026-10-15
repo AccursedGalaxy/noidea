@@ -303,8 +303,9 @@ class TestCompleteOpenAiCompat:
             complete("s", "u", "m", 10, provider="ollama")
         assert exc.value.kind is ErrorKind.STATUS
 
+    @patch("noidea.provider.get_api_key", return_value="sk-or-test")
     @patch("openai.OpenAI")
-    def test_no_choices_with_embedded_error_raises_provider_error(self, mock_openai_cls):
+    def test_no_choices_with_embedded_error_raises_provider_error(self, mock_openai_cls, _key):
         # Aggregators (OpenRouter) return HTTP 200 with an error embedded in the body when an
         # upstream model fails: the SDK does not raise, so an empty choices list must collapse to
         # ProviderError — not an AssertionError that escapes the caller's ProviderError-only catch.
