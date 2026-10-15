@@ -5,7 +5,7 @@ from rich.console import Console
 from noidea import build_version
 from noidea.config import CONFIG_PATH, SERVICE_NAME, LlmConfig, load_config
 from noidea.git import HOOKS, get_git_root, get_hooks_dir, is_noidea_hook
-from noidea.key_store import KeyStatus, KeyStoreError, key_store
+from noidea.key_store import KeyStatus, KeyStoreError, env_var_for, key_store
 
 console = Console(stderr=True)
 
@@ -70,19 +70,34 @@ def _check_config() -> LlmConfig:
     return cfg
 
 
-def _check_api_keys():
+def _check_api_key(cfg: LlmConfig) -> None:
+    """Report the key the configured provider needs, and where it comes from."""
+    assert isinstance(cfg, LlmConfig), "cfg must be an LlmConfig"
+    provider = cfg.provider
+    env_var = env_var_for(provider)
+    # Only keyless providers (ollama) have no env var; see key_store._PROVIDER_ENV_VARS.
+    if env_var is None:
+        console.print(f"API Key:        {OK} not needed ({provider})")
+        return
     try:
-        keys = key_store.list()
-        if not keys:
-            console.print(f"API Key:        {FAIL} no key found (run 'noidea keys add')")
-            return
-        for key in keys:
-            if key_store.status_of(key) is KeyStatus.PRESENT:
-                console.print(f"API Key:        {OK} {key} (keyring)")
-            else:
-                console.print(f"API Key:        {FAIL} {key} registered but missing from keyring")
+        key_status = key_store.status_of(provider)
     except KeyStoreError:
-        console.print(f"API Key:        {FAIL} could not read keys")
+        console.print(f"API Key:        {FAIL} could not read the keyring")
+        return
+    if key_status is KeyStatus.PRESENT:
+        console.print(f"API Key:        {OK} {provider} (keyring)")
+    elif os.environ.get(env_var):
+        console.print(f"API Key:        {OK} {provider} ({env_var})")
+    elif key_status is KeyStatus.MISSING_SECRET:
+        console.print(
+            f"API Key:        {FAIL} {provider} registered but missing from keyring"
+            f" (run '{SERVICE_NAME} keys add {provider}')"
+        )
+    else:
+        console.print(
+            f"API Key:        {FAIL} no key for {provider}"
+            f" (run '{SERVICE_NAME} keys add {provider}' or set {env_var})"
+        )
 
 
 def status():
@@ -91,9 +106,10 @@ def status():
     _check_repository()
     _check_hook()
     cfg = _check_config()
-    _check_api_keys()
+    console.print(f"Provider:       {cfg.provider}")
+    _check_api_key(cfg)
     console.print(f"Small Model:    {cfg.small_model}")
     console.print(f"Large Model:    {cfg.large_model}")
-    console.print(f"Context Limit:  {cfg.context_limit}")
+    console.print(f"Context Limit:  {cfg.context_limit:g} characters")
     console.print(f"Temperature:    {cfg.temperature}")
     console.print()

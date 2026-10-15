@@ -794,3 +794,40 @@ class TestUninstall:
         assert config_dir.exists()
         mock_store.remove.assert_not_called()
         assert result.exit_code == 1
+
+
+class TestStatusKey:
+    """status checks the key the configured provider needs, wherever the key comes from."""
+
+    def _report(self, provider, capsys, status=None, environ=None):
+        from noidea.commands.status import _check_api_key
+        from noidea.key_store import KeyStatus
+
+        with (
+            patch("noidea.commands.status.key_store") as mock_store,
+            patch.dict("os.environ", environ or {}, clear=False),
+        ):
+            mock_store.status_of.return_value = status or KeyStatus.UNREGISTERED
+            _check_api_key(LlmConfig(provider=provider))
+        return capsys.readouterr().err
+
+    def test_keyring_key_is_reported_with_its_source(self, capsys):
+        from noidea.key_store import KeyStatus
+
+        err = self._report("anthropic", capsys, status=KeyStatus.PRESENT)
+        assert "anthropic (keyring)" in err
+
+    def test_env_var_key_counts(self, capsys, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        err = self._report("openai", capsys, environ={"OPENAI_API_KEY": "sk-x"})
+        assert "openai (OPENAI_API_KEY)" in err
+        assert "no key" not in err
+
+    def test_missing_key_names_both_fixes(self, capsys, monkeypatch):
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+        err = self._report("groq", capsys)
+        assert "noidea keys add groq" in err
+        assert "GROQ_API_KEY" in err
+
+    def test_keyless_provider_needs_no_key(self, capsys):
+        assert "not needed" in self._report("ollama", capsys)
