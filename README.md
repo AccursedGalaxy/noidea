@@ -4,31 +4,64 @@
 
 **Because you shouldn't have to think about commit messages.**
 
-*Python-native AI commit message generator — hooks into `git commit`, learns your repo's voice, routes small diffs to cheap models. No Node.js required.*
+A small Python CLI that hooks into `git commit`, writes the message in your repo's own style, and
+sends small diffs to cheap models.
 
 [![PyPI](https://img.shields.io/pypi/v/noidea?style=flat-square&color=blue)](https://pypi.org/project/noidea/)
 [![Downloads](https://img.shields.io/pypi/dm/noidea?style=flat-square&color=green)](https://pypi.org/project/noidea/)
-[![Stars](https://img.shields.io/github/stars/AccursedGalaxy/noidea?style=flat-square)](https://github.com/AccursedGalaxy/noidea/stargazers)
+[![Docs](https://img.shields.io/readthedocs/noidea?style=flat-square)](https://noidea.readthedocs.io)
 [![License](https://img.shields.io/github/license/AccursedGalaxy/noidea?style=flat-square)](https://github.com/AccursedGalaxy/noidea/blob/main/LICENSE)
 
 <br>
 
-<img src="assets/demo.gif" alt="noidea demo" width="700">
+<img src="assets/demo.gif" alt="noidea writing a commit message in the editor" width="700">
+
+**[Documentation](https://noidea.readthedocs.io)** ·
+**[Getting started](https://noidea.readthedocs.io/en/latest/getting-started.html)** ·
+**[Changelog](CHANGELOG.md)**
 
 </div>
 
----
+## Quick start
 
-## Why noidea?
+```bash
+pipx install noidea
+noidea keys add       # stores your Anthropic key in the system keyring
+noidea init           # run once per repository
+```
 
-Most AI commit message tools require Node.js, generate the same boilerplate every time, and run as a separate command you have to remember to call. noidea is a Python-native alternative that works differently in the ways that actually matter:
+Now run `git commit` without `-m`. Your editor opens with a suggested message already filled in,
+ready to edit or throw away.
 
-- **Writes in your repo's voice, not generic AI boilerplate.** Before generating, noidea reads how your repo already commits — its scope vocabulary, body habits, subject length, gitmoji or not — and matches it. Your history stays consistent instead of looking like a bot dropped in.
-- **Spends pennies and milliseconds on trivial commits.** Small diffs go to a fast, cheap model; only substantial changes escalate to the strong one — automatically, and it tells you which it chose. No paying premium rates to commit a typo fix.
-- **Never auto-commits — you always get the last word.** It pre-fills your editor on `git commit`. No new command to remember, no message committed behind your back. Edit or delete it like any draft.
-- **Terminal-native and private by design.** A small, MIT-licensed Python CLI built to a strict [safety-first style guide](STYLE.md). Your diffs go straight to your chosen model and nowhere else.
+No API key? Use a local [Ollama](https://noidea.readthedocs.io/en/latest/providers.html#ollama)
+model instead.
 
-### How noidea compares
+## Why noidea
+
+### It writes like your repo
+
+Before each suggestion noidea reads your recent commits and copies
+the house style: your scopes, whether you write bodies, how long your subjects are, and gitmoji if
+you use them. Your history keeps reading like your team wrote it.
+
+### Small commits cost less
+
+Ordinary diffs go to a fast, cheap model, and only very large
+changes go to the strong one. noidea tells you which one it picked.
+
+### You always have the last word
+
+noidea never commits for you. It fills in the editor on a
+plain `git commit`, so there's no new command to remember. If you already wrote a message with
+`-m`, `--amend`, or in a merge, noidea leaves it alone.
+
+### Small and private
+
+noidea is an MIT-licensed Python CLI with no telemetry, built to a strict
+[safety-first style guide](STYLE.md). Your diff goes to the model you chose and nowhere else, and
+with Ollama it never leaves your machine.
+
+### Compared with other tools
 
 |  | **noidea** | opencommit | aicommits | gptcommit |
 |--|--|--|--|--|
@@ -37,143 +70,55 @@ Most AI commit message tools require Node.js, generate the same boilerplate ever
 | Hooks into `git commit` | ✅ | ✅ | ✅ | ✅ |
 | Learns your repo's style | ✅ | ❌ | ❌ | ❌ |
 | Cost-aware model routing | ✅ | ❌ | ❌ | ❌ |
-| Multi-provider (6+) | ✅ | ✅ | ✅ | partial |
+| Multiple providers | ✅ 7 | ✅ | ✅ | partial |
 | No Node.js required | ✅ | ❌ | ❌ | ✅ |
-| GitHub Action | ✅ | ❌ | ❌ | ❌ |
+| GitHub Action | ✅ | ✅ | ❌ | ❌ |
 
-## Quick Start
+## Providers
 
-```bash
-pipx install noidea
-noidea init
-```
-
-That's it. Every `git commit` now opens your editor with a suggested message pre-filled.
-If you pass your own message (`-m`, `-F`, `--amend`, merges), noidea leaves it alone.
-
-> Requires [pipx](https://pipx.pypa.io). Alternatively: `pip install noidea`
-
-Works with **Claude, GPT, and local Ollama models** (plus Gemini, DeepSeek, Groq) — switching is a one-line config change, see [Multi-provider](#multi-provider). Want to try it with zero setup and no API key? Point it at a local Ollama model.
-
-## API Key Setup
-
-By default noidea uses Anthropic (Claude). The key is looked up in three places, in order:
-
-| Method | Command |
-|--------|---------|
-| **Keyring** (recommended) | `noidea keys add` |
-| **Environment variable** | `export ANTHROPIC_API_KEY=sk-ant-...` |
-| **`.env` file** | `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file |
-
-Other providers follow the same pattern with their own env var (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`) or `noidea keys add <provider>`.
-
-**Ollama needs no key.** It runs locally, so once `provider` is set to `ollama` (below) you can generate commit messages with nothing else configured.
-
-### Multi-provider
-
-Set `provider` in your config (see [Config](#config)) to route every request to a different backend — no code change, no extra install:
+Anthropic is the default. OpenAI, Gemini, DeepSeek, Groq and OpenRouter work with a key, Ollama
+runs locally without one, and any OpenAI-compatible server works through `base_url`. Switching is
+a few lines of config:
 
 ```json
-{ "llm": { "provider": "ollama" } }
+{ "llm": { "provider": "ollama", "small_model": "llama3.2", "large_model": "llama3.2" } }
 ```
 
-| `provider` | Needs a key? | Default endpoint |
-|------------|--------------|------------------|
-| `anthropic` (default) | yes | Anthropic SDK default |
-| `openai` | yes | OpenAI SDK default |
-| `ollama` | **no** | `http://localhost:11434/v1` |
-| `gemini` | yes | Google's OpenAI-compatible endpoint |
-| `deepseek` | yes | `https://api.deepseek.com` |
-| `groq` | yes | `https://api.groq.com/openai/v1` |
-| `openrouter` | yes | `https://openrouter.ai/api/v1` |
-
-Set `base_url` to override the endpoint — e.g. point `openai` at a self-hosted vLLM server. Remember to also set `small_model`/`large_model` to models the provider actually serves (e.g. `"small_model": "llama3.2"` for Ollama).
-
-> **Reasoning models:** OpenAI's reasoning models (the `o1`/`o3`/`gpt-5` family) are supported. They take `max_completion_tokens` instead of `max_tokens` and ignore `temperature`; noidea maps the parameters automatically and, for any provider, recovers if a model unexpectedly rejects `max_tokens`. Note that reasoning models spend part of the token budget on hidden reasoning, so a low `max_tokens` may leave no room for the message — raise `llm.max_tokens` if you get an empty-completion error.
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `noidea init` | Install the git hooks (`prepare-commit-msg`, `post-commit`). Backs up any existing hook. Re-run after upgrading to update them. Respects `core.hooksPath`. |
-| `noidea suggest` | Generate a commit message from the staged diff and print it. |
-| `noidea status` | Show current config, API key status, and hook installation (flags hooks that need `noidea init`). |
-| `noidea uninstall` | Remove noidea's hooks from this repo and restore any hook it replaced. `--purge` also deletes stored API keys and `~/.noidea`. |
-| `noidea keys` | Manage API keys in the system keyring (`show` / `add` / `remove`). |
-| `noidea test` | Send a test message to Claude to verify connectivity. |
-| `noidea update` | Upgrade noidea via `pipx` (falls back to `pip`). |
-| `noidea --version` | Print the current version. |
-
-### `noidea suggest` options
-
-```
--F, --file TEXT    Write message to file instead of stdout (used by the hook)
--M, --model TEXT   Override the model used for generation
-```
+See [Providers](https://noidea.readthedocs.io/en/latest/providers.html) for keys, endpoints and
+examples, and [Configuration](https://noidea.readthedocs.io/en/latest/configuration.html) for
+every setting.
 
 ## GitHub Action
 
-noidea is also a [GitHub Action](https://github.com/marketplace/actions/noidea-ai-commit-message-suggestion). Add it to any repo and get AI-suggested commit messages posted as PR comments automatically.
+noidea also runs on pull requests and posts a suggested squash-merge message as a comment:
 
 ```yaml
-# .github/workflows/noidea-suggest.yml
-name: AI commit suggestion
-on: [pull_request]
-
-jobs:
-  suggest:
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: AccursedGalaxy/noidea@main
-        with:
-          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          provider: anthropic        # or openai, groq, deepseek, gemini, ollama
-          post-comment: 'true'
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+- uses: AccursedGalaxy/noidea@main
+  with:
+    api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-Switch to a free local model with `provider: ollama` and no `api-key` — no cost, no key rotation.
+The [GitHub Action guide](https://noidea.readthedocs.io/en/latest/github-action.html) has the
+full workflow, inputs and outputs.
 
-## Config
+## Documentation
 
-Two optional config levels — both are `config.json` files:
-
-- **User**: `~/.noidea/config.json` — applies everywhere
-- **Repo**: `<repo>/.noidea/config.json` — overrides user config
-
-Precedence: built-in defaults → user config → repo config.
-
-```json
-{
-  "llm": {
-    "max_tokens": 1024,
-    "small_model": "claude-haiku-4-5",
-    "large_model": "claude-sonnet-4-6",
-    "context_limit": 600000,
-    "temperature": 1.0,
-    "learn_commit_style": true,
-    "provider": "anthropic",
-    "base_url": "",
-    "system_prompt": "Your custom prompt here"
-  }
-}
-```
-
-Falls back to built-in defaults if no config file exists. The default prompt follows conventional commits style (`feat`/`fix`/`refactor`/etc.) with a 72-character subject line limit. Smaller diffs use `small_model` (Haiku) for speed; larger diffs automatically switch to `large_model` (Sonnet). `temperature` controls output creativity (0.0–1.0); the default of `1.0` maximises variety.
-
-### Repo-native style learning
-
-`learn_commit_style` (on by default) samples your recent `git log` and matches the repo's own conventions — its scope vocabulary, whether commits carry a body, typical subject length, and gitmoji usage — so suggestions read like your project's existing commits rather than generic boilerplate. It activates automatically once a repo has at least 5 commits; below that it stays out of the way. Set `"learn_commit_style": false` to disable it.
+- [Getting started](https://noidea.readthedocs.io/en/latest/getting-started.html): install, keys,
+  and your first commit
+- [Commands](https://noidea.readthedocs.io/en/latest/commands.html): every command and flag
+- [How it works](https://noidea.readthedocs.io/en/latest/how-it-works.html): routing, style
+  learning, and exactly what is sent to the model
+- [Troubleshooting](https://noidea.readthedocs.io/en/latest/troubleshooting.html): fixes for the
+  usual error messages
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines. This project follows [TigerStyle](STYLE.md) for coding standards.
+Bug reports and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the
+development setup, and the code follows [TigerStyle](STYLE.md).
 
-## Requirements
+## License
 
-- Python 3.10+
-- An LLM provider: an Anthropic, OpenAI, Gemini, DeepSeek, or Groq API key — or a local [Ollama](https://ollama.com) install (no key needed)
+[MIT](LICENSE)

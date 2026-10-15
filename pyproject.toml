@@ -51,6 +51,7 @@ noidea = "noidea.cli:app"
 [project.urls]
 Homepage = "https://github.com/AccursedGalaxy/noidea"
 Repository = "https://github.com/AccursedGalaxy/noidea"
+Documentation = "https://noidea.readthedocs.io"
 Issues = "https://github.com/AccursedGalaxy/noidea/issues"
 Changelog = "https://github.com/AccursedGalaxy/noidea/blob/main/CHANGELOG.md"
 

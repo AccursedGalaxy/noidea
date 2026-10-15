@@ -1,6 +1,6 @@
 # Plan: Repo-native commit style learning
 
-> Grilled 2026-05-22. Differentiator #1 from [competitive-analysis.md](competitive-analysis.md):
+> Grilled 2026-05-22. Differentiator #1 from the competitive analysis:
 > noidea reads how a repo already commits and writes in that voice, instead of generic
 > conventional-commit boilerplate.
 >

@@ -1,0 +1,9 @@
+/* Lookup tables read left to right, so headers align with their columns. */
+table.docutils th {
+  text-align: left;
+}
+
+/* Keep flags and keys on one line, so a table cell never splits `--no-agent`. */
+table.docutils td:first-child code {
+  white-space: nowrap;
+}

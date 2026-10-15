@@ -7,7 +7,8 @@ Thanks for your interest in contributing to **noidea**! We welcome bug reports, 
 - **Python 3.10+**
 - **Poetry** ([installation guide](https://python-poetry.org/docs/#installation))
 - **Git**
-- **Anthropic API key** — only needed for manual testing against the real API, *not* for running the test suite
+- **An API key for any supported provider**, or a local Ollama install, only if you want to try
+  noidea against a real model. The test suite needs neither.
 
 ## Development Setup
 
@@ -20,13 +21,16 @@ poetry run noidea --version  # verify the install
 
 ## API Key for Development
 
-noidea resolves your Anthropic API key in this order:
+noidea looks up a provider's key in this order:
 
-1. **System keyring** — `keyring set noidea anthropic_api_key`
-2. **Environment variable** — `export ANTHROPIC_API_KEY=sk-ant-...`
-3. **`.env` file** — create a `.env` in the project root with `ANTHROPIC_API_KEY=sk-ant-...`
+1. The system keyring, written by `poetry run noidea keys add <provider>`.
+2. The provider's environment variable, such as `ANTHROPIC_API_KEY`.
 
-> **Note:** Tests mock all API calls, so you do **not** need a key to run `pytest`. A key is only required if you want to manually test against the real Anthropic API.
+In a development checkout, a `.env` file in the project root also works, because `key_store.py`
+loads the nearest `.env` above the package. That lookup starts from the package directory, so it
+does not find a `.env` in other repositories once noidea is installed.
+
+Tests mock every API call, so `poetry run pytest` needs no key.
 
 ## Running Tests
 
@@ -38,7 +42,7 @@ CI runs the test suite on Python 3.10, 3.11, 3.12, and 3.13. All checks must pas
 
 ## Code Style
 
-This project follows **[TigerStyle](STYLE.md)** — read it before writing code. The style prioritizes safety, performance, and developer experience.
+This project follows **[TigerStyle](STYLE.md)**. Read it before writing code. The style prioritizes safety, performance, and developer experience.
 
 ### Tooling
 
@@ -64,7 +68,7 @@ poetry run pyright
 - **Function length:** hard limit of 70 lines per function.
 - **Line length:** hard limit of 100 columns.
 - **Comments:** always explain *why*, not just *what*. Comments are full sentences with proper punctuation.
-- **Error handling:** handle all errors explicitly — never silently ignore failures.
+- **Error handling:** handle all errors explicitly, and never silently ignore failures.
 - **Control flow:** keep it simple and explicit. Centralize branching logic; keep leaf functions pure.
 - Use type hints for function signatures.
 - Use [`rich`](https://github.com/Textualize/rich) for all user-facing stderr output.
@@ -99,22 +103,39 @@ refactor: improve CLI app configuration and main callback
 
 | Module | Description |
 |---|---|
-| `cli.py` | Typer app entry point — registers commands and the `--version` flag |
-| `commands/` | One module per CLI command: `init`, `keys`, `status`, `suggest`, `test`, `update` |
-| `config.py` | 3-tier config loading: defaults → user (`~/.noidea/config.json`) → repo (`.noidea/config.json`) |
-| `git.py` | Git subprocess wrappers (diff, log, branch, staged files, etc.) |
-| `provider.py` | Anthropic API client for generating commit messages |
+| `cli.py` | Typer app entry point: registers commands and the `--version` flag |
+| `commands/` | One module per CLI command: `init`, `keys`, `status`, `suggest`, `test`, `update`, `uninstall`, plus the hidden `_reconcile` |
+| `config.py` | `LlmConfig` and 3-tier config loading: defaults → user (`~/.noidea/config.json`) → repo (`.noidea/config.json`) |
+| `git.py` | Git subprocess wrappers and the hook scripts `noidea init` installs |
+| `provider.py` | `complete()`: one transport for every provider, with a single `ProviderError` type |
+| `key_store.py` | API keys: the OS keyring plus the `keys.json` name registry, kept in sync |
+| `style.py` | Style learning: turns recent commits into prompt hints |
+| `agent_backend.py`, `dogfood.py` | The experimental agent backend and its proposal queue |
 
 > **Config note:** Configuration merges three layers (defaults, user-level, repo-level) with later layers overriding earlier ones. Keep this in mind when touching config code.
 
 ## Pull Request Workflow
 
-1. **Open an issue** or discuss first for non-trivial changes
-2. **Fork & branch** from `main` (e.g., `feat/add-openai-provider`)
-3. **Make your changes** and add tests for new functionality
-4. **Run tests** — `poetry run pytest`
-5. **Update `CHANGELOG.md`** under `[Unreleased]` using [Keep a Changelog](https://keepachangelog.com/) format
-6. **Open a PR** against `main`
+1. Open an issue first for non-trivial changes, so we can agree on the approach.
+2. Fork and branch from `main` (for example `feat/add-mistral-provider`).
+3. Make your changes and add tests for new behaviour.
+4. Run `poetry run pytest`.
+5. Add a line to `CHANGELOG.md` under `[Unreleased]`, in [Keep a Changelog](https://keepachangelog.com/) format.
+6. Update the docs in `docs/` if users will notice the change. `docs/CONVENTION.md` says which page owns which fact.
+7. Open a PR against `main`.
+
+## Documentation
+
+The user docs in `docs/` are a Sphinx site written in Markdown (MyST) and published to
+[noidea.readthedocs.io](https://noidea.readthedocs.io). To build it locally:
+
+```bash
+python -m venv .docs-venv
+.docs-venv/bin/pip install -r docs/requirements.txt
+.docs-venv/bin/sphinx-build -W -b html docs docs/_build/html
+```
+
+`notes/` holds design notes from past features. They are history, not documentation.
 
 ## Releases
 
