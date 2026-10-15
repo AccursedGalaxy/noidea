@@ -126,7 +126,7 @@ refactor: improve CLI app configuration and main callback
 ## Documentation
 
 The user docs in `docs/` are a Sphinx site written in Markdown (MyST) and published to
-[noidea.readthedocs.io](https://noidea.readthedocs.io). To build it locally:
+[noidea-ai.readthedocs.io](https://noidea-ai.readthedocs.io). To build it locally:
 
 ```bash
 python -m venv .docs-venv

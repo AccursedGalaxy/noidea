@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Diff size cap**: very large staged diffs (generated files, vendored trees) are trimmed to 200,000 characters (about 65,000 tokens), or less if the chosen model's context window is smaller, instead of failing the request or quietly sending a vendored tree to a 1M-token model on every commit. A visible note in the prompt says how much was left out, and the full list of changed files is always kept. Set `diff_chars_max` to pick your own limit, or `0` to let the context window alone decide.
 - `noidea --version` and `noidea status` show the git commit (and `.dirty`) when running from a source checkout. Released installs still show the plain version.
 - `noidea status` reports hooks that are out of date and tells you to run `noidea init`. It also shows the configured provider and where its key comes from (keyring or env var), and no longer says "no key found" when the key is in an env var.
-- A new [docs site](https://noidea.readthedocs.io) with pages for getting started, commands, configuration, providers, the GitHub Action, how it works, and troubleshooting.
+- A new [docs site](https://noidea-ai.readthedocs.io) with pages for getting started, commands, configuration, providers, the GitHub Action, how it works, and troubleshooting.
 
 ### Fixed
 - The `prepare-commit-msg` hook no longer overwrites a message you already wrote. `git commit -m`/`-F`, `-c`/`-C`/`--amend`, merges, and squashes keep their message; only a plain `git commit` (or a `commit.template`) gets a generated one. To start from a suggestion and adjust it, run `noidea suggest` and commit the edited text with `git commit -m`.

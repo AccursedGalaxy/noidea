@@ -9,15 +9,15 @@ sends small diffs to cheap models.
 
 [![PyPI](https://img.shields.io/pypi/v/noidea?style=flat-square&color=blue)](https://pypi.org/project/noidea/)
 [![Downloads](https://img.shields.io/pypi/dm/noidea?style=flat-square&color=green)](https://pypi.org/project/noidea/)
-[![Docs](https://img.shields.io/readthedocs/noidea?style=flat-square)](https://noidea.readthedocs.io)
+[![Docs](https://img.shields.io/readthedocs/noidea-ai?style=flat-square)](https://noidea-ai.readthedocs.io)
 [![License](https://img.shields.io/github/license/AccursedGalaxy/noidea?style=flat-square)](https://github.com/AccursedGalaxy/noidea/blob/main/LICENSE)
 
 <br>
 
 <img src="assets/demo.gif" alt="noidea writing a commit message in the editor" width="700">
 
-**[Documentation](https://noidea.readthedocs.io)** ·
-**[Getting started](https://noidea.readthedocs.io/en/latest/getting-started.html)** ·
+**[Documentation](https://noidea-ai.readthedocs.io)** ·
+**[Getting started](https://noidea-ai.readthedocs.io/en/latest/getting-started.html)** ·
 **[Changelog](CHANGELOG.md)**
 
 </div>
@@ -33,7 +33,7 @@ noidea init           # run once per repository
 Now run `git commit` without `-m`. Your editor opens with a suggested message already filled in,
 ready to edit or throw away.
 
-No API key? Use a local [Ollama](https://noidea.readthedocs.io/en/latest/providers.html#ollama)
+No API key? Use a local [Ollama](https://noidea-ai.readthedocs.io/en/latest/providers.html#ollama)
 model instead.
 
 ## Why noidea
@@ -84,8 +84,8 @@ a few lines of config:
 { "llm": { "provider": "ollama", "small_model": "llama3.2", "large_model": "llama3.2" } }
 ```
 
-See [Providers](https://noidea.readthedocs.io/en/latest/providers.html) for keys, endpoints and
-examples, and [Configuration](https://noidea.readthedocs.io/en/latest/configuration.html) for
+See [Providers](https://noidea-ai.readthedocs.io/en/latest/providers.html) for keys, endpoints and
+examples, and [Configuration](https://noidea-ai.readthedocs.io/en/latest/configuration.html) for
 every setting.
 
 ## GitHub Action
@@ -101,17 +101,17 @@ noidea also runs on pull requests and posts a suggested squash-merge message as 
     api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-The [GitHub Action guide](https://noidea.readthedocs.io/en/latest/github-action.html) has the
+The [GitHub Action guide](https://noidea-ai.readthedocs.io/en/latest/github-action.html) has the
 full workflow, inputs and outputs.
 
 ## Documentation
 
-- [Getting started](https://noidea.readthedocs.io/en/latest/getting-started.html): install, keys,
+- [Getting started](https://noidea-ai.readthedocs.io/en/latest/getting-started.html): install, keys,
   and your first commit
-- [Commands](https://noidea.readthedocs.io/en/latest/commands.html): every command and flag
-- [How it works](https://noidea.readthedocs.io/en/latest/how-it-works.html): routing, style
+- [Commands](https://noidea-ai.readthedocs.io/en/latest/commands.html): every command and flag
+- [How it works](https://noidea-ai.readthedocs.io/en/latest/how-it-works.html): routing, style
   learning, and exactly what is sent to the model
-- [Troubleshooting](https://noidea.readthedocs.io/en/latest/troubleshooting.html): fixes for the
+- [Troubleshooting](https://noidea-ai.readthedocs.io/en/latest/troubleshooting.html): fixes for the
   usual error messages
 
 ## Contributing

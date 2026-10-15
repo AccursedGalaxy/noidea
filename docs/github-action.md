@@ -76,7 +76,8 @@ so add those steps before it and set `model` to the model you pulled.
 
 ## Repo config in CI
 
-The action writes the `provider` and `model` inputs to the runner's user config
-(`~/.noidea/config.json`) and leaves your checkout untouched. A `.noidea/config.json` committed in
-your repo still applies on top, so settings such as `system_prompt` work in CI too. If your repo
-config also sets `provider` or the models, the repo config wins.
+The action writes the `provider` input to the runner's user config (`~/.noidea/config.json`) and
+leaves your checkout untouched. It passes the `model` input as `noidea suggest --model`. A
+`.noidea/config.json` committed in your repo still applies on top, so settings such as
+`system_prompt` work in CI too. If your repo config also sets `provider`, the repo config wins.
+The `model` input takes precedence over the models in any config file.
