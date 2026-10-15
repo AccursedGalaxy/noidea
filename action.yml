@@ -24,8 +24,10 @@ inputs:
     default: 'anthropic'
   model:
     description: >
-      Override the model. Defaults to cost-aware auto-routing (small diff →
-      cheap model, large diff → strong model). Example: 'claude-haiku-4-5'.
+      Override the model. With the default anthropic provider, leaving this
+      empty keeps cost-aware auto-routing (small diff → cheap model, large diff
+      → strong model). Every other provider needs a model name here, e.g.
+      'gpt-4o-mini' for openai.
     required: false
     default: ''
   post-comment:
@@ -55,14 +57,18 @@ runs:
 
     - name: Fetch base branch
       shell: bash
-      run: git fetch origin ${{ github.base_ref }} --depth=1
+      env:
+        BASE_REF: ${{ github.base_ref }}
+      run: git fetch origin "$BASE_REF" --depth=1
 
     - name: Stage PR diff for noidea
       shell: bash
       # noidea suggest reads git diff --cached. We apply the PR diff to the
       # index so it sees exactly the changes introduced by this PR.
+      env:
+        BASE_REF: ${{ github.base_ref }}
       run: |
-        git diff origin/${{ github.base_ref }}...HEAD | git apply --cached --allow-empty 2>/dev/null || true
+        git diff "origin/$BASE_REF...HEAD" | git apply --cached --allow-empty 2>/dev/null || true
 
     - name: Generate commit message
       id: suggest
@@ -79,19 +85,38 @@ runs:
         PROVIDER: ${{ inputs.provider }}
         MODEL: ${{ inputs.model }}
       run: |
-        # Build minimal config for CI: provider and optional model override.
-        mkdir -p .noidea
-        if [ -n "$MODEL" ]; then
-          echo "{\"llm\":{\"provider\":\"$PROVIDER\",\"small_model\":\"$MODEL\",\"large_model\":\"$MODEL\"}}" > .noidea/config.json
-        else
-          echo "{\"llm\":{\"provider\":\"$PROVIDER\"}}" > .noidea/config.json
+        # The default models are Claude models, so any other provider needs an explicit one.
+        if [ "$PROVIDER" != "anthropic" ] && [ -z "$MODEL" ]; then
+          echo "::error::The '$PROVIDER' provider needs the 'model' input (e.g. gpt-4o-mini)."
+          exit 1
         fi
 
-        # Capture stdout (the message) while letting stderr (routing notice) flow.
-        MESSAGE=$(noidea suggest 2>/dev/null)
-        echo "message<<EOF" >> "$GITHUB_OUTPUT"
-        echo "$MESSAGE" >> "$GITHUB_OUTPUT"
-        echo "EOF" >> "$GITHUB_OUTPUT"
+        # Write the inputs as the runner's user-level config, not the repo's .noidea/config.json:
+        # the checkout stays clean, and a repo config (e.g. a custom system_prompt) still applies
+        # on top of it.
+        python3 - <<'PY'
+        import json, os
+        llm = {"provider": os.environ["PROVIDER"]}
+        if os.environ["MODEL"]:
+            llm["small_model"] = llm["large_model"] = os.environ["MODEL"]
+        os.makedirs(os.path.expanduser("~/.noidea"), exist_ok=True)
+        with open(os.path.expanduser("~/.noidea/config.json"), "w") as handle:
+            json.dump({"llm": llm}, handle)
+        PY
+
+        # stdout is only ever the message; errors and the routing notice go to stderr, which
+        # stays in the job log. A failed suggestion warns instead of failing the PR's checks.
+        if ! MESSAGE=$(noidea suggest); then
+          echo "::warning::noidea could not generate a commit message; see the log above."
+          MESSAGE=""
+        fi
+        # A random delimiter, so no line of model output can end the multi-line value early.
+        DELIMITER="noidea_$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
+        {
+          echo "message<<$DELIMITER"
+          echo "$MESSAGE"
+          echo "$DELIMITER"
+        } >> "$GITHUB_OUTPUT"
 
     - name: Restore index
       shell: bash

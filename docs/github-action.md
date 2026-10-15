@@ -39,8 +39,12 @@ runs `noidea suggest` on it. Model routing applies as it does locally.
 | `post-comment` | `"true"` | Post the suggestion as a PR comment. Set `"false"` to only use the output. |
 | `github-token` | `${{ github.token }}` | Token used to post the comment. |
 
-When you set `provider` to anything other than `anthropic`, also set `model`. Otherwise the
-action asks the new provider for the default Anthropic model names.
+When you set `provider` to anything other than `anthropic`, you must also set `model`, because
+the default models are Claude models. The action stops with an error if `model` is missing.
+
+If a suggestion fails (a bad key, a rate limit, a provider outage), the step logs the reason and
+adds a warning, but it doesn't fail your PR checks. The output is then empty and no comment is
+posted.
 
 ## Outputs
 
@@ -72,6 +76,7 @@ so add those steps before it and set `model` to the model you pulled.
 
 ## Repo config in CI
 
-The action writes its own `.noidea/config.json` in the checkout with the `provider` and `model`
-inputs, replacing any repo config committed there for that run. Settings such as
-`system_prompt` from your repo config therefore do not apply in the action.
+The action writes the `provider` and `model` inputs to the runner's user config
+(`~/.noidea/config.json`) and leaves your checkout untouched. A `.noidea/config.json` committed in
+your repo still applies on top, so settings such as `system_prompt` work in CI too. If your repo
+config also sets `provider` or the models, the repo config wins.
