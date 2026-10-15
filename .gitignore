@@ -5,3 +5,11 @@ dist/
 .venv/
 docs/_build/
 docs/build/
+.docs-venv/
+
+# Personal and machine-local files.
+CLAUDE.local.md
+.task/
+.claude/agent-memory/
+.playwright-mcp/
+assets/demo.cast
