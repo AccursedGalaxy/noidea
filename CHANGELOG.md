@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The `prepare-commit-msg` hook no longer overwrites a message you already wrote. `git commit -m`/`-F`, `-c`/`-C`/`--amend`, merges, and squashes keep their message as-is; only a plain `git commit` (or a `commit.template`) gets a generated one. To preview a suggestion and tweak it, run `noidea suggest` and commit the edited text with `git commit -m`. Re-run `noidea init` to update existing hooks.
 
+### Changed
+- Re-running `noidea init` now says what it actually did: "Hook updated" when it replaced an older noidea hook, "already up to date" when nothing changed, and "Hook installed" only for a fresh install. It also no longer backs up noidea's own hook, so the "There is already a backup of the hook present" noise is gone and a real user hook's `.bak` is never shadowed.
+
 ## [1.2.0] - 2026-06-02
 
 ### Added

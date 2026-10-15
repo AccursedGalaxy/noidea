@@ -2,7 +2,9 @@ import os
 from unittest.mock import MagicMock, patch
 
 from noidea.git import (
+    HOOKS,
     Commit,
+    HookOutcome,
     _strip_binary_hunks,
     get_diff,
     get_hooks_dir,
@@ -41,7 +43,9 @@ def test_get_recent_commits_degrades_to_empty_and_never_raises():
     with patch("noidea.git.subprocess.run", return_value=failed):
         assert get_recent_commits(50) == []
 
-    with patch("noidea.git.subprocess.run", side_effect=FileNotFoundError("git missing")):
+    with patch(
+        "noidea.git.subprocess.run", side_effect=FileNotFoundError("git missing")
+    ):
         assert get_recent_commits(50) == []
 
 
@@ -102,7 +106,10 @@ def test_install_hook(tmp_path):
     hook_path = tmp_path / "prepare-commit-msg"
 
     assert hook_path.exists()
-    assert hook_path.read_text() == '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n'
+    assert (
+        hook_path.read_text()
+        == '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n'
+    )
     assert os.access(hook_path, os.X_OK)
 
 
@@ -116,7 +123,10 @@ def test_install_hook_backs_up_existing(tmp_path):
     backup_path = tmp_path / "prepare-commit-msg.bak"
     assert backup_path.exists()
     assert backup_path.read_text() == "#!/bin/bash\necho old hook\n"
-    assert hook_path.read_text() == '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n'
+    assert (
+        hook_path.read_text()
+        == '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n'
+    )
 
 
 def test_install_hook_empty_hooks_dir():
@@ -133,7 +143,9 @@ def test_install_hook_whitespace_hooks_dir():
 
 
 def test_get_diff_git_not_found():
-    with patch("noidea.git.subprocess.run", side_effect=FileNotFoundError("git not found")):
+    with patch(
+        "noidea.git.subprocess.run", side_effect=FileNotFoundError("git not found")
+    ):
         result = get_diff()
     assert not result.has_changes
     assert "git not found" in result.error
@@ -184,7 +196,8 @@ def test_get_diff_strips_binary_and_survives_bad_bytes():
     mock_result = MagicMock()
     # Invalid UTF-8 byte (0xff) plus a binary hunk: must not crash.
     mock_result.stdout = (
-        b"diff --git a/logo.png b/logo.png\n" b"Binary files a/logo.png and b/logo.png differ\xff\n"
+        b"diff --git a/logo.png b/logo.png\n"
+        b"Binary files a/logo.png and b/logo.png differ\xff\n"
     )
     with patch("noidea.git.subprocess.run", return_value=mock_result):
         result = get_diff()
@@ -208,3 +221,43 @@ def test_install_hook_makedirs_failure():
         result = install_hook()
     assert not result.success
     assert "Permission denied" in result.error
+
+
+def test_install_hook_fresh_reports_installed(tmp_path):
+    with patch("noidea.git.get_hooks_dir", return_value=str(tmp_path)):
+        result = install_hook()
+    assert result.success
+    assert result.outcome is HookOutcome.INSTALLED
+
+
+def test_install_hook_rerun_reports_up_to_date(tmp_path):
+    with patch("noidea.git.get_hooks_dir", return_value=str(tmp_path)):
+        install_hook()
+        result = install_hook()
+    assert result.success
+    assert result.outcome is HookOutcome.UNCHANGED
+    # Our own hook is never backed up: a .bak of noidea would shadow a real user hook backup.
+    assert not (tmp_path / "prepare-commit-msg.bak").exists()
+
+
+def test_install_hook_replacing_an_older_noidea_hook_reports_updated(tmp_path, capsys):
+    # The pre-1.3 hook: noidea's, but without the message source forwarded.
+    old_hook = tmp_path / "prepare-commit-msg"
+    old_hook.write_text('#!/bin/bash\nnoidea suggest --file "$1"\n')
+    with patch("noidea.git.get_hooks_dir", return_value=str(tmp_path)):
+        result = install_hook()
+    assert result.success
+    assert result.outcome is HookOutcome.UPDATED
+    assert old_hook.read_text() == HOOKS["prepare-commit-msg"]
+    assert not (tmp_path / "prepare-commit-msg.bak").exists()
+    assert "backup" not in capsys.readouterr().out
+
+
+def test_install_hook_over_a_foreign_hook_reports_installed(tmp_path):
+    (tmp_path / "prepare-commit-msg").write_text("#!/bin/bash\necho mine\n")
+    with patch("noidea.git.get_hooks_dir", return_value=str(tmp_path)):
+        result = install_hook()
+    assert result.outcome is HookOutcome.INSTALLED
+    assert (
+        tmp_path / "prepare-commit-msg.bak"
+    ).read_text() == "#!/bin/bash\necho mine\n"

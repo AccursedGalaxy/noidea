@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 from dataclasses import dataclass
+from enum import Enum
 
 
 @dataclass
@@ -21,10 +22,19 @@ class DiffResult:
     error: str = ""
 
 
+class HookOutcome(Enum):
+    """What `noidea init` did, so a re-run reports an update rather than a fresh install."""
+
+    INSTALLED = "installed"  # No noidea hook was present before.
+    UPDATED = "updated"  # An older noidea hook was replaced or completed.
+    UNCHANGED = "unchanged"  # Every noidea hook already matched the current scripts.
+
+
 @dataclass
 class HookResult:
     success: bool
     error: str = ""
+    outcome: HookOutcome = HookOutcome.INSTALLED
 
 
 HOOK_BACKUP_SUFFIX = ".bak"
@@ -241,15 +251,38 @@ def _backup_existing_hook(hook_path: str) -> None:
     os.rename(hook_path, hook_path + HOOK_BACKUP_SUFFIX)
 
 
-def _write_hook(hooks_dir: str, name: str, script: str) -> None:
-    """Back up any existing hook of this name, then write ours and make it executable."""
+def _read_hook(hook_path: str) -> str | None:
+    """Return a hook's current script, or None when there is no hook file."""
+    assert isinstance(hook_path, str) and hook_path, "hook path must be non-empty"
+    if not os.path.exists(hook_path):
+        return None
+    with open(hook_path) as handle:
+        return handle.read()
+
+
+def _is_noidea_hook(script: str) -> bool:
+    """True when a hook script is one noidea wrote, in this or an earlier version."""
+    assert isinstance(script, str), "script must be a string"
+    return any(line.startswith("noidea ") for line in script.splitlines())
+
+
+def _write_hook(hooks_dir: str, name: str, script: str) -> HookOutcome:
+    """Write our hook of this name, backing up a foreign one; report what changed."""
     assert isinstance(name, str) and name, "hook name must be non-empty"
     assert isinstance(script, str) and script.strip(), "hook script must be non-empty"
     hook_path = os.path.join(hooks_dir, name)
-    _backup_existing_hook(hook_path)
+    existing = _read_hook(hook_path)
+    if existing == script:
+        return HookOutcome.UNCHANGED
+    # Only a foreign hook is backed up. Our own older script is safe to overwrite, and backing
+    # it up would shadow (or be skipped in favour of) a real user hook's backup.
+    is_ours = existing is not None and _is_noidea_hook(existing)
+    if not is_ours:
+        _backup_existing_hook(hook_path)
     with open(hook_path, "w") as f:
         f.write(script)
     os.chmod(hook_path, mode=0o755)
+    return HookOutcome.UPDATED if is_ours else HookOutcome.INSTALLED
 
 
 def install_hook() -> HookResult:
@@ -267,9 +300,17 @@ def install_hook() -> HookResult:
     # proposals but never capture the human verdict).
     try:
         os.makedirs(hooks_dir, exist_ok=True)
-        for name, script in HOOKS.items():
-            _write_hook(hooks_dir, name, script)
+        outcomes = [
+            _write_hook(hooks_dir, name, script) for name, script in HOOKS.items()
+        ]
     except OSError as e:
         return HookResult(success=False, error=str(e))
+    assert len(outcomes) == len(HOOKS), "every managed hook must report an outcome"
 
-    return HookResult(success=True)
+    # Any noidea hook already present makes this a re-run: report an update (or nothing to do),
+    # not a fresh install, even when it also adds a hook a newer version introduced.
+    if all(outcome is HookOutcome.UNCHANGED for outcome in outcomes):
+        return HookResult(success=True, outcome=HookOutcome.UNCHANGED)
+    if all(outcome is HookOutcome.INSTALLED for outcome in outcomes):
+        return HookResult(success=True, outcome=HookOutcome.INSTALLED)
+    return HookResult(success=True, outcome=HookOutcome.UPDATED)

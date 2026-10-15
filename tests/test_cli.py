@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 
 from noidea.cli import app
 from noidea.config import LlmConfig
-from noidea.git import Commit, DiffResult, HookResult
+from noidea.git import Commit, DiffResult, HookOutcome, HookResult
 from noidea.key_store import KeyStoreError
 from noidea.provider import ErrorKind, ProviderError
 
@@ -196,12 +196,33 @@ class TestBuildVersion:
 
 
 class TestInit:
-    @patch("noidea.commands.init.install_hook", return_value=HookResult(success=True))
+    @patch(
+        "noidea.commands.init.install_hook",
+        return_value=HookResult(success=True, outcome=HookOutcome.INSTALLED),
+    )
     def test_init_installs_hook(self, mock_install):
         result = runner.invoke(app, ["init"])
         assert result.exit_code == 0
         assert "Hook installed" in result.output
         mock_install.assert_called_once()
+
+    @patch(
+        "noidea.commands.init.install_hook",
+        return_value=HookResult(success=True, outcome=HookOutcome.UPDATED),
+    )
+    def test_init_reports_updated_hook(self, mock_install):
+        result = runner.invoke(app, ["init"])
+        assert result.exit_code == 0
+        assert "Hook updated" in result.output
+
+    @patch(
+        "noidea.commands.init.install_hook",
+        return_value=HookResult(success=True, outcome=HookOutcome.UNCHANGED),
+    )
+    def test_init_reports_up_to_date_hook(self, mock_install):
+        result = runner.invoke(app, ["init"])
+        assert result.exit_code == 0
+        assert "already up to date" in result.output
 
 
 class TestSuggest:
