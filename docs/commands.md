@@ -57,7 +57,9 @@ noidea suggest --model claude-sonnet-5-5
 | `--agent`, `--no-agent` | | `use_agent` | Experimental. Turn the [agent backend](configuration.md#experimental-agent-backend) on or off for this run. |
 
 The message goes to standard output and status lines go to standard error, so
-`noidea suggest > msg.txt` captures only the message.
+`noidea suggest > msg.txt` captures only the message. Errors also go to standard error, and the
+command exits 1 when it produces no message. With `--file`, as the `prepare-commit-msg` hook runs
+it, it exits 0 so the commit continues with an empty message.
 
 ## noidea test
 

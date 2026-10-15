@@ -32,7 +32,8 @@ Fix: for Ollama, start it with `ollama serve`. Otherwise check `base_url` in you
 ## The model produced no text before exhausting its token budget
 
 Cause: the model used all of `max_tokens` before writing any visible text. Reasoning models spend
-part of the budget on hidden reasoning.
+part of the budget on hidden reasoning. With the `anthropic` provider the message reads `The model
+returned no text. Raise llm.max_tokens`.
 
 Fix: raise `max_tokens`, for example to `16000`:
 
