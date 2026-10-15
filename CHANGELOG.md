@@ -7,11 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> **Upgrading:** run `noidea init` in each repo after upgrading. A package upgrade doesn't touch the hooks already in your repos, so the hook fixes below only apply once `init` rewrites them. `noidea status` flags any hook that is out of date.
+
+### Added
+- **`noidea uninstall`** removes noidea's hooks from the current repo, puts back any hook it backed up, and deletes the per-repo state in `.git/noidea/`. `--purge` also removes your stored API keys and `~/.noidea` (it asks first; `--yes` skips the prompt) and works outside a repo too. A hook noidea didn't write, or one you edited, is left alone. Closes #10.
+- **Agent backend (experimental)**: `noidea suggest --agent`, or `"use_agent": true` in the config, generates the message with the [driver-os](https://github.com/AccursedGalaxy/driver-os) commit-msg agent, which reads the repo over several turns instead of making one call. It needs the `driver-os-commit-msg` binary (on `PATH`, via `agent_binary`, or `NOIDEA_AGENT_BIN`) and falls back to the normal generator whenever the agent isn't available or fails. A message queued by `--agent` is reused by the commit hook, and a new `post-commit` hook records whether you kept, edited, or discarded it.
+- **Diff size cap**: very large staged diffs (generated files, vendored trees) are trimmed to fit the chosen model's context window instead of failing the request, with a visible note in the prompt. The full list of changed files is always kept. Set `diff_chars_max` to pick your own limit.
+- `noidea --version` and `noidea status` show the git commit (and `.dirty`) when running from a source checkout. Released installs still show the plain version.
+- `noidea status` reports hooks that are out of date and tells you to run `noidea init`.
+
 ### Fixed
-- The `prepare-commit-msg` hook no longer overwrites a message you already wrote. `git commit -m`/`-F`, `-c`/`-C`/`--amend`, merges, and squashes keep their message as-is; only a plain `git commit` (or a `commit.template`) gets a generated one. To preview a suggestion and tweak it, run `noidea suggest` and commit the edited text with `git commit -m`. Re-run `noidea init` to update existing hooks.
+- The `prepare-commit-msg` hook no longer overwrites a message you already wrote. `git commit -m`/`-F`, `-c`/`-C`/`--amend`, merges, and squashes keep their message; only a plain `git commit` (or a `commit.template`) gets a generated one. To start from a suggestion and adjust it, run `noidea suggest` and commit the edited text with `git commit -m`.
+- `noidea init` could overwrite your own hook: when a `.bak` already existed it printed "skipping backup creation" and replaced the hook anyway. It now stops and tells you which file to move.
+- An OpenRouter response that comes back with no choices and an upstream error in the body is now reported as a normal provider error instead of crashing on an assertion.
 
 ### Changed
-- Re-running `noidea init` now says what it actually did: "Hook updated" when it replaced an older noidea hook, "already up to date" when nothing changed, and "Hook installed" only for a fresh install. It also no longer backs up noidea's own hook, so the "There is already a backup of the hook present" noise is gone and a real user hook's `.bak` is never shadowed.
+- Both hooks now check in the shell whether noidea has anything to do before starting Python. A `git commit -m` used to wait about half a second for that startup; it went from 515 ms to 7 ms in our measurement.
+- Re-running `noidea init` says what it actually did: "Hook installed", "Hook updated", or "already up to date". It no longer makes a `.bak` of noidea's own hook.
+- noidea only treats a hook as its own when it exactly matches a script noidea has written. A hand-edited hook is yours: `init` backs it up and `uninstall` leaves it in place.
 
 ## [1.2.0] - 2026-06-02
 
