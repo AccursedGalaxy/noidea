@@ -74,17 +74,13 @@ def _check_api_keys():
     try:
         keys = key_store.list()
         if not keys:
-            console.print(
-                f"API Key:        {FAIL} no key found (run 'noidea keys add')"
-            )
+            console.print(f"API Key:        {FAIL} no key found (run 'noidea keys add')")
             return
         for key in keys:
             if key_store.status_of(key) is KeyStatus.PRESENT:
                 console.print(f"API Key:        {OK} {key} (keyring)")
             else:
-                console.print(
-                    f"API Key:        {FAIL} {key} registered but missing from keyring"
-                )
+                console.print(f"API Key:        {FAIL} {key} registered but missing from keyring")
     except KeyStoreError:
         console.print(f"API Key:        {FAIL} could not read keys")
 

@@ -51,9 +51,7 @@ class LlmConfig:
     max_tokens: int = 1024
     small_model: str = "claude-haiku-4-5"
     large_model: str = "claude-sonnet-4-6"
-    context_limit: float = (
-        600000.0  # Character threshold for model selection, not a token limit.
-    )
+    context_limit: float = 600000.0  # Character threshold for model selection, not a token limit.
     # Optional hard ceiling on the diff characters sent to the model. 0 means "auto": derive the
     # bound from the selected model's own context window (see suggest._diff_budget_chars), which is
     # the right default now that windows range from 128k to 1M+ tokens. A positive value caps below
@@ -64,40 +62,29 @@ class LlmConfig:
     system_prompt: str = _DEFAULT_SYSTEM_PROMPT
     temperature: float = 1.0
     learn_commit_style: bool = True  # Match the repo's observed commit conventions.
-    provider: str = (
-        "anthropic"  # Which backend complete() dispatches to; see provider.py.
-    )
-    base_url: str = (
-        ""  # Overrides the per-provider default endpoint (e.g. a custom vLLM host).
-    )
+    provider: str = "anthropic"  # Which backend complete() dispatches to; see provider.py.
+    base_url: str = ""  # Overrides the per-provider default endpoint (e.g. a custom vLLM host).
     # The agent backend (driver-os): an alternative generator that explores the repo (git log,
     # style docs, the changed files) over several turns instead of one single-shot call. See
     # dogfood.py / agent_backend.py.
-    use_agent: bool = False  # Default backend: when true, `noidea suggest` and the commit hook run the agent.
-    agent_binary: str = ""  # Path to the driver-os commit-msg binary; "" falls back to NOIDEA_AGENT_BIN / PATH.
-    agent_model: str = (
-        "google/gemini-3-flash-preview"  # OpenRouter model the agent runs on.
-    )
-    agent_proposal_ttl_seconds: int = (
-        3600  # How long a queued agent proposal stays eligible to seed a commit.
-    )
+    # Default backend: when true, `noidea suggest` and the commit hook run the agent.
+    use_agent: bool = False
+    # Path to the driver-os commit-msg binary; "" falls back to NOIDEA_AGENT_BIN / PATH.
+    agent_binary: str = ""
+    agent_model: str = "google/gemini-3-flash-preview"  # OpenRouter model the agent runs on.
+    # How long a queued agent proposal stays eligible to seed a commit.
+    agent_proposal_ttl_seconds: int = 3600
 
     def __post_init__(self):
         # The pair to from_dict's pre-construction type check: assert the invariants
         # after construction, so a bad dataclasses.replace is caught as a programmer error.
-        assert isinstance(self.max_tokens, int) and not isinstance(
-            self.max_tokens, bool
-        )
+        assert isinstance(self.max_tokens, int) and not isinstance(self.max_tokens, bool)
         assert isinstance(self.small_model, str)
         assert isinstance(self.large_model, str)
         assert isinstance(self.context_limit, (int, float))
         assert not isinstance(self.context_limit, bool)
-        assert isinstance(self.diff_chars_max, int) and not isinstance(
-            self.diff_chars_max, bool
-        )
-        assert self.diff_chars_max >= 0, (
-            "diff_chars_max must be non-negative (0 = auto)"
-        )
+        assert isinstance(self.diff_chars_max, int) and not isinstance(self.diff_chars_max, bool)
+        assert self.diff_chars_max >= 0, "diff_chars_max must be non-negative (0 = auto)"
         assert isinstance(self.system_prompt, str)
         assert isinstance(self.temperature, (int, float))
         assert not isinstance(self.temperature, bool)
@@ -149,9 +136,7 @@ class LlmConfig:
 
     def select_model(self, context_length_chars: int) -> str:
         """Pick the large or small model based on a character-count heuristic."""
-        assert isinstance(context_length_chars, int), (
-            "context_length_chars must be an int"
-        )
+        assert isinstance(context_length_chars, int), "context_length_chars must be an int"
         assert context_length_chars >= 0, "context_length_chars must be non-negative"
         if context_length_chars >= self.context_limit:
             return self.large_model
@@ -184,11 +169,7 @@ def deep_merge(base, override):
     while stack:
         target, source = stack.pop()
         for key, value in source.items():
-            if (
-                key in target
-                and isinstance(value, dict)
-                and isinstance(target[key], dict)
-            ):
+            if key in target and isinstance(value, dict) and isinstance(target[key], dict):
                 target[key] = target[key].copy()
                 stack.append((target[key], value))
             else:

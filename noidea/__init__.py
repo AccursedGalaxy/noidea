@@ -40,9 +40,7 @@ def build_version() -> str:
     build. Git runs here, on demand, never at import, so the CLI's hot path pays nothing for it.
     """
     base_version = __version__
-    assert isinstance(base_version, str) and base_version, (
-        "base version must be non-empty"
-    )
+    assert isinstance(base_version, str) and base_version, "base version must be non-empty"
     # The package lives at <repo_root>/noidea/__init__.py; a released wheel has no sibling .git.
     repo_root = Path(__file__).resolve().parent.parent
     if not (repo_root / ".git").exists():
@@ -58,10 +56,6 @@ def build_version() -> str:
     )
     if on_release_tag and not dirty:
         return base_version
-    result = (
-        f"{base_version}+{short_hash}.dirty"
-        if dirty
-        else f"{base_version}+{short_hash}"
-    )
+    result = f"{base_version}+{short_hash}.dirty" if dirty else f"{base_version}+{short_hash}"
     assert result.startswith(base_version), "build version must extend the base version"
     return result

@@ -44,12 +44,8 @@ class UninstallResult:
     success: bool
     error: str = ""
     removed: list[str] = field(default_factory=list)
-    restored: list[str] = field(
-        default_factory=list
-    )  # A user's .bak put back in place.
-    skipped: list[str] = field(
-        default_factory=list
-    )  # Not written by noidea; left alone.
+    restored: list[str] = field(default_factory=list)  # A user's .bak put back in place.
+    skipped: list[str] = field(default_factory=list)  # Not written by noidea; left alone.
 
 
 HOOK_BACKUP_SUFFIX = ".bak"
@@ -80,9 +76,7 @@ _PREPARE_COMMIT_MSG = (
 # agent proposal is actually waiting to be reconciled.
 HOOKS = {
     "prepare-commit-msg": _PREPARE_COMMIT_MSG,
-    "post-commit": (
-        "#!/bin/bash\n[ -f .git/noidea/seeded.json ] || exit 0\nnoidea _reconcile\n"
-    ),
+    "post-commit": ("#!/bin/bash\n[ -f .git/noidea/seeded.json ] || exit 0\nnoidea _reconcile\n"),
 }
 
 # Scripts earlier noidea versions wrote. Ownership is an exact match against these and HOOKS:
@@ -114,12 +108,7 @@ def get_git_root() -> str:
 
 
 def is_git_repo() -> bool:
-    return (
-        subprocess.run(
-            ["git", "rev-parse", "--git-dir"], capture_output=True
-        ).returncode
-        == 0
-    )
+    return subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True).returncode == 0
 
 
 def get_branch_name() -> str:
@@ -249,9 +238,7 @@ def _strip_binary_hunks(diff_text: str) -> str:
 def get_diff() -> DiffResult:
     try:
         # text=False: binary diffs contain non-UTF-8 bytes that crash text mode.
-        result = subprocess.run(
-            ["git", "diff", "--staged"], capture_output=True, check=True
-        )
+        result = subprocess.run(["git", "diff", "--staged"], capture_output=True, check=True)
 
         if not result.stdout:
             return DiffResult(has_changes=False)
@@ -264,9 +251,7 @@ def get_diff() -> DiffResult:
         return DiffResult(has_changes=True, diff=diff_text)
 
     except subprocess.CalledProcessError as e:
-        return DiffResult(
-            has_changes=False, error=e.stderr.decode("utf-8", errors="replace")
-        )
+        return DiffResult(has_changes=False, error=e.stderr.decode("utf-8", errors="replace"))
 
     except FileNotFoundError as e:
         return DiffResult(has_changes=False, error=str(e))
@@ -276,9 +261,7 @@ def get_hooks_dir() -> str | None:
     if not is_git_repo():
         return None
 
-    result = subprocess.run(
-        ["git", "config", "core.hooksPath"], capture_output=True, text=True
-    )
+    result = subprocess.run(["git", "config", "core.hooksPath"], capture_output=True, text=True)
 
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
@@ -350,9 +333,7 @@ def install_hook() -> HookResult:
     # proposals but never capture the human verdict).
     try:
         os.makedirs(hooks_dir, exist_ok=True)
-        outcomes = [
-            _write_hook(hooks_dir, name, script) for name, script in HOOKS.items()
-        ]
+        outcomes = [_write_hook(hooks_dir, name, script) for name, script in HOOKS.items()]
     except OSError as e:
         return HookResult(success=False, error=str(e))
     assert len(outcomes) == len(HOOKS), "every managed hook must report an outcome"
@@ -398,7 +379,5 @@ def uninstall_hooks() -> UninstallResult:
             _remove_hook(hooks_dir, name, result)
     except OSError as e:
         return UninstallResult(success=False, error=str(e))
-    assert set(result.restored) <= set(result.removed), (
-        "only a removed hook is restored"
-    )
+    assert set(result.restored) <= set(result.removed), "only a removed hook is restored"
     return result

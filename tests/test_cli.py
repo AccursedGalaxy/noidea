@@ -19,9 +19,7 @@ class TestBuildUserContent:
         from noidea.commands.suggest import _build_user_content
 
         result = _build_user_content("+ added x", "feature/x", ["a.py", "b.py"])
-        assert result == (
-            "Branch: feature/x\nStaged files:\n- a.py\n- b.py\n\nDiff:\n+ added x"
-        )
+        assert result == ("Branch: feature/x\nStaged files:\n- a.py\n- b.py\n\nDiff:\n+ added x")
 
     def test_empty_branch_and_files_returns_just_diff(self):
         from noidea.commands.suggest import _build_user_content
@@ -91,9 +89,7 @@ class TestDiffBudgetChars:
         from noidea.commands.suggest import _diff_budget_chars
 
         # gemini's ~1M window yields a multi-MB char budget, so normal diffs are never truncated.
-        budget = _diff_budget_chars(
-            "google/gemini-2.5-flash", LlmConfig(diff_chars_max=0)
-        )
+        budget = _diff_budget_chars("google/gemini-2.5-flash", LlmConfig(diff_chars_max=0))
         assert budget > 2_000_000
 
     def test_small_window_model_gets_a_small_budget(self):
@@ -108,9 +104,7 @@ class TestDiffBudgetChars:
         from noidea.commands.suggest import _diff_budget_chars
 
         # A user who sets diff_chars_max caps below the window-derived budget, never above it.
-        budget = _diff_budget_chars(
-            "google/gemini-2.5-flash", LlmConfig(diff_chars_max=50_000)
-        )
+        budget = _diff_budget_chars("google/gemini-2.5-flash", LlmConfig(diff_chars_max=50_000))
         assert budget == 50_000
 
 
@@ -134,9 +128,7 @@ class TestBuildVersion:
 
     @patch("noidea._run_git")
     @patch("noidea.Path.exists", return_value=True)
-    def test_clean_checkout_on_release_tag_shows_plain_version(
-        self, mock_exists, mock_git
-    ):
+    def test_clean_checkout_on_release_tag_shows_plain_version(self, mock_exists, mock_git):
         # HEAD exactly on the matching tag with a clean tree IS the released build: no commit tag.
         from noidea import __version__, build_version
 
@@ -267,9 +259,7 @@ class TestSuggest:
         "noidea.commands.suggest.get_diff",
         return_value=DiffResult(has_changes=True, diff="+ new feature"),
     )
-    def test_suggest_writes_to_file(
-        self, mock_diff, mock_config, mock_commit, tmp_path
-    ):
+    def test_suggest_writes_to_file(self, mock_diff, mock_config, mock_commit, tmp_path):
         outfile = str(tmp_path / "msg.txt")
         result = runner.invoke(app, ["suggest", "--file", outfile])
         assert result.exit_code == 0
@@ -292,9 +282,7 @@ class TestSuggest:
         for source in ("message", "commit", "merge", "squash"):
             outfile = tmp_path / f"msg-{source}.txt"
             outfile.write_text("fix: my own words\n")
-            result = runner.invoke(
-                app, ["suggest", "--file", str(outfile), "--source", source]
-            )
+            result = runner.invoke(app, ["suggest", "--file", str(outfile), "--source", source])
             assert result.exit_code == 0
             assert outfile.read_text() == "fix: my own words\n"
         mock_complete.assert_not_called()
@@ -317,9 +305,7 @@ class TestSuggest:
         # boilerplate. Both still get a generated message.
         for source in ("", "template"):
             outfile = tmp_path / f"msg-{source or 'plain'}.txt"
-            result = runner.invoke(
-                app, ["suggest", "--file", str(outfile), "--source", source]
-            )
+            result = runner.invoke(app, ["suggest", "--file", str(outfile), "--source", source])
             assert result.exit_code == 0
             assert outfile.read_text() == "feat: new thing"
 
@@ -370,9 +356,7 @@ class TestSuggest:
         assert result.exit_code == 0
         user_content = mock_complete.call_args.args[1]
         assert "truncated" in user_content
-        assert (
-            len(user_content) < 400_000
-        )  # Bounded near the 128k-token budget, not 500 KB.
+        assert len(user_content) < 400_000  # Bounded near the 128k-token budget, not 500 KB.
 
     @patch("noidea.commands.suggest.complete", return_value="fix: thing")
     @patch("noidea.commands.suggest.get_branch_name", return_value="main")
@@ -633,16 +617,12 @@ class TestKeysErrors:
         assert "Couldn't read keys" in result.output
 
     def test_add_key_keyring_error(self):
-        with patch(
-            "noidea.commands.keys.key_store.add", side_effect=KeyStoreError("locked")
-        ):
+        with patch("noidea.commands.keys.key_store.add", side_effect=KeyStoreError("locked")):
             result = runner.invoke(app, ["keys", "add"], input="secret\n")
         assert "Couldn't save the key" in result.output
 
     def test_remove_key_keyring_error(self):
-        with patch(
-            "noidea.commands.keys.key_store.remove", side_effect=KeyStoreError("locked")
-        ):
+        with patch("noidea.commands.keys.key_store.remove", side_effect=KeyStoreError("locked")):
             result = runner.invoke(app, ["keys", "remove", "anthropic"])
         assert "Couldn't remove the key" in result.output
 
@@ -727,9 +707,7 @@ class TestUninstall:
             skipped=[],
         ),
     )
-    def test_reports_removed_and_restored_hooks(
-        self, mock_hooks, mock_root, mock_state
-    ):
+    def test_reports_removed_and_restored_hooks(self, mock_hooks, mock_root, mock_state):
         result = runner.invoke(app, ["uninstall"])
         assert result.exit_code == 0
         assert "Removed prepare-commit-msg hook" in result.output
@@ -750,9 +728,7 @@ class TestUninstall:
 
     @patch(
         "noidea.commands.uninstall.uninstall_hooks",
-        return_value=UninstallResult(
-            success=False, error="Not inside a git repository"
-        ),
+        return_value=UninstallResult(success=False, error="Not inside a git repository"),
     )
     def test_outside_a_repo_fails_without_purge(self, mock_hooks):
         result = runner.invoke(app, ["uninstall"])
@@ -761,9 +737,7 @@ class TestUninstall:
 
     @patch(
         "noidea.commands.uninstall.uninstall_hooks",
-        return_value=UninstallResult(
-            success=False, error="Not inside a git repository"
-        ),
+        return_value=UninstallResult(success=False, error="Not inside a git repository"),
     )
     @patch("noidea.commands.uninstall.key_store")
     def test_purge_removes_keys_and_config_even_outside_a_repo(
@@ -782,14 +756,10 @@ class TestUninstall:
 
     @patch(
         "noidea.commands.uninstall.uninstall_hooks",
-        return_value=UninstallResult(
-            success=False, error="Not inside a git repository"
-        ),
+        return_value=UninstallResult(success=False, error="Not inside a git repository"),
     )
     @patch("noidea.commands.uninstall.key_store")
-    def test_purge_does_nothing_when_not_confirmed(
-        self, mock_store, mock_hooks, tmp_path
-    ):
+    def test_purge_does_nothing_when_not_confirmed(self, mock_store, mock_hooks, tmp_path):
         config_dir = tmp_path / ".noidea"
         config_dir.mkdir()
         with patch("noidea.commands.uninstall.CONFIG_DIR", str(config_dir)):

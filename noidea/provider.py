@@ -136,13 +136,9 @@ def complete(
     if not isinstance(model, str) or not model.strip():
         raise ValueError("model must be a non-empty string")
     if not isinstance(max_tokens, int) or max_tokens <= 0:
-        raise TypeError(
-            f"max_tokens must be a positive integer, got {type(max_tokens).__name__}"
-        )
+        raise TypeError(f"max_tokens must be a positive integer, got {type(max_tokens).__name__}")
     if not isinstance(temperature, (int, float)) or temperature < 0:
-        raise TypeError(
-            f"temperature must be a non-negative number, got {temperature!r}"
-        )
+        raise TypeError(f"temperature must be a non-negative number, got {temperature!r}")
     assert isinstance(provider, str) and provider, "provider must be a non-empty string"
     assert isinstance(base_url, str), "base_url must be a string"
 
@@ -161,9 +157,7 @@ def _complete_anthropic(
 ) -> str:
     """Anthropic transport: build a client, translate its errors to one ProviderError."""
     assert isinstance(model, str) and model, "model must be a non-empty string"
-    assert isinstance(max_tokens, int) and max_tokens > 0, (
-        "max_tokens must be a positive int"
-    )
+    assert isinstance(max_tokens, int) and max_tokens > 0, "max_tokens must be a positive int"
     client = Anthropic(api_key=get_api_key())
     # Specific kinds first; APIError is the catch-all base last.
     try:
@@ -181,9 +175,7 @@ def _complete_anthropic(
     except anthropic.APIConnectionError as error:
         raise ProviderError(ErrorKind.CONNECTION, str(error)) from error
     except anthropic.APIStatusError as error:
-        raise ProviderError(
-            ErrorKind.STATUS, error.message, error.status_code
-        ) from error
+        raise ProviderError(ErrorKind.STATUS, error.message, error.status_code) from error
     except anthropic.APIError as error:
         raise ProviderError(ErrorKind.STATUS, str(error)) from error
     block = message.content[0]
@@ -215,18 +207,14 @@ def _build_completion_kwargs(
     the classic max_tokens + temperature pair. See issue #29.
     """
     assert isinstance(model, str) and model, "model must be a non-empty string"
-    assert isinstance(max_tokens, int) and max_tokens > 0, (
-        "max_tokens must be a positive int"
-    )
+    assert isinstance(max_tokens, int) and max_tokens > 0, "max_tokens must be a positive int"
     kwargs: dict = {"model": model, "messages": messages}
     if reasoning:
         kwargs["max_completion_tokens"] = max_tokens
     else:
         kwargs["max_tokens"] = max_tokens
         kwargs["temperature"] = temperature
-    assert "max_tokens" in kwargs or "max_completion_tokens" in kwargs, (
-        "must request output tokens"
-    )
+    assert "max_tokens" in kwargs or "max_completion_tokens" in kwargs, "must request output tokens"
     return kwargs
 
 
@@ -249,9 +237,7 @@ def _create_with_param_fallback(
 
     assert isinstance(reasoning, bool), "reasoning must be a bool"
     assert isinstance(messages, list) and messages, "messages must be a non-empty list"
-    kwargs = _build_completion_kwargs(
-        messages, model, max_tokens, temperature, reasoning=reasoning
-    )
+    kwargs = _build_completion_kwargs(messages, model, max_tokens, temperature, reasoning=reasoning)
     try:
         return client.chat.completions.create(**kwargs)
     except openai.AuthenticationError as error:
@@ -271,9 +257,7 @@ def _create_with_param_fallback(
             "temperature",
         )
         if reasoning or not unsupported:
-            raise ProviderError(
-                ErrorKind.STATUS, str(error), error.status_code
-            ) from error
+            raise ProviderError(ErrorKind.STATUS, str(error), error.status_code) from error
         retry_kwargs = _build_completion_kwargs(
             messages, model, max_tokens, temperature, reasoning=True
         )
@@ -311,9 +295,7 @@ def _extract_text(response) -> str:
         raise ProviderError(ErrorKind.STATUS, message)
     choice = response.choices[0]
     content = choice.message.content
-    assert content is None or isinstance(content, str), (
-        "content must be a string or None"
-    )
+    assert content is None or isinstance(content, str), "content must be a string or None"
     if isinstance(content, str) and content:
         return content
     # A length finish with no text means the token budget was spent before any visible output —

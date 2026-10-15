@@ -39,9 +39,7 @@ SUGGEST_WORDING = {
     ErrorKind.CONNECTION: lambda e: f"Could not connect to the API: {e.message}",
     ErrorKind.STATUS: lambda e: f"API error ({e.status_code}): {e.message}",
 }
-assert set(SUGGEST_WORDING) == set(ErrorKind), (
-    "SUGGEST_WORDING must cover every ErrorKind"
-)
+assert set(SUGGEST_WORDING) == set(ErrorKind), "SUGGEST_WORDING must cover every ErrorKind"
 
 
 # Fraction of a model's context window we allow the diff to fill, leaving headroom for the system
@@ -81,9 +79,7 @@ def _cap_diff(diff: str, chars_max: int) -> str:
     every file; only the hunk bodies past the cap are dropped. Returns diff unchanged when it fits.
     """
     assert isinstance(diff, str), "diff must be a string"
-    assert isinstance(chars_max, int) and chars_max > 0, (
-        "chars_max must be a positive int"
-    )
+    assert isinstance(chars_max, int) and chars_max > 0, "chars_max must be a positive int"
     if len(diff) <= chars_max:
         return diff
     dropped_chars = len(diff) - chars_max
@@ -92,9 +88,7 @@ def _cap_diff(diff: str, chars_max: int) -> str:
         " model context window; the full changed-file list is listed above]"
     )
     result = diff[:chars_max] + notice
-    assert result.startswith(diff[:chars_max]), (
-        "capped diff must retain the head up to the cap"
-    )
+    assert result.startswith(diff[:chars_max]), "capped diff must retain the head up to the cap"
     return result
 
 
@@ -109,9 +103,7 @@ def _build_user_content(
     if branch:
         context_parts.append(f"Branch: {branch}")
     if staged_files:
-        context_parts.append(
-            "Staged files:\n" + "\n".join(f"- {f}" for f in staged_files)
-        )
+        context_parts.append("Staged files:\n" + "\n".join(f"- {f}" for f in staged_files))
     # The learned conventions sit with the other context, before the diff.
     if profile_text:
         context_parts.append(profile_text)
@@ -119,9 +111,7 @@ def _build_user_content(
     if context_parts:
         user_content = "\n".join(context_parts) + "\n\nDiff:\n"
     user_content += diff
-    assert isinstance(user_content, str) and user_content, (
-        "user_content must be non-empty"
-    )
+    assert isinstance(user_content, str) and user_content, "user_content must be non-empty"
     return user_content
 
 
@@ -148,9 +138,7 @@ def _print_routing_notice(cfg: LlmConfig, selected_model: str) -> None:
     model, since then there is no routing decision to report.
     """
     assert isinstance(cfg, LlmConfig), "cfg must be an LlmConfig"
-    assert isinstance(selected_model, str) and selected_model, (
-        "selected_model must be non-empty"
-    )
+    assert isinstance(selected_model, str) and selected_model, "selected_model must be non-empty"
     if selected_model == cfg.small_model:
         console.print(f"[dim]Small diff → {selected_model} · fast & cheap[/dim]")
     else:
@@ -201,7 +189,7 @@ def _emit_message(message: str, file: str) -> None:
 def _seed_pending(
     repo_root: str, file: str, branch: str, staged_files: list[str], cfg: LlmConfig
 ) -> bool:
-    """Seed an already-queued agent proposal into the commit buffer (no model call); True if one matched.
+    """Seed a queued agent proposal into the commit buffer (no model call); True if one matched.
 
     Preferred over regenerating: an earlier explicit `noidea suggest --agent` already paid for
     this message. If a fresh proposal matches the staged change, write it verbatim and record the
@@ -209,9 +197,7 @@ def _seed_pending(
     """
     assert isinstance(repo_root, str) and repo_root, "repo_root must be non-empty"
     assert isinstance(file, str) and file, "file must be a non-empty path"
-    proposal = find_fresh_proposal(
-        repo_root, staged_files, branch, cfg.agent_proposal_ttl_seconds
-    )
+    proposal = find_fresh_proposal(repo_root, staged_files, branch, cfg.agent_proposal_ttl_seconds)
     if proposal is None:
         return False
     try:
@@ -238,9 +224,7 @@ def _run_agent_backend(
     run_id = new_run_id()
     run_file = run_file_for(run_id)
     with console.status("[grey]Agent investigating the repo...", spinner="dots"):
-        message = generate_with_agent(
-            repo_root, diff, branch, staged_files, run_file, cfg
-        )
+        message = generate_with_agent(repo_root, diff, branch, staged_files, run_file, cfg)
     if message is None:
         return None
     record_proposal(
@@ -274,12 +258,8 @@ def _keeps_supplied_message(file: str, source: str) -> bool:
 
 
 def suggest(
-    file: str = typer.Option(
-        None, "--file", "-F", help="Write output to a file instead of stdout"
-    ),
-    model: str = typer.Option(
-        None, "--model", "-M", help="Run suggestion with a different model"
-    ),
+    file: str = typer.Option(None, "--file", "-F", help="Write output to a file instead of stdout"),
+    model: str = typer.Option(None, "--model", "-M", help="Run suggestion with a different model"),
     agent: bool = typer.Option(
         None,
         "--agent/--no-agent",
@@ -294,9 +274,7 @@ def suggest(
         return
     diff = get_diff()
     if not diff.has_changes:
-        print(
-            "Nothing staged yet. Stage some changes first — we can't read your mind (yet)."
-        )
+        print("Nothing staged yet. Stage some changes first — we can't read your mind (yet).")
         return
 
     # TigerStyle: validate external data before sending to API.
@@ -341,9 +319,7 @@ def suggest(
         if result is not None:
             message, run_id = result
             if file:
-                mark_seeded(
-                    repo_root, run_id
-                )  # so post-commit reconciles this inline run.
+                mark_seeded(repo_root, run_id)  # so post-commit reconciles this inline run.
             _emit_message(message, file)
             return
 

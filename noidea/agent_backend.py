@@ -40,11 +40,7 @@ def resolve_binary(cfg: LlmConfig) -> str | None:
     if candidate:
         # An explicit path must actually be runnable; a typo should surface, not silently
         # fall through to a PATH lookup that finds a different binary.
-        return (
-            candidate
-            if os.path.isfile(candidate) and os.access(candidate, os.X_OK)
-            else None
-        )
+        return candidate if os.path.isfile(candidate) and os.access(candidate, os.X_OK) else None
     found = shutil.which(_DEFAULT_BINARY_NAME)
     assert found is None or isinstance(found, str), "which must return a path or None"
     return found
@@ -64,9 +60,7 @@ def generate_with_agent(
     reconcile step later annotates with the human verdict. None is returned (with a stderr
     notice) for every failure: binary absent, no OpenRouter key, non-zero exit, or timeout.
     """
-    assert isinstance(repo_root, str) and repo_root, (
-        "repo_root must be a non-empty string"
-    )
+    assert isinstance(repo_root, str) and repo_root, "repo_root must be a non-empty string"
     assert isinstance(diff, str) and diff.strip(), "diff must be a non-empty string"
     binary = resolve_binary(cfg)
     if binary is None:
@@ -104,12 +98,8 @@ def generate_with_agent(
     if result.returncode == 0 and message:
         return message
     # A failed run is informative, not fatal: surface a short reason and fall back.
-    reason = (
-        result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "no output"
-    )
-    console.print(
-        f"[dim]agent backend: exit {result.returncode} ({reason}); falling back.[/dim]"
-    )
+    reason = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "no output"
+    console.print(f"[dim]agent backend: exit {result.returncode} ({reason}); falling back.[/dim]")
     return None
 
 

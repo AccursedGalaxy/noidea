@@ -5,13 +5,13 @@ import httpx
 import pytest
 
 from noidea.provider import (
+    _DEFAULT_CONTEXT_TOKENS,
     ErrorKind,
     ProviderError,
     complete,
     context_window_tokens,
     get_api_key,
 )
-from noidea.provider import _DEFAULT_CONTEXT_TOKENS
 
 
 class TestContextWindowTokens:
@@ -22,9 +22,7 @@ class TestContextWindowTokens:
 
     def test_provider_prefix_is_stripped_before_matching(self):
         # An OpenRouter-namespaced name must resolve to the same window as the bare model.
-        assert context_window_tokens("openai/gpt-4o-mini") == context_window_tokens(
-            "gpt-4o-mini"
-        )
+        assert context_window_tokens("openai/gpt-4o-mini") == context_window_tokens("gpt-4o-mini")
 
     def test_gpt_4o_mini_gets_the_128k_window(self):
         assert context_window_tokens("openai/gpt-4o-mini") == 128_000
@@ -34,7 +32,7 @@ class TestContextWindowTokens:
         assert context_window_tokens("claude-haiku-4-5") == 200_000
 
     def test_unknown_model_falls_back_to_the_safe_default(self):
-        # An unrecognized model must be bounded by the modest floor, never trusted with a big window.
+        # An unrecognized model is bounded by the modest floor, never trusted with a big window.
         assert context_window_tokens("some-brand-new-model") == _DEFAULT_CONTEXT_TOKENS
 
 
@@ -114,9 +112,7 @@ class TestCompleteErrors:
         assert exc.value.kind is ErrorKind.RATE_LIMIT
 
     def test_connection_error_maps_to_connection_kind(self):
-        error = anthropic.APIConnectionError(
-            request=httpx.Request("POST", "http://test")
-        )
+        error = anthropic.APIConnectionError(request=httpx.Request("POST", "http://test"))
         with pytest.raises(ProviderError) as exc:
             self._complete_raising(error)
         assert exc.value.kind is ErrorKind.CONNECTION
@@ -132,9 +128,7 @@ class TestCompleteErrors:
 
     def test_unknown_api_error_falls_through_to_status_kind(self):
         # Any anthropic.APIError not matched above must still not leak past the seam.
-        error = anthropic.APIError(
-            "boom", request=httpx.Request("POST", "http://test"), body=None
-        )
+        error = anthropic.APIError("boom", request=httpx.Request("POST", "http://test"), body=None)
         with pytest.raises(ProviderError) as exc:
             self._complete_raising(error)
         assert exc.value.kind is ErrorKind.STATUS
@@ -212,9 +206,7 @@ class TestCompleteOpenAiCompat:
 
     @patch("noidea.provider.get_api_key", return_value="sk-test")
     @patch("openai.OpenAI")
-    def test_openai_resolves_key_and_uses_sdk_default_endpoint(
-        self, mock_openai_cls, mock_key
-    ):
+    def test_openai_resolves_key_and_uses_sdk_default_endpoint(self, mock_openai_cls, mock_key):
         mock_openai_cls.return_value = self._mock_client("hi")
 
         result = complete("s", "u", "gpt-4o", 50, provider="openai")
@@ -226,16 +218,12 @@ class TestCompleteOpenAiCompat:
 
     @patch("noidea.provider.get_api_key", return_value="sk-or-test")
     @patch("openai.OpenAI")
-    def test_openrouter_resolves_key_and_uses_aggregator_endpoint(
-        self, mock_openai_cls, mock_key
-    ):
+    def test_openrouter_resolves_key_and_uses_aggregator_endpoint(self, mock_openai_cls, mock_key):
         # OpenRouter is keyed like any compat provider but fronts upstream models behind one
         # endpoint, so the model name is namespaced and the base URL is its aggregator default.
         mock_openai_cls.return_value = self._mock_client("feat: add thing")
 
-        result = complete(
-            "s", "u", "anthropic/claude-3.5-sonnet", 50, provider="openrouter"
-        )
+        result = complete("s", "u", "anthropic/claude-3.5-sonnet", 50, provider="openrouter")
 
         assert result == "feat: add thing"
         mock_openai_cls.assert_called_once_with(
@@ -249,9 +237,7 @@ class TestCompleteOpenAiCompat:
 
         complete("s", "u", "m", 10, provider="ollama", base_url="http://vllm:8000/v1")
 
-        mock_openai_cls.assert_called_once_with(
-            api_key="ollama", base_url="http://vllm:8000/v1"
-        )
+        mock_openai_cls.assert_called_once_with(api_key="ollama", base_url="http://vllm:8000/v1")
 
     @patch("openai.OpenAI")
     def test_empty_content_raises_provider_error(self, mock_openai_cls):
@@ -264,17 +250,13 @@ class TestCompleteOpenAiCompat:
         assert exc.value.kind is ErrorKind.STATUS
 
     @patch("openai.OpenAI")
-    def test_no_choices_with_embedded_error_raises_provider_error(
-        self, mock_openai_cls
-    ):
+    def test_no_choices_with_embedded_error_raises_provider_error(self, mock_openai_cls):
         # Aggregators (OpenRouter) return HTTP 200 with an error embedded in the body when an
         # upstream model fails: the SDK does not raise, so an empty choices list must collapse to
         # ProviderError — not an AssertionError that escapes the caller's ProviderError-only catch.
         mock_response = MagicMock()
         mock_response.choices = []
-        mock_response.error = {
-            "message": "The input token count exceeds the maximum allowed."
-        }
+        mock_response.error = {"message": "The input token count exceeds the maximum allowed."}
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
         mock_openai_cls.return_value = mock_client
@@ -303,13 +285,9 @@ class TestReasoningModels:
         mock_response.choices = [mock_choice]
         return mock_response
 
-    def _mock_client(
-        self, content: str | None = "feat: x", finish_reason: str = "stop"
-    ):
+    def _mock_client(self, content: str | None = "feat: x", finish_reason: str = "stop"):
         mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._response(
-            content, finish_reason
-        )
+        mock_client.chat.completions.create.return_value = self._response(content, finish_reason)
         return mock_client
 
     def _unsupported_param_error(self, param: str = "max_tokens"):
@@ -343,9 +321,7 @@ class TestReasoningModels:
     @patch("noidea.provider.get_api_key", return_value="sk-test")
     @patch("openai.OpenAI")
     @pytest.mark.parametrize("model", ["gpt-4o", "gpt-5-chat-latest"])
-    def test_chat_model_keeps_max_tokens_and_temperature(
-        self, mock_openai_cls, mock_key, model
-    ):
+    def test_chat_model_keeps_max_tokens_and_temperature(self, mock_openai_cls, mock_key, model):
         # gpt-5-chat-latest is a non-reasoning endpoint: the 'chat' exclusion must keep it here,
         # not on the reasoning path. gpt-4o is the plain regression guard.
         mock_client = self._mock_client("feat: add thing")
@@ -372,9 +348,7 @@ class TestReasoningModels:
         ]
         mock_openai_cls.return_value = mock_client
 
-        result = complete(
-            "s", "u", "gpt-6-thinking", 100, temperature=0.7, provider="openai"
-        )
+        result = complete("s", "u", "gpt-6-thinking", 100, temperature=0.7, provider="openai")
 
         assert result == "feat: add thing"
         assert mock_client.chat.completions.create.call_count == 2
@@ -402,8 +376,7 @@ class TestReasoningModels:
         assert result == "fix: thing"
         assert mock_client.chat.completions.create.call_count == 2
         assert (
-            "max_completion_tokens"
-            in mock_client.chat.completions.create.call_args_list[1].kwargs
+            "max_completion_tokens" in mock_client.chat.completions.create.call_args_list[1].kwargs
         )
 
     @patch("noidea.provider.get_api_key", return_value="sk-test")
@@ -455,15 +428,11 @@ class TestReasoningModels:
 
     @patch("noidea.provider.get_api_key", return_value="sk-test")
     @patch("openai.OpenAI")
-    def test_budget_starvation_raises_actionable_provider_error(
-        self, mock_openai_cls, mock_key
-    ):
+    def test_budget_starvation_raises_actionable_provider_error(self, mock_openai_cls, mock_key):
         # A reasoning model can spend its whole budget on hidden reasoning tokens and return empty
         # content with a length finish. Surface an actionable ProviderError naming the fix, not a
         # cryptic TypeError.
-        mock_openai_cls.return_value = self._mock_client(
-            content=None, finish_reason="length"
-        )
+        mock_openai_cls.return_value = self._mock_client(content=None, finish_reason="length")
         with pytest.raises(ProviderError) as exc:
             complete("s", "u", "o3-mini", 100, provider="openai")
         assert exc.value.kind is ErrorKind.STATUS
@@ -513,7 +482,7 @@ class TestProviderTablesStayInSync:
 
 
 class TestCompleteOpenAiCompatErrors:
-    """complete() collapses openai's exception hierarchy into one ProviderError, like anthropic's."""
+    """complete() collapses openai's exception hierarchy into a single ProviderError too."""
 
     def _complete_raising(self, error):
         with patch("openai.OpenAI") as mock_openai_cls:
@@ -528,9 +497,7 @@ class TestCompleteOpenAiCompatErrors:
     def test_auth_error_maps_to_auth_kind(self):
         import openai
 
-        error = openai.AuthenticationError(
-            "bad key", response=self._response(401), body=None
-        )
+        error = openai.AuthenticationError("bad key", response=self._response(401), body=None)
         with pytest.raises(ProviderError) as exc:
             self._complete_raising(error)
         assert exc.value.kind is ErrorKind.AUTH
@@ -538,9 +505,7 @@ class TestCompleteOpenAiCompatErrors:
     def test_rate_limit_error_maps_to_rate_limit_kind(self):
         import openai
 
-        error = openai.RateLimitError(
-            "slow down", response=self._response(429), body=None
-        )
+        error = openai.RateLimitError("slow down", response=self._response(429), body=None)
         with pytest.raises(ProviderError) as exc:
             self._complete_raising(error)
         assert exc.value.kind is ErrorKind.RATE_LIMIT
@@ -556,9 +521,7 @@ class TestCompleteOpenAiCompatErrors:
     def test_status_error_maps_to_status_kind_with_code(self):
         import openai
 
-        error = openai.APIStatusError(
-            "server boom", response=self._response(503), body=None
-        )
+        error = openai.APIStatusError("server boom", response=self._response(503), body=None)
         with pytest.raises(ProviderError) as exc:
             self._complete_raising(error)
         assert exc.value.kind is ErrorKind.STATUS

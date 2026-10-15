@@ -50,16 +50,12 @@ def uninstall(
         "--purge",
         help="Also delete stored API keys and ~/.noidea (config, dogfood records).",
     ),
-    yes: bool = typer.Option(
-        False, "--yes", "-y", help="Skip the --purge confirmation."
-    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip the --purge confirmation."),
 ):
     """Remove noidea's git hooks from this repo, restoring any hook it replaced."""
     if purge and not yes:
         # Purge deletes secrets and records that cannot be recovered, so it asks first.
-        typer.confirm(
-            f"Delete all noidea API keys and {CONFIG_DIR}?", abort=True, err=True
-        )
+        typer.confirm(f"Delete all noidea API keys and {CONFIG_DIR}?", abort=True, err=True)
     result = uninstall_hooks()
     if result.success:
         _report_hooks(result)

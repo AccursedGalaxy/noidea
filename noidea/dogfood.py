@@ -128,9 +128,7 @@ def classify(proposal_message: str, committed_message: str) -> tuple[str, float]
     assert isinstance(committed_message, str), "committed_message must be a string"
     similarity = message_similarity(proposal_message, committed_message)
     disposition = ACCEPTED if similarity == 1.0 else MODIFIED
-    assert disposition in (ACCEPTED, MODIFIED), (
-        "disposition must be accepted or modified"
-    )
+    assert disposition in (ACCEPTED, MODIFIED), "disposition must be accepted or modified"
     return disposition, similarity
 
 
@@ -138,9 +136,7 @@ def classify(proposal_message: str, committed_message: str) -> tuple[str, float]
 
 
 def _repo_state_dir(repo_root: str) -> str:
-    assert isinstance(repo_root, str) and repo_root, (
-        "repo_root must be a non-empty string"
-    )
+    assert isinstance(repo_root, str) and repo_root, "repo_root must be a non-empty string"
     return os.path.join(repo_root, _REPO_STATE_DIRNAME)
 
 
@@ -219,9 +215,7 @@ def _append_event(repo_root: str, event: dict) -> bool:
 def _open_proposals(events: list[dict]) -> list[Proposal]:
     """Fold the event log into the proposals that are still open (proposed, not yet consumed)."""
     assert isinstance(events, list), "events must be a list"
-    consumed = {
-        e["run_id"] for e in events if e.get("event") == "consume" and e.get("run_id")
-    }
+    consumed = {e["run_id"] for e in events if e.get("event") == "consume" and e.get("run_id")}
     proposals: list[Proposal] = []
     for event in events:
         if event.get("event") != "propose" or event.get("run_id") in consumed:
@@ -300,9 +294,7 @@ def _prune_expired(repo_root: str, ttl_seconds: int, now_unix: float) -> None:
     Idempotent (only acts on still-open proposals) and best-effort. Called on each propose and
     reconcile so the log self-cleans and the dogfood corpus gains its negative examples.
     """
-    assert isinstance(ttl_seconds, int) and ttl_seconds > 0, (
-        "ttl_seconds must be positive"
-    )
+    assert isinstance(ttl_seconds, int) and ttl_seconds > 0, "ttl_seconds must be positive"
     for proposal in _open_proposals(_read_events(repo_root)):
         if now_unix - proposal.created_at_unix < ttl_seconds:
             continue
@@ -375,9 +367,7 @@ def reconcile(
     if seeded is None:
         return None
     proposal = _proposal_by_run_id(repo_root, seeded["run_id"])
-    clear_seeded(
-        repo_root
-    )  # One commit consumes the pointer regardless of the outcome below.
+    clear_seeded(repo_root)  # One commit consumes the pointer regardless of the outcome below.
     if proposal is None:
         return None
     committed_message = get_commit_message("HEAD")
@@ -392,9 +382,7 @@ def reconcile(
         now,
     )
     result = ReconcileResult(proposal.run_id, disposition, similarity)
-    assert result.disposition in (ACCEPTED, MODIFIED), (
-        "reconcile must label accepted or modified"
-    )
+    assert result.disposition in (ACCEPTED, MODIFIED), "reconcile must label accepted or modified"
     return result
 
 
@@ -421,9 +409,7 @@ def _consume(
     Two writes, both best-effort: the consume event closes the proposal in the queue, and the
     run-record update makes it a labelled dogfood example. Neither may fail the commit.
     """
-    assert disposition in (ACCEPTED, MODIFIED, DISCARDED), (
-        "disposition must be a known label"
-    )
+    assert disposition in (ACCEPTED, MODIFIED, DISCARDED), "disposition must be a known label"
     assert 0.0 <= similarity <= 1.0, "similarity must be in [0,1]"
     _append_event(
         repo_root,

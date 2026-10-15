@@ -70,6 +70,10 @@ dev = [
 line-length = 100
 target-version = ["py310"]
 
+[tool.ruff]
+# Match black, so a ruff-based editor or linter never re-wraps code to its default of 88.
+line-length = 100
+
 [tool.isort]
 profile = "black"
 line_length = 100

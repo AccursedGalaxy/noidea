@@ -46,9 +46,7 @@ def test_get_recent_commits_degrades_to_empty_and_never_raises():
     with patch("noidea.git.subprocess.run", return_value=failed):
         assert get_recent_commits(50) == []
 
-    with patch(
-        "noidea.git.subprocess.run", side_effect=FileNotFoundError("git missing")
-    ):
+    with patch("noidea.git.subprocess.run", side_effect=FileNotFoundError("git missing")):
         assert get_recent_commits(50) == []
 
 
@@ -140,9 +138,7 @@ def test_install_hook_whitespace_hooks_dir():
 
 
 def test_get_diff_git_not_found():
-    with patch(
-        "noidea.git.subprocess.run", side_effect=FileNotFoundError("git not found")
-    ):
+    with patch("noidea.git.subprocess.run", side_effect=FileNotFoundError("git not found")):
         result = get_diff()
     assert not result.has_changes
     assert "git not found" in result.error
@@ -193,8 +189,7 @@ def test_get_diff_strips_binary_and_survives_bad_bytes():
     mock_result = MagicMock()
     # Invalid UTF-8 byte (0xff) plus a binary hunk: must not crash.
     mock_result.stdout = (
-        b"diff --git a/logo.png b/logo.png\n"
-        b"Binary files a/logo.png and b/logo.png differ\xff\n"
+        b"diff --git a/logo.png b/logo.png\n" b"Binary files a/logo.png and b/logo.png differ\xff\n"
     )
     with patch("noidea.git.subprocess.run", return_value=mock_result):
         result = get_diff()
@@ -255,9 +250,7 @@ def test_install_hook_over_a_foreign_hook_reports_installed(tmp_path):
     with patch("noidea.git.get_hooks_dir", return_value=str(tmp_path)):
         result = install_hook()
     assert result.outcome is HookOutcome.INSTALLED
-    assert (
-        tmp_path / "prepare-commit-msg.bak"
-    ).read_text() == "#!/bin/bash\necho mine\n"
+    assert (tmp_path / "prepare-commit-msg.bak").read_text() == "#!/bin/bash\necho mine\n"
 
 
 def _run_hook(tmp_path, name, *arguments):
@@ -386,6 +379,4 @@ def test_install_refuses_to_overwrite_a_foreign_hook_when_a_backup_exists(tmp_pa
     assert not result.success
     assert "prepare-commit-msg.bak" in result.error
     assert (tmp_path / "prepare-commit-msg").read_text() == "#!/bin/bash\necho second\n"
-    assert (
-        tmp_path / "prepare-commit-msg.bak"
-    ).read_text() == "#!/bin/bash\necho first\n"
+    assert (tmp_path / "prepare-commit-msg.bak").read_text() == "#!/bin/bash\necho first\n"

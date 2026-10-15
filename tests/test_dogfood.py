@@ -71,9 +71,7 @@ def test_classify_accepted_vs_modified():
 def test_find_fresh_requires_path_overlap(tmp_path):
     """A queued proposal for one set of files must not seed an unrelated commit's buffer."""
     repo = str(tmp_path)
-    _record(
-        repo, "r1", "main", ["auth.py"], "feat: auth", "/x/r1.json", created_at=100.0
-    )
+    _record(repo, "r1", "main", ["auth.py"], "feat: auth", "/x/r1.json", created_at=100.0)
     # Committing unrelated files: no overlap → no match (the grilled UX guard).
     assert find_fresh_proposal(repo, ["README.md"], "main", TTL, now_unix=200.0) is None
     # Overlapping files → match.
@@ -85,20 +83,14 @@ def test_find_fresh_respects_branch(tmp_path):
     repo = str(tmp_path)
     _record(repo, "r1", "feat/login", ["a.py"], "m", "/x/r1.json", created_at=100.0)
     assert find_fresh_proposal(repo, ["a.py"], "main", TTL, now_unix=150.0) is None
-    assert (
-        find_fresh_proposal(repo, ["a.py"], "feat/login", TTL, now_unix=150.0)
-        is not None
-    )
+    assert find_fresh_proposal(repo, ["a.py"], "feat/login", TTL, now_unix=150.0) is not None
 
 
 def test_find_fresh_respects_ttl(tmp_path):
     repo = str(tmp_path)
     _record(repo, "r1", "main", ["a.py"], "m", "/x/r1.json", created_at=100.0)
     # Past the TTL window → expired, not eligible to seed.
-    assert (
-        find_fresh_proposal(repo, ["a.py"], "main", TTL, now_unix=100.0 + TTL + 1)
-        is None
-    )
+    assert find_fresh_proposal(repo, ["a.py"], "main", TTL, now_unix=100.0 + TTL + 1) is None
 
 
 def test_find_fresh_returns_newest(tmp_path):
@@ -149,11 +141,7 @@ def test_reconcile_accepted_when_committed_verbatim(tmp_path):
         patch("noidea.dogfood.get_head_sha", return_value="sha1"),
     ):
         result = reconcile(repo, TTL, now_unix=120.0)
-    assert (
-        result is not None
-        and result.disposition == ACCEPTED
-        and result.similarity == 1.0
-    )
+    assert result is not None and result.disposition == ACCEPTED and result.similarity == 1.0
     # The seed pointer is consumed so the next commit does not re-reconcile.
     assert read_seeded(repo) is None
 
@@ -161,20 +149,14 @@ def test_reconcile_accepted_when_committed_verbatim(tmp_path):
 def test_reconcile_modified_when_edited(tmp_path):
     repo = str(tmp_path)
     run_file = str(tmp_path / "r1.json")
-    _record(
-        repo, "r1", "main", ["a.py"], "feat: add login flow", run_file, created_at=100.0
-    )
+    _record(repo, "r1", "main", ["a.py"], "feat: add login flow", run_file, created_at=100.0)
     mark_seeded(repo, "r1", now_unix=110.0)
     with (
         patch("noidea.dogfood.get_commit_message", return_value="feat: add login"),
         patch("noidea.dogfood.get_head_sha", return_value="sha1"),
     ):
         result = reconcile(repo, TTL, now_unix=120.0)
-    assert (
-        result is not None
-        and result.disposition == MODIFIED
-        and result.similarity < 1.0
-    )
+    assert result is not None and result.disposition == MODIFIED and result.similarity < 1.0
 
 
 def test_reconcile_no_seed_is_noop(tmp_path):
@@ -194,9 +176,7 @@ def test_reconcile_writes_verdict_into_run_record(tmp_path):
     repo = str(tmp_path)
     run_file = str(tmp_path / "r1.json")
     with open(run_file, "w") as handle:
-        json.dump(
-            {"schema": "driveros.commitmsg.v1", "proposed_message": "feat: x"}, handle
-        )
+        json.dump({"schema": "driveros.commitmsg.v1", "proposed_message": "feat: x"}, handle)
     _record(repo, "r1", "main", ["a.py"], "feat: x", run_file, created_at=100.0)
     mark_seeded(repo, "r1", now_unix=110.0)
     with (
