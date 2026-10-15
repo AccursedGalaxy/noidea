@@ -12,8 +12,17 @@ from noidea.config import (
 class TestLlmConfig:
     def test_defaults_match_known_values(self):
         cfg = LlmConfig()
-        assert cfg.max_tokens == 1024
-        assert cfg.small_model == "claude-haiku-4-5"
+        # Room for the thinking current Claude models do before they answer.
+        assert cfg.max_tokens == 8192
+        assert cfg.small_model == "claude-haiku-5-5"
+        assert cfg.large_model == "claude-sonnet-5-5"
+
+    def test_large_model_takes_over_for_a_large_change(self):
+        # The threshold sits well inside the small model's window, so escalation happens for
+        # big diffs instead of only once a diff is already being truncated.
+        cfg = LlmConfig()
+        assert cfg.select_model(10_000) == cfg.small_model
+        assert cfg.select_model(60_000) == cfg.large_model
 
     def test_learn_commit_style_defaults_on(self):
         # The differentiator ships on by default so every user gets repo-matched messages.
@@ -50,11 +59,11 @@ class TestLlmConfig:
         cfg = LlmConfig.from_dict({"max_tokens": 512})
         assert cfg.max_tokens == 512
         # Untouched fields fall back to defaults.
-        assert cfg.small_model == "claude-haiku-4-5"
+        assert cfg.small_model == LlmConfig().small_model
 
     def test_from_dict_wrong_type_falls_back_to_default(self, capsys):
         cfg = LlmConfig.from_dict({"max_tokens": "not a number"})
-        assert cfg.max_tokens == 1024
+        assert cfg.max_tokens == LlmConfig().max_tokens
         assert "Warning" in capsys.readouterr().err
 
     def test_from_dict_missing_key_uses_default(self):
@@ -68,13 +77,13 @@ class TestLlmConfig:
     def test_from_dict_rejects_float_max_tokens(self, capsys):
         # max_tokens is int-only (the API wants an int); a float falls back with a warning.
         cfg = LlmConfig.from_dict({"max_tokens": 512.5})
-        assert cfg.max_tokens == 1024
+        assert cfg.max_tokens == LlmConfig().max_tokens
         assert "Warning" in capsys.readouterr().err
 
     def test_from_dict_rejects_bool_for_numeric(self):
         # bool is an int subclass but is never a valid numeric config value.
         cfg = LlmConfig.from_dict({"max_tokens": True})
-        assert cfg.max_tokens == 1024
+        assert cfg.max_tokens == LlmConfig().max_tokens
 
     def test_from_dict_accepts_bool_for_learn_commit_style(self):
         # The kill-switch is a real bool field, so an explicit false must be honored.
@@ -142,8 +151,11 @@ def test_load_config_returns_defaults_after_initialize(tmp_path):
     with p1, p2, _patch_no_repo():
         initialize()
         result = load_config()
+        written = json.loads((tmp_path / "config.json").read_text())
 
-    assert result.max_tokens == 1024
+    assert result == LlmConfig()
+    # Only an empty section is written, so later default changes reach existing users.
+    assert written == {"llm": {}}
 
 
 def test_load_config_user_overrides_defaults(tmp_path):
@@ -155,7 +167,7 @@ def test_load_config_user_overrides_defaults(tmp_path):
 
     assert result.max_tokens == 512
     # defaults still present for keys not overridden
-    assert result.small_model == "claude-haiku-4-5"
+    assert result.small_model == LlmConfig().small_model
 
 
 def test_load_config_repo_overrides_user(tmp_path):
@@ -177,7 +189,7 @@ def test_load_config_repo_overrides_user(tmp_path):
         result = load_config()
 
     assert result.max_tokens == 256
-    assert result.small_model == "claude-haiku-4-5"
+    assert result.small_model == LlmConfig().small_model
 
 
 def test_load_config_repo_partial_override(tmp_path):
@@ -195,8 +207,8 @@ def test_load_config_repo_partial_override(tmp_path):
         result = load_config()
 
     assert result.system_prompt == "Custom prompt"
-    assert result.max_tokens == 1024
-    assert result.small_model == "claude-haiku-4-5"
+    assert result.max_tokens == LlmConfig().max_tokens
+    assert result.small_model == LlmConfig().small_model
 
 
 def test_load_config_non_dict_llm_falls_back_to_defaults(tmp_path):
@@ -207,8 +219,8 @@ def test_load_config_non_dict_llm_falls_back_to_defaults(tmp_path):
     with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
         result = load_config()
 
-    assert result.max_tokens == 1024
-    assert result.small_model == "claude-haiku-4-5"
+    assert result.max_tokens == LlmConfig().max_tokens
+    assert result.small_model == LlmConfig().small_model
 
 
 class TestLoadConfigErrors:
@@ -219,7 +231,7 @@ class TestLoadConfigErrors:
         with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
             result = load_config()
 
-        assert result.max_tokens == 1024
+        assert result.max_tokens == LlmConfig().max_tokens
 
     def test_unreadable_config_falls_back_to_defaults(self, tmp_path):
         config_file = tmp_path / "config.json"
@@ -229,7 +241,7 @@ class TestLoadConfigErrors:
         try:
             with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
                 result = load_config()
-            assert result.max_tokens == 1024
+            assert result.max_tokens == LlmConfig().max_tokens
         finally:
             config_file.chmod(0o644)
 
@@ -274,3 +286,75 @@ class TestInitializeErrors:
 
         captured = capsys.readouterr()
         assert "Warning" in captured.err
+
+
+def _legacy_user_config():
+    """A ~/.noidea/config.json exactly as an older initialize() wrote it: every default frozen."""
+    from noidea.config import _DEFAULT_SYSTEM_PROMPT
+
+    return {
+        "llm": {
+            "max_tokens": 1024,
+            "small_model": "claude-haiku-4-5",
+            "large_model": "claude-sonnet-4-6",
+            "context_limit": 600000.0,
+            "system_prompt": _DEFAULT_SYSTEM_PROMPT,
+            "temperature": 1.0,
+        }
+    }
+
+
+def test_frozen_old_defaults_in_the_user_config_follow_the_new_defaults(tmp_path):
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps(_legacy_user_config()))
+    with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
+        result = load_config()
+    assert result == LlmConfig()
+
+
+def test_an_old_default_system_prompt_follows_the_new_default(tmp_path):
+    legacy = _legacy_user_config()
+    legacy["llm"][
+        "system_prompt"
+    ] = "Generate a concise git commit message from the provided diff.\nRules:\n"
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps(legacy))
+    with (
+        patch("noidea.config.CONFIG_PATH", str(config_file)),
+        patch("noidea.config._LEGACY_SYSTEM_PROMPT_SHA256", _sha256_set(legacy)),
+        _patch_no_repo(),
+    ):
+        result = load_config()
+    assert result.system_prompt == LlmConfig().system_prompt
+
+
+def _sha256_set(config):
+    import hashlib
+
+    prompt = config["llm"]["system_prompt"]
+    return frozenset({hashlib.sha256(prompt.encode()).hexdigest()})
+
+
+def test_values_the_user_chose_are_kept(tmp_path):
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({"llm": {"small_model": "gpt-4o-mini", "max_tokens": 2000}}))
+    with patch("noidea.config.CONFIG_PATH", str(config_file)), _patch_no_repo():
+        result = load_config()
+    assert result.small_model == "gpt-4o-mini"
+    assert result.max_tokens == 2000
+
+
+def test_a_repo_config_is_never_treated_as_frozen_defaults(tmp_path):
+    # Only initialize() ever froze defaults, and only into the user file; a value committed to a
+    # repo config is a deliberate choice, even when it equals an old default.
+    repo_root = tmp_path / "repo"
+    (repo_root / ".noidea").mkdir(parents=True)
+    (repo_root / ".noidea" / "config.json").write_text(
+        json.dumps({"llm": {"small_model": "claude-haiku-4-5"}})
+    )
+    with (
+        patch("noidea.config.CONFIG_PATH", str(tmp_path / "none.json")),
+        patch("noidea.config.get_git_root", return_value=str(repo_root)),
+    ):
+        result = load_config()
+    assert result.small_model == "claude-haiku-4-5"

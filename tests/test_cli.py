@@ -339,13 +339,16 @@ class TestSuggest:
     @patch(
         "noidea.commands.suggest.load_config",
         return_value=LlmConfig(
-            diff_chars_max=0, small_model="openai/gpt-4o-mini", provider="openrouter"
+            diff_chars_max=0,
+            small_model="openai/gpt-4o-mini",
+            provider="openrouter",
+            context_limit=1_000_000.0,
         ),
     )
     @patch(
         "noidea.commands.suggest.get_diff",
-        # 500 KB: under the 600k-char routing threshold, so it stays on the small model, yet larger
-        # than that model's ~350 KB window budget — so the auto cap must still bite.
+        # 500 KB: under this test's 1M-char routing threshold, so it stays on the small model, yet
+        # larger than that model's ~350 KB window budget — so the auto cap must still bite.
         return_value=DiffResult(has_changes=True, diff="+ " + "x" * 500_000),
     )
     def test_suggest_auto_budget_truncates_to_the_small_model_window(
@@ -452,7 +455,7 @@ class TestSuggest:
         result = runner.invoke(app, ["suggest"])
         assert result.exit_code == 0
         assert "Small diff" in result.output
-        assert "claude-haiku-4-5" in result.output
+        assert LlmConfig().small_model in result.output
 
     @patch("noidea.commands.suggest.complete", return_value="feat: big")
     @patch("noidea.commands.suggest.get_branch_name", return_value="main")
@@ -473,7 +476,7 @@ class TestSuggest:
         result = runner.invoke(app, ["suggest"])
         assert result.exit_code == 0
         assert "escalating" in result.output
-        assert "claude-sonnet-4-6" in result.output
+        assert LlmConfig().large_model in result.output
 
     @patch("noidea.commands.suggest.complete", return_value="fix: thing")
     @patch("noidea.commands.suggest.get_branch_name", return_value="main")

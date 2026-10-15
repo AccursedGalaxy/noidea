@@ -1,6 +1,7 @@
 """Three-tier configuration: built-in defaults, user overrides, repo overrides."""
 
 import dataclasses
+import hashlib
 import json
 import os
 import sys
@@ -48,10 +49,13 @@ class LlmConfig:
     then asserts the type invariants that ``from_dict`` and the defaults both guarantee.
     """
 
-    max_tokens: int = 1024
-    small_model: str = "claude-haiku-4-5"
-    large_model: str = "claude-sonnet-4-6"
-    context_limit: float = 600000.0  # Character threshold for model selection, not a token limit.
+    # Current Claude models think before they answer and spend part of this budget doing so.
+    max_tokens: int = 8192
+    small_model: str = "claude-haiku-5-5"
+    large_model: str = "claude-sonnet-5-5"
+    # Characters (prompt plus diff) at which a change escalates to the large model: ~10k tokens,
+    # well inside the small model's window, so the strong model sees big diffs uncut.
+    context_limit: float = 40000.0
     # Optional hard ceiling on the diff characters sent to the model. 0 means "auto": derive the
     # bound from the selected model's own context window (see suggest._diff_budget_chars), which is
     # the right default now that windows range from 128k to 1M+ tokens. A positive value caps below
@@ -156,9 +160,46 @@ def _matches_default_type(value, default) -> bool:
     return isinstance(value, type(default))
 
 
-# Derived from the dataclass so the field set is enumerated exactly once. Used as the merge
-# base and written verbatim by initialize().
+# Derived from the dataclass so the field set is enumerated exactly once. Used as the merge base.
 DEFAULTS = {"llm": dataclasses.asdict(LlmConfig())}
+
+# Before 1.3.0, initialize() wrote every default into ~/.noidea/config.json, freezing them there:
+# a later default change never reached an existing user. A user-config value equal to one of these
+# old defaults is therefore treated as unset. System prompts are matched by SHA-256 because the
+# old default texts are long.
+_LEGACY_DEFAULTS = {
+    "max_tokens": (1024,),
+    "small_model": ("claude-haiku-4-5",),
+    "large_model": ("claude-sonnet-4-6",),
+    "context_limit": (600000, 600000.0),
+}
+_LEGACY_SYSTEM_PROMPT_SHA256 = frozenset(
+    {
+        "31aa6598c66b8d9b58f05451e189abd3c8847bf28bf7c0dfe04c4cb2063d7320",
+        "32efdd2d9ab32a45823c56a5d1a9189307bc9b2a9fe7d9429376ba046722e681",
+        "a74318533127e6718f0b28d5073612446f076ea1f2dd328e3f08e7e491f87c34",
+        "bc54cdf365dab5901639d7e301ef5efe8833d7a650d280464a5da60fb85ff4a1",
+        "bfcc5dbf03118c173c98d1fd0c3b8e8c56c7fefc7034b0abb9272d9379e8aaeb",
+        "deb95abcd18cd86d3be49f24ec4274c5b9264ec1c834375e549ae55d57b8bfe3",
+        "e3b1994174b3ee0d2bd99171d1b041990d2c9727030325504a2c36d54d5b9ba3",
+        "e8ee51df4a303bfd64301791bd08cfffec874e96823cf888c9e5cb4e00194b35",
+    }
+)
+
+
+def _drop_frozen_defaults(llm_section: dict) -> dict:
+    """Remove values an older initialize() froze into the user config, so new defaults apply."""
+    assert isinstance(llm_section, dict), "llm_section must be a dict"
+    kept = {}
+    for key, value in llm_section.items():
+        if key in _LEGACY_DEFAULTS and value in _LEGACY_DEFAULTS[key]:
+            continue
+        if key == "system_prompt" and isinstance(value, str):
+            if hashlib.sha256(value.encode()).hexdigest() in _LEGACY_SYSTEM_PROMPT_SHA256:
+                continue
+        kept[key] = value
+    assert len(kept) <= len(llm_section), "dropping can only remove keys"
+    return kept
 
 
 def deep_merge(base, override):
@@ -199,10 +240,15 @@ def load_config() -> LlmConfig:
     for path in _collect_config_paths():
         try:
             with open(path) as f:
-                config = deep_merge(config, json.load(f))
+                loaded = json.load(f)
         except (OSError, json.JSONDecodeError) as error:
             # Warn instead of crashing: a corrupt config should not block all CLI usage.
             print(f"Warning: could not load {path}: {error}", file=sys.stderr)
+            continue
+        # Only the user file was ever written by initialize(); a repo config is deliberate.
+        if path == CONFIG_PATH and isinstance(loaded, dict) and isinstance(loaded.get("llm"), dict):
+            loaded = {**loaded, "llm": _drop_frozen_defaults(loaded["llm"])}
+        config = deep_merge(config, loaded)
     llm_section = config.get("llm")
     if not isinstance(llm_section, dict):
         # A non-dict llm section is corrupt; fall back to an all-default config.
@@ -225,8 +271,10 @@ def initialize():
 
     if not os.path.exists(CONFIG_PATH):
         try:
+            # An empty section, not the defaults: written values would freeze today's defaults
+            # for this user. Every setting is documented in docs/configuration.md.
             with open(CONFIG_PATH, "w") as f:
-                json.dump(DEFAULTS, f, indent=2)
+                json.dump({"llm": {}}, f, indent=2)
         except OSError as error:
             print(f"Warning: could not write {CONFIG_PATH}: {error}", file=sys.stderr)
 
