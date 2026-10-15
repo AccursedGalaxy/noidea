@@ -380,3 +380,46 @@ def test_install_refuses_to_overwrite_a_foreign_hook_when_a_backup_exists(tmp_pa
     assert "prepare-commit-msg.bak" in result.error
     assert (tmp_path / "prepare-commit-msg").read_text() == "#!/bin/bash\necho second\n"
     assert (tmp_path / "prepare-commit-msg.bak").read_text() == "#!/bin/bash\necho first\n"
+
+
+def _run_hook_with_fake(tmp_path, name, fake_script, *arguments):
+    """Run a managed hook with PATH holding only a fake `noidea` (or none); return the exit code."""
+    bin_dir = tmp_path / "fakebin"
+    bin_dir.mkdir(exist_ok=True)
+    if fake_script is not None:
+        fake = bin_dir / "noidea"
+        fake.write_text(fake_script)
+        fake.chmod(0o755)
+    hook = tmp_path / name
+    hook.write_text(HOOKS[name])
+    hook.chmod(0o755)
+    # Keep the system tools the script itself needs (bash builtins, rm), but no real noidea.
+    env = {**os.environ, "PATH": f"{bin_dir}:/usr/bin:/bin"}
+    completed = subprocess.run([str(hook), *arguments], cwd=tmp_path, env=env, check=False)
+    return completed.returncode
+
+
+def test_hooks_let_the_commit_through_when_noidea_is_not_on_path(tmp_path):
+    # GUI clients and IDEs often run git without the user's shell PATH; a missing noidea must
+    # not turn every commit into "command not found" and an aborted commit.
+    _write_seed(tmp_path)
+    assert _run_hook_with_fake(tmp_path, "prepare-commit-msg", None, "MSG") == 0
+    assert _run_hook_with_fake(tmp_path, "post-commit", None) == 0
+
+
+def test_prepare_hook_lets_the_commit_through_when_noidea_fails(tmp_path):
+    failing = "#!/bin/bash\nexit 3\n"
+    assert _run_hook_with_fake(tmp_path, "prepare-commit-msg", failing, "MSG") == 0
+
+
+def test_the_previous_hook_scripts_are_still_recognised_as_ours():
+    # The scripts 1.3.0 replaces must stay in the ownership list, or `init` would back them up
+    # and `uninstall` would leave them behind.
+    assert is_noidea_hook(
+        '#!/bin/bash\ncase "$2" in commit|merge|message|squash)'
+        " rm -f .git/noidea/seeded.json; exit 0 ;; esac\n"
+        'noidea suggest --file "$1" --source "$2"\n'
+    )
+    assert is_noidea_hook(
+        "#!/bin/bash\n[ -f .git/noidea/seeded.json ] || exit 0\nnoidea _reconcile\n"
+    )

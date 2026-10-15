@@ -37,6 +37,12 @@ _PROVIDER_ENV_VARS = {
 }
 
 
+def env_var_for(provider: str) -> str | None:
+    """The env var a provider's key falls back to, or None for a keyless provider."""
+    assert isinstance(provider, str) and provider, "provider must be a non-empty string"
+    return _PROVIDER_ENV_VARS.get(provider)
+
+
 class KeyStoreError(Exception):
     """A keyring or registry operation failed. Callers handle this one type, not keyring's."""
 

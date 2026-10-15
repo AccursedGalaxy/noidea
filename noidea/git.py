@@ -59,11 +59,17 @@ MESSAGE_SOURCES_SUPPLIED = frozenset({"message", "commit", "merge", "squash"})
 # The supplied-message check runs in the shell, so a `git commit -m` never pays for Python
 # startup; it drops a stale seed pointer on the way out, exactly as suggest does. The pattern is
 # generated from MESSAGE_SOURCES_SUPPLIED so the shell and Python can never disagree.
+# Both hooks fail open: when noidea is not on PATH (GUI clients and IDEs often run git without
+# the user's shell PATH) or exits non-zero, the commit goes ahead, because a hook that exits
+# non-zero would abort it.
+_SKIP_WITHOUT_NOIDEA = "command -v noidea >/dev/null 2>&1 || exit 0\n"
 _PREPARE_COMMIT_MSG = (
     "#!/bin/bash\n"
     f'case "$2" in {"|".join(sorted(MESSAGE_SOURCES_SUPPLIED))})'
     " rm -f .git/noidea/seeded.json; exit 0 ;; esac\n"
-    'noidea suggest --file "$1" --source "$2"\n'
+    "command -v noidea >/dev/null 2>&1 ||"
+    ' { echo "noidea: not on PATH, skipping the commit message" >&2; exit 0; }\n'
+    'noidea suggest --file "$1" --source "$2" || true\n'
 )
 
 # The hooks noidea installs, name → script. prepare-commit-msg writes the message into the
@@ -76,7 +82,11 @@ _PREPARE_COMMIT_MSG = (
 # agent proposal is actually waiting to be reconciled.
 HOOKS = {
     "prepare-commit-msg": _PREPARE_COMMIT_MSG,
-    "post-commit": ("#!/bin/bash\n[ -f .git/noidea/seeded.json ] || exit 0\nnoidea _reconcile\n"),
+    "post-commit": (
+        "#!/bin/bash\n[ -f .git/noidea/seeded.json ] || exit 0\n"
+        + _SKIP_WITHOUT_NOIDEA
+        + "noidea _reconcile || true\n"
+    ),
 }
 
 # Scripts earlier noidea versions wrote. Ownership is an exact match against these and HOOKS:
@@ -87,6 +97,11 @@ _PREVIOUS_HOOK_SCRIPTS = frozenset(
         '#!/bin/bash\nnoidea suggest --file "$1"\n',
         '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n',
         "#!/bin/bash\nnoidea _reconcile\n",
+        # 1.3.0 pre-release scripts, before the hooks failed open.
+        '#!/bin/bash\ncase "$2" in commit|merge|message|squash)'
+        " rm -f .git/noidea/seeded.json; exit 0 ;; esac\n"
+        'noidea suggest --file "$1" --source "$2"\n',
+        "#!/bin/bash\n[ -f .git/noidea/seeded.json ] || exit 0\nnoidea _reconcile\n",
     }
 )
 _NOIDEA_HOOK_SCRIPTS = _PREVIOUS_HOOK_SCRIPTS | frozenset(HOOKS.values())

@@ -14,7 +14,7 @@ import anthropic
 from anthropic import Anthropic
 from anthropic.types import TextBlock
 
-from noidea.key_store import key_store
+from noidea.key_store import env_var_for, key_store
 
 
 class ErrorKind(Enum):
@@ -24,6 +24,7 @@ class ErrorKind(Enum):
     RATE_LIMIT = "rate_limit"  # Too many requests; back off and retry.
     CONNECTION = "connection"  # The API was unreachable (network/DNS/timeout).
     STATUS = "status"  # The API returned an error status, or an otherwise-unclassified failure.
+    MISSING_KEY = "missing_key"  # No key in the keyring or the provider's env var.
 
 
 class ProviderError(Exception):
@@ -76,10 +77,14 @@ _MODEL_CONTEXT_TOKENS = (
         "gemini",
         1_048_576,
     ),  # Gemini 1.5/2.x/3 flash & pro all expose at least a 1M window.
-    (
-        "claude",
-        200_000,
-    ),  # Claude's standard window; the 1M tier is opt-in beta, so assume 200k.
+    # The Claude 5 generation (and Fable) has a 1M window as standard. Matched before the generic
+    # "claude" entry; OpenRouter writes these with dots ("claude-sonnet-5.5"), still a substring.
+    ("claude-haiku-5", 1_000_000),
+    ("claude-sonnet-5", 1_000_000),
+    ("claude-opus-5", 1_000_000),
+    ("claude-fable", 1_000_000),
+    # Older Claude models (Haiku 4.5, Sonnet 4.5 and earlier): the 200k floor.
+    ("claude", 200_000),
     ("gpt-4o", 128_000),  # gpt-4o and gpt-4o-mini.
     ("gpt-5", 200_000),
     ("deepseek", 131_072),
@@ -113,7 +118,12 @@ def get_api_key(provider: str = "anthropic") -> str:
     assert isinstance(provider, str) and provider, "provider must be a non-empty string"
     key = key_store.get(provider)
     if not key:
-        raise SystemExit(f"No API key found for {provider}. Run 'noidea keys add'.")
+        # A handled error, never SystemExit: the commit hook must not abort a commit over it.
+        env_var = env_var_for(provider)
+        hint = f"Run 'noidea keys add {provider}'"
+        if env_var:
+            hint += f" or set {env_var}"
+        raise ProviderError(ErrorKind.MISSING_KEY, f"No API key found for {provider}. {hint}.")
     assert isinstance(key, str) and key, "api key must be a non-empty string"
     return key
 
@@ -152,6 +162,10 @@ def complete(
     raise ValueError(f"unknown provider: {provider!r}")
 
 
+# The Messages API's default temperature; see _complete_anthropic.
+_ANTHROPIC_DEFAULT_TEMPERATURE = 1.0
+
+
 def _complete_anthropic(
     system: str, user: str, model: str, max_tokens: int, temperature: float
 ) -> str:
@@ -159,15 +173,19 @@ def _complete_anthropic(
     assert isinstance(model, str) and model, "model must be a non-empty string"
     assert isinstance(max_tokens, int) and max_tokens > 0, "max_tokens must be a positive int"
     client = Anthropic(api_key=get_api_key())
+    request = {
+        "model": model,
+        "system": system,
+        "messages": [{"role": "user", "content": user}],
+        "max_tokens": max_tokens,
+    }
+    # Current Claude models reject any non-default sampling value with a 400. 1.0 is the API's
+    # own default, so it is only sent when the user chose something else.
+    if temperature != _ANTHROPIC_DEFAULT_TEMPERATURE:
+        request["temperature"] = temperature
     # Specific kinds first; APIError is the catch-all base last.
     try:
-        message = client.messages.create(
-            model=model,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
+        message = client.messages.create(**request)
     except anthropic.AuthenticationError as error:
         raise ProviderError(ErrorKind.AUTH, error.message) from error
     except anthropic.RateLimitError as error:
@@ -178,11 +196,17 @@ def _complete_anthropic(
         raise ProviderError(ErrorKind.STATUS, error.message, error.status_code) from error
     except anthropic.APIError as error:
         raise ProviderError(ErrorKind.STATUS, str(error)) from error
-    block = message.content[0]
-    # Claude can return tool_use or image blocks; we only handle text completions.
-    if not isinstance(block, TextBlock):
-        raise TypeError(f"Expected TextBlock, got {type(block).__name__}")
-    return block.text
+    # Current models think by default, so thinking blocks can precede the text; take the first
+    # text block. None at all means the budget went to thinking, which callers must see as a
+    # ProviderError rather than a crash.
+    for block in message.content:
+        if isinstance(block, TextBlock) and block.text:
+            return block.text
+    raise ProviderError(
+        ErrorKind.STATUS,
+        "The model returned no text. Raise llm.max_tokens: current Claude models spend part of"
+        " it on thinking before they answer.",
+    )
 
 
 def _is_reasoning_model(model: str) -> bool:

@@ -31,6 +31,10 @@ class TestContextWindowTokens:
         # The 1M tier is opt-in beta, so we assume the standard 200k to avoid overflowing.
         assert context_window_tokens("claude-haiku-4-5") == 200_000
 
+    def test_current_claude_generation_gets_its_million_token_window(self):
+        for model in ("claude-haiku-5-5", "claude-sonnet-5-5", "anthropic/claude-opus-5-5"):
+            assert context_window_tokens(model) == 1_000_000
+
     def test_unknown_model_falls_back_to_the_safe_default(self):
         # An unrecognized model is bounded by the modest floor, never trusted with a big window.
         assert context_window_tokens("some-brand-new-model") == _DEFAULT_CONTEXT_TOKENS
@@ -44,10 +48,15 @@ class TestGetApiKey:
         mock_store.get.assert_called_once_with("anthropic")
 
     @patch("noidea.provider.key_store")
-    def test_exits_when_no_key_found(self, mock_store):
+    def test_missing_key_is_a_handled_provider_error(self, mock_store):
+        # A SystemExit here used to escape every handler and abort `git commit` from the hook.
         mock_store.get.return_value = None
-        with pytest.raises(SystemExit):
-            get_api_key()
+        with pytest.raises(ProviderError) as exc:
+            get_api_key("openai")
+        assert exc.value.kind is ErrorKind.MISSING_KEY
+        # The message names both ways to fix it: the keyring command and the env var.
+        assert "noidea keys add openai" in exc.value.message
+        assert "OPENAI_API_KEY" in exc.value.message
 
 
 class TestComplete:
@@ -77,8 +86,53 @@ class TestComplete:
             system="generate commit msg",
             messages=[{"role": "user", "content": "+ added login"}],
             max_tokens=100,
-            temperature=1.0,
         )
+
+
+class TestAnthropicResponseShapes:
+    """Current Claude models think by default, so text is not always the first content block."""
+
+    def _complete_with_content(self, content, temperature=1.0):
+        with (
+            patch("noidea.provider.get_api_key", return_value="fake-key"),
+            patch("noidea.provider.Anthropic") as mock_anthropic_cls,
+        ):
+            mock_client = MagicMock()
+            mock_client.messages.create.return_value = MagicMock(content=content)
+            mock_anthropic_cls.return_value = mock_client
+            result = complete("system", "user", "claude-haiku-5-5", 100, temperature)
+            return result, mock_client.messages.create.call_args.kwargs
+
+    def test_text_after_a_thinking_block_is_returned(self):
+        from anthropic.types import TextBlock, ThinkingBlock
+
+        thinking = ThinkingBlock(type="thinking", thinking="", signature="sig")
+        text = TextBlock(type="text", text="fix: guard divide by zero")
+        result, _ = self._complete_with_content([thinking, text])
+        assert result == "fix: guard divide by zero"
+
+    def test_a_response_without_text_is_a_provider_error(self):
+        from anthropic.types import ThinkingBlock
+
+        thinking = ThinkingBlock(type="thinking", thinking="", signature="sig")
+        with pytest.raises(ProviderError) as exc:
+            self._complete_with_content([thinking])
+        assert exc.value.kind is ErrorKind.STATUS
+        assert "max_tokens" in exc.value.message
+
+    def test_default_temperature_is_not_sent(self):
+        # Current models reject any non-default sampling value; 1.0 is the API default, so
+        # omitting it is equivalent everywhere and keeps those models working.
+        from anthropic.types import TextBlock
+
+        _, kwargs = self._complete_with_content([TextBlock(type="text", text="x")])
+        assert "temperature" not in kwargs
+
+    def test_a_chosen_temperature_is_sent(self):
+        from anthropic.types import TextBlock
+
+        _, kwargs = self._complete_with_content([TextBlock(type="text", text="x")], 0.3)
+        assert kwargs["temperature"] == 0.3
 
 
 class TestCompleteErrors:
@@ -540,5 +594,7 @@ class TestCompleteNonTextBlock:
         mock_client.messages.create.return_value = mock_message
         mock_anthropic_cls.return_value = mock_client
 
-        with pytest.raises(TypeError, match="Expected TextBlock"):
+        # A non-text-only response is a handled provider failure, never an uncaught TypeError.
+        with pytest.raises(ProviderError) as exc:
             complete("system", "user", "model", 100)
+        assert exc.value.kind is ErrorKind.STATUS

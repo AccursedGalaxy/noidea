@@ -1,4 +1,5 @@
 import dataclasses
+import sys
 
 import typer
 from rich.console import Console
@@ -37,9 +38,34 @@ SUGGEST_WORDING = {
     ErrorKind.AUTH: lambda e: f"Authentication failed. Check your API key: {e.message}",
     ErrorKind.RATE_LIMIT: lambda e: f"Rate limited. Try again shortly: {e.message}",
     ErrorKind.CONNECTION: lambda e: f"Could not connect to the API: {e.message}",
-    ErrorKind.STATUS: lambda e: f"API error ({e.status_code}): {e.message}",
+    ErrorKind.STATUS: lambda e: (
+        f"API error ({e.status_code}): {e.message}"
+        if e.status_code is not None
+        else f"API error: {e.message}"
+    ),
+    ErrorKind.MISSING_KEY: lambda e: e.message,
 }
 assert set(SUGGEST_WORDING) == set(ErrorKind), "SUGGEST_WORDING must cover every ErrorKind"
+
+
+def _report_error(message: str) -> None:
+    """Print a failure to stderr: stdout carries only the commit message that callers capture."""
+    assert isinstance(message, str) and message, "message must be a non-empty string"
+    # Plain print, not the rich console: provider messages can contain [brackets] that rich
+    # would swallow as markup.
+    print(message, file=sys.stderr)
+
+
+def _fail(file: str) -> None:
+    """End a run that produced no message: exit 1, except under the commit hook.
+
+    With --file the caller is the prepare-commit-msg hook, where a non-zero exit aborts the
+    commit. A hook installed by an older version has no `|| true` guard, so suggest itself must
+    exit 0 there and let the commit continue with an empty message.
+    """
+    assert file is None or isinstance(file, str), "file must be a path or None"
+    if not file:
+        raise typer.Exit(code=1)
 
 
 # Fraction of a model's context window we allow the diff to fill, leaving headroom for the system
@@ -167,23 +193,24 @@ def _generate_message(
                 base_url=cfg.base_url,
             )
     except ProviderError as error:
-        print(SUGGEST_WORDING[error.kind](error))
+        _report_error(SUGGEST_WORDING[error.kind](error))
         return None
 
 
-def _emit_message(message: str, file: str) -> None:
-    """Write the message to the commit-msg file, or print it to stdout when no file is given."""
+def _emit_message(message: str, file: str) -> bool:
+    """Write the message to the commit-msg file, or print it to stdout; False if writing failed."""
     assert isinstance(message, str) and message, "message must be a non-empty string"
     if not file:
         print(message)
-        return
+        return True
     try:
         with open(file, "w") as handle:
             handle.write(message)
     except OSError as error:
-        print(f"Could not write to {file}: {error}")
-        return
+        _report_error(f"Could not write to {file}: {error}")
+        return False
     console.print("[bold green]Done. You're welcome.[/bold green]")
+    return True
 
 
 def _seed_pending(
@@ -261,11 +288,13 @@ def _read_staged_diff() -> str | None:
     """Return the staged diff text, or None (after telling the user why) when there is none."""
     diff = get_diff()
     if not diff.has_changes:
-        print("Nothing staged yet. Stage some changes first — we can't read your mind (yet).")
+        _report_error(
+            "Nothing staged yet. Stage some changes first — we can't read your mind (yet)."
+        )
         return None
     # TigerStyle: validate external data before sending to API.
     if not diff.diff.strip():
-        print("Staged changes produced an empty diff. Nothing to do.")
+        _report_error("Staged changes produced an empty diff. Nothing to do.")
         return None
     assert diff.diff.strip(), "a returned diff must carry content"
     return diff.diff
@@ -288,7 +317,8 @@ def _try_agent(
     message, run_id = result
     if file:
         mark_seeded(repo_root, run_id)  # So post-commit reconciles this inline run.
-    _emit_message(message, file)
+    if not _emit_message(message, file):
+        _fail(file)
     return True
 
 
@@ -310,9 +340,8 @@ def _run_fast_path(
     commit_message = _generate_message(
         capped_diff, cfg, selected_model, branch, staged_files, profile_text
     )
-    if commit_message is None:
-        return
-    _emit_message(commit_message, file)
+    if commit_message is None or not _emit_message(commit_message, file):
+        _fail(file)
 
 
 def suggest(
@@ -332,6 +361,7 @@ def suggest(
         return
     diff = _read_staged_diff()
     if diff is None:
+        _fail(file)
         return
 
     cfg = load_config()

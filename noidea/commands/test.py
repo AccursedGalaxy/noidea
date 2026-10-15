@@ -31,7 +31,12 @@ TEST_WORDING = {
     ErrorKind.AUTH: lambda e: f"Authentication failed. Check your API key: {e.message}",
     ErrorKind.RATE_LIMIT: lambda e: f"Rate limited. Try again shortly: {e.message}",
     ErrorKind.CONNECTION: lambda e: f"Couldn't reach the API: {e.message}",
-    ErrorKind.STATUS: lambda e: f"API error ({e.status_code}): {e.message}",
+    ErrorKind.STATUS: lambda e: (
+        f"API error ({e.status_code}): {e.message}"
+        if e.status_code is not None
+        else f"API error: {e.message}"
+    ),
+    ErrorKind.MISSING_KEY: lambda e: e.message,
 }
 assert set(TEST_WORDING) == set(ErrorKind), "TEST_WORDING must cover every ErrorKind"
 

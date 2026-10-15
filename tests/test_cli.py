@@ -238,8 +238,9 @@ class TestSuggest:
     )
     def test_suggest_no_changes(self, mock_diff):
         result = runner.invoke(app, ["suggest"])
-        assert result.exit_code == 0
-        assert "Nothing staged" in result.output
+        assert result.exit_code == 1
+        assert result.stdout == ""
+        assert "Nothing staged" in result.stderr
 
     @patch(
         "noidea.commands.suggest.get_diff",
@@ -247,8 +248,8 @@ class TestSuggest:
     )
     def test_suggest_empty_diff_content(self, mock_diff):
         result = runner.invoke(app, ["suggest"])
-        assert result.exit_code == 0
-        assert "empty diff" in result.output.lower()
+        assert result.exit_code == 1
+        assert "empty diff" in result.stderr.lower()
 
     @patch("noidea.commands.suggest.complete", return_value="feat: new thing")
     @patch(
@@ -547,7 +548,7 @@ class TestSuggestErrors:
         },
     }
 
-    def _invoke_suggest_with_api_error(self, error):
+    def _invoke_suggest_with_api_error(self, error, *arguments):
         with (
             patch(
                 **{
@@ -565,7 +566,30 @@ class TestSuggestErrors:
             patch("noidea.commands.suggest.get_branch_name", return_value="main"),
             patch("noidea.commands.suggest.get_staged_files", return_value=["file.py"]),
         ):
-            return runner.invoke(app, ["suggest"])
+            return runner.invoke(app, ["suggest", *arguments])
+
+    def test_every_error_goes_to_stderr_and_fails_the_command(self):
+        # stdout carries only a commit message: scripts and the GitHub Action capture it, so an
+        # error printed there would be posted as the "suggestion".
+        for kind in ErrorKind:
+            result = self._invoke_suggest_with_api_error(ProviderError(kind, "boom"))
+            assert result.exit_code == 1, kind
+            assert result.stdout == "", kind
+            assert "boom" in result.stderr, kind
+
+    def test_hook_mode_never_fails_the_commit(self, tmp_path):
+        # With --file the caller is the commit hook, where a non-zero exit aborts `git commit`;
+        # an older installed hook has no `|| true`, so suggest itself must exit 0 there.
+        message_file = str(tmp_path / "COMMIT_EDITMSG")
+        error = ProviderError(ErrorKind.MISSING_KEY, "No API key found for anthropic.")
+        result = self._invoke_suggest_with_api_error(error, "--file", message_file)
+        assert result.exit_code == 0
+        assert "No API key found" in result.stderr
+
+    def test_status_error_without_a_code_omits_it(self):
+        result = self._invoke_suggest_with_api_error(ProviderError(ErrorKind.STATUS, "empty"))
+        assert "API error: empty" in result.stderr
+        assert "None" not in result.stderr
 
     def test_suggest_auth_error(self):
         error = ProviderError(ErrorKind.AUTH, "bad key")
