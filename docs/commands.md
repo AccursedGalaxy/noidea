@@ -19,8 +19,8 @@ noidea respects `core.hooksPath`; if you change that setting later, run `noidea 
 
 ## noidea status
 
-Shows whether everything is wired up: the repository, both hooks, the config file, keys in the
-keyring, and the models in effect.
+Shows whether everything is wired up: the repository, both hooks, the config file, the provider
+and the key it will use, and the models in effect.
 
 ```text
 noidea v1.2.0
@@ -29,15 +29,16 @@ Repository:     ✓ git repo detected
 Hook:           ✓ prepare-commit-msg installed (.git/hooks)
 Hook:           ✓ post-commit installed (.git/hooks)
 Config:         ✓ /home/you/.noidea/config.json loaded
+Provider:       anthropic
 API Key:        ✓ anthropic (keyring)
-Small Model:    claude-haiku-4-5
-Large Model:    claude-sonnet-4-6
-Context Limit:  600000.0
+Small Model:    claude-haiku-5-5
+Large Model:    claude-sonnet-5-5
+Context Limit:  40000 characters
 Temperature:    1.0
 ```
 
-A hook marked `outdated` needs `noidea init`. Keys supplied only through environment variables
-do not appear under `API Key`.
+A hook marked `outdated` needs `noidea init`. `API Key` shows where the configured provider's key
+comes from: the keyring, or its environment variable such as `ANTHROPIC_API_KEY`.
 
 ## noidea suggest
 
@@ -46,7 +47,7 @@ command for you on `git commit`; run it directly to preview a message.
 
 ```bash
 noidea suggest
-noidea suggest --model claude-sonnet-4-6
+noidea suggest --model claude-sonnet-5-5
 ```
 
 | Flag | Short | Default | Effect |

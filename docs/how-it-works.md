@@ -26,20 +26,19 @@ git commit
    style hints, and the diff, then picks a model and sends one request.
 5. The reply is written to the commit message file and git opens your editor.
 
-If the provider rejects the request, times out, or is unreachable, noidea prints the error and the
-editor opens empty, as it would without noidea. If no API key is configured at all, the hook
-fails and git aborts the commit; see
-[troubleshooting](troubleshooting.md#no-api-key-found-for-provider).
+noidea never blocks a commit. If no key is configured, the provider rejects the request, times
+out, or is unreachable, or `noidea` isn't on the `PATH` git runs hooks with, the hook prints the
+reason and the editor opens empty, as it would without noidea.
 
 ## Model routing
 
 noidea adds the length of the system prompt to the length of the diff, in characters. Below
-`context_limit` (600,000 by default) it uses `small_model`; at or above it, `large_model`. It
+`context_limit` (40,000 by default) it uses `small_model`; at or above it, `large_model`. It
 prints the choice to standard error:
 
 ```text
-Small diff → claude-haiku-4-5 · fast & cheap
-Large change → escalating to claude-sonnet-4-6 · the strong model
+Small diff → claude-haiku-5-5 · fast & cheap
+Large change → escalating to claude-sonnet-5-5 · the strong model
 ```
 
 Counting characters needs no API call, which keeps routing instant. `--model` skips routing and

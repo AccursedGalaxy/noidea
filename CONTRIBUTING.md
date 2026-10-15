@@ -26,9 +26,8 @@ noidea looks up a provider's key in this order:
 1. The system keyring, written by `poetry run noidea keys add <provider>`.
 2. The provider's environment variable, such as `ANTHROPIC_API_KEY`.
 
-In a development checkout, a `.env` file in the project root also works, because `key_store.py`
-loads the nearest `.env` above the package. That lookup starts from the package directory, so it
-does not find a `.env` in other repositories once noidea is installed.
+noidea never reads `.env` files. One in a repo you commit in could redirect your key to another
+server, so keep keys in the keyring or your shell environment.
 
 Tests mock every API call, so `poetry run pytest` needs no key.
 

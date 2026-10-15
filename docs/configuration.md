@@ -12,10 +12,14 @@ noidea reads up to two files and merges them over its built-in defaults. A later
 3. Repo config, `<repo>/.noidea/config.json`, for one repository. Commit it to share settings
    with your team.
 
-The first `noidea` command you ever run writes the full set of defaults into the user config, so
-you have a complete file to edit. Because that file then holds a value for every key, a newer
-noidea release does not change its defaults for you. To pick up a new default, delete that key
-from `~/.noidea/config.json`.
+The first `noidea` command you ever run creates `~/.noidea/config.json` with an empty `llm`
+section. Add only the keys you want to change; everything else follows the built-in defaults,
+including new defaults in later releases.
+
+Releases before 1.3.0 wrote every default into that file. noidea now ignores a value there when it
+is exactly an old default (for example `"small_model": "claude-haiku-4-5"` or the old built-in
+system prompt), so those files pick up current defaults too. Values in a repo config are always
+used as written.
 
 `noidea status` prints the models, context limit and temperature currently in effect.
 
@@ -30,12 +34,12 @@ Warning: llm.temperature has wrong type (str), using default.
 | Key | Type | Default | Effect |
 |---|---|---|---|
 | `provider` | string | `"anthropic"` | Which [provider](providers.md) receives requests. |
-| `small_model` | string | `"claude-haiku-4-5"` | Model for ordinary diffs. |
-| `large_model` | string | `"claude-sonnet-4-6"` | Model for diffs at or over `context_limit`, and for `noidea test`. |
-| `context_limit` | number | `600000` | Size in characters where routing switches to `large_model`. |
+| `small_model` | string | `"claude-haiku-5-5"` | Model for ordinary diffs. |
+| `large_model` | string | `"claude-sonnet-5-5"` | Model for diffs at or over `context_limit`, and for `noidea test`. |
+| `context_limit` | number | `40000` | Size in characters where routing switches to `large_model`. |
 | `diff_chars_max` | integer | `0` | Upper limit on diff characters sent. `0` sizes it from the model's context window. |
-| `max_tokens` | integer | `1024` | Output token budget per request. |
-| `temperature` | number | `1.0` | Sampling temperature. Lower values give more predictable wording. |
+| `max_tokens` | integer | `8192` | Output token budget per request. Current Claude models spend part of it thinking before they answer. |
+| `temperature` | number | `1.0` | Sampling temperature. Lower values give more predictable wording. Current Claude models (the 5.5 generation) only accept `1.0`. |
 | `learn_commit_style` | boolean | `true` | Match the repo's own commit conventions. |
 | `system_prompt` | string | built in | The instructions sent with every diff. |
 | `base_url` | string | `""` | Replaces the provider's default endpoint. |
@@ -46,9 +50,10 @@ Warning: llm.temperature has wrong type (str), using default.
 
 ## Model routing
 
-`context_limit` and the two model keys decide which model writes each message. The defaults send
-nearly every commit to the small model; only diffs around 600,000 characters reach the large one.
-Lower `context_limit` to use the large model more often. The rule is in
+`context_limit` and the two model keys decide which model writes each message. With the defaults,
+a change of up to about 40,000 characters (roughly a 1,000-line diff) goes to the small model and
+anything larger to the large one. Raise `context_limit` to use the large model less often, or lower
+it to use it more. The rule is in
 [how it works](how-it-works.md#model-routing).
 
 For a one-off override, `noidea suggest --model <name>` uses that model regardless of size.

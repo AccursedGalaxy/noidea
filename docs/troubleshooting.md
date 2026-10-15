@@ -6,11 +6,12 @@ most setup problems in one screen.
 ## No API key found for provider
 
 Cause: noidea found no key for the configured provider in the keyring or in the provider's
-environment variable. On `git commit` this aborts the commit.
+environment variable. On `git commit` the editor opens empty and you can write the message
+yourself. A `.env` file is not read; see [providers](providers.md) for the variable names.
 
 Fix: store a key for the provider named in the message, for example `noidea keys add openai`, or
-export its variable from the [providers table](providers.md). To commit right away, pass your own
-message with `git commit -m`, which skips noidea.
+export its variable from the [providers table](providers.md). `noidea status` shows which key the
+configured provider will use.
 
 ## Authentication failed. Check your API key
 
@@ -33,10 +34,10 @@ Fix: for Ollama, start it with `ollama serve`. Otherwise check `base_url` in you
 Cause: the model used all of `max_tokens` before writing any visible text. Reasoning models spend
 part of the budget on hidden reasoning.
 
-Fix: raise `max_tokens`, for example to `4096`:
+Fix: raise `max_tokens`, for example to `16000`:
 
 ```json
-{ "llm": { "max_tokens": 4096 } }
+{ "llm": { "max_tokens": 16000 } }
 ```
 
 ## The provider returned no completion choices
@@ -69,7 +70,8 @@ Fix: run `git commit` without `-m`, or run `noidea suggest` to print a suggestio
 ## The editor opens without a suggestion
 
 Cause: the hook is missing or out of date, or another tool replaced it. Hooks also stop running
-when `core.hooksPath` changes after `noidea init`.
+when `core.hooksPath` changes after `noidea init`. If the commit output says `noidea: not on PATH`,
+git ran the hook without your shell's `PATH`, which GUI clients and IDEs often do.
 
 Fix: run `noidea status`. If a hook shows as missing or `outdated`, run `noidea init`.
 
@@ -95,7 +97,8 @@ Fix: use one of the names in the [providers table](providers.md).
 
 ## A new release changed a default but noidea still uses the old one
 
-Cause: your user config was written with the defaults of the release you first installed, and
-values in the file win over built-in defaults.
+Cause: the key is set in `~/.noidea/config.json` or in the repo's `.noidea/config.json`, and values
+in a config file win over built-in defaults. Since 1.3.0 noidea ignores values that are exactly an
+old default in the user config, so this only happens for a value someone chose.
 
-Fix: delete the key from `~/.noidea/config.json` to use the current default.
+Fix: delete the key from the config file to use the current default.

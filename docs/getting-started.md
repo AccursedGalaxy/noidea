@@ -74,7 +74,7 @@ git commit
 noidea prints its model choice while it works:
 
 ```text
-Small diff → claude-haiku-4-5 · fast & cheap
+Small diff → claude-haiku-5-5 · fast & cheap
 Done. You're welcome.
 ```
 
