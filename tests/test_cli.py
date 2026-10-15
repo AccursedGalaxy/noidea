@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 
 from noidea.cli import app
 from noidea.config import LlmConfig
-from noidea.git import Commit, DiffResult, HookOutcome, HookResult
+from noidea.git import Commit, DiffResult, HookOutcome, HookResult, UninstallResult
 from noidea.key_store import KeyStoreError
 from noidea.provider import ErrorKind, ProviderError
 
@@ -713,3 +713,87 @@ class TestStatusHooks:
         (tmp_path / "post-commit").write_text("#!/bin/bash\necho mine\n")
         _report_one_hook(str(tmp_path), "post-commit")
         assert "not managed by noidea" in capsys.readouterr().err
+
+
+class TestUninstall:
+    @patch("noidea.commands.uninstall.remove_repo_state", return_value=True)
+    @patch("noidea.commands.uninstall.get_git_root", return_value="/repo")
+    @patch(
+        "noidea.commands.uninstall.uninstall_hooks",
+        return_value=UninstallResult(
+            success=True,
+            removed=["prepare-commit-msg", "post-commit"],
+            restored=["prepare-commit-msg"],
+            skipped=[],
+        ),
+    )
+    def test_reports_removed_and_restored_hooks(
+        self, mock_hooks, mock_root, mock_state
+    ):
+        result = runner.invoke(app, ["uninstall"])
+        assert result.exit_code == 0
+        assert "Removed prepare-commit-msg hook" in result.output
+        assert "Removed post-commit hook" in result.output
+        assert "Restored your original prepare-commit-msg" in result.output
+        mock_state.assert_called_once_with("/repo")
+
+    @patch(
+        "noidea.commands.uninstall.uninstall_hooks",
+        return_value=UninstallResult(success=True, skipped=["post-commit"]),
+    )
+    @patch("noidea.commands.uninstall.get_git_root", return_value="/repo")
+    @patch("noidea.commands.uninstall.remove_repo_state", return_value=False)
+    def test_warns_about_a_hook_it_left_alone(self, mock_state, mock_root, mock_hooks):
+        result = runner.invoke(app, ["uninstall"])
+        assert result.exit_code == 0
+        assert "Left post-commit in place" in result.output
+
+    @patch(
+        "noidea.commands.uninstall.uninstall_hooks",
+        return_value=UninstallResult(
+            success=False, error="Not inside a git repository"
+        ),
+    )
+    def test_outside_a_repo_fails_without_purge(self, mock_hooks):
+        result = runner.invoke(app, ["uninstall"])
+        assert result.exit_code == 1
+        assert "Not inside a git repository" in result.output
+
+    @patch(
+        "noidea.commands.uninstall.uninstall_hooks",
+        return_value=UninstallResult(
+            success=False, error="Not inside a git repository"
+        ),
+    )
+    @patch("noidea.commands.uninstall.key_store")
+    def test_purge_removes_keys_and_config_even_outside_a_repo(
+        self, mock_store, mock_hooks, tmp_path
+    ):
+        config_dir = tmp_path / ".noidea"
+        config_dir.mkdir()
+        (config_dir / "config.json").write_text("{}")
+        mock_store.list.return_value = ["anthropic", "openai"]
+        with patch("noidea.commands.uninstall.CONFIG_DIR", str(config_dir)):
+            result = runner.invoke(app, ["uninstall", "--purge", "--yes"])
+        assert result.exit_code == 0
+        assert "Removed API key: anthropic" in result.output
+        assert "Removed API key: openai" in result.output
+        assert not config_dir.exists()
+
+    @patch(
+        "noidea.commands.uninstall.uninstall_hooks",
+        return_value=UninstallResult(
+            success=False, error="Not inside a git repository"
+        ),
+    )
+    @patch("noidea.commands.uninstall.key_store")
+    def test_purge_does_nothing_when_not_confirmed(
+        self, mock_store, mock_hooks, tmp_path
+    ):
+        config_dir = tmp_path / ".noidea"
+        config_dir.mkdir()
+        with patch("noidea.commands.uninstall.CONFIG_DIR", str(config_dir)):
+            result = runner.invoke(app, ["uninstall", "--purge"], input="n\n")
+        assert config_dir.exists()
+        mock_store.remove.assert_not_called()
+        assert result.exit_code == 1

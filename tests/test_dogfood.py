@@ -21,6 +21,7 @@ from noidea.dogfood import (
     read_seeded,
     reconcile,
     record_proposal,
+    remove_repo_state,
     run_file_for,
 )
 
@@ -244,3 +245,12 @@ def test_run_file_for_uses_dogfood_dir(tmp_path, monkeypatch):
     run_id = new_run_id(now_unix=1700000000.0)
     path = run_file_for(run_id)
     assert path.startswith(str(tmp_path)) and path.endswith(f"{run_id}.json")
+
+
+def test_remove_repo_state_deletes_the_queue_and_seed(tmp_path):
+    repo_root = str(tmp_path)
+    mark_seeded(repo_root, "run-1")
+    assert remove_repo_state(repo_root)
+    assert not (tmp_path / ".git" / "noidea").exists()
+    # Nothing to remove is not an error: uninstall can run in a repo noidea never seeded.
+    assert not remove_repo_state(repo_root)

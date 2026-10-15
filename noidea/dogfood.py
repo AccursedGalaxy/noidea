@@ -20,6 +20,7 @@ from __future__ import annotations
 import difflib
 import json
 import os
+import shutil
 import time
 import uuid
 from dataclasses import dataclass
@@ -141,6 +142,20 @@ def _repo_state_dir(repo_root: str) -> str:
         "repo_root must be a non-empty string"
     )
     return os.path.join(repo_root, _REPO_STATE_DIRNAME)
+
+
+def remove_repo_state(repo_root: str) -> bool:
+    """Delete this repo's proposal queue and seed pointer; True if there was anything to remove.
+
+    Used by uninstall. Run records under dogfood_dir() are global and kept: they are the labelled
+    corpus, and only an explicit purge removes them.
+    """
+    state_dir = _repo_state_dir(repo_root)
+    if not os.path.isdir(state_dir):
+        return False
+    shutil.rmtree(state_dir)
+    assert not os.path.exists(state_dir), "repo state must be gone after removal"
+    return True
 
 
 def _pending_path(repo_root: str) -> str:

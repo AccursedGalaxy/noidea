@@ -95,9 +95,10 @@ Set `base_url` to override the endpoint — e.g. point `openai` at a self-hosted
 
 | Command | Description |
 |---------|-------------|
-| `noidea init` | Install the `prepare-commit-msg` hook. Backs up any existing hook. Respects `core.hooksPath`. |
+| `noidea init` | Install the git hooks (`prepare-commit-msg`, `post-commit`). Backs up any existing hook. Re-run after upgrading to update them. Respects `core.hooksPath`. |
 | `noidea suggest` | Generate a commit message from the staged diff and print it. |
-| `noidea status` | Show current config, API key status, and hook installation. |
+| `noidea status` | Show current config, API key status, and hook installation (flags hooks that need `noidea init`). |
+| `noidea uninstall` | Remove noidea's hooks from this repo and restore any hook it replaced. `--purge` also deletes stored API keys and `~/.noidea`. |
 | `noidea keys` | Manage API keys in the system keyring (`show` / `add` / `remove`). |
 | `noidea test` | Send a test message to Claude to verify connectivity. |
 | `noidea update` | Upgrade noidea via `pipx` (falls back to `pip`). |

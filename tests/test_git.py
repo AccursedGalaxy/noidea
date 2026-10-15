@@ -11,6 +11,8 @@ from noidea.git import (
     get_hooks_dir,
     get_recent_commits,
     install_hook,
+    is_noidea_hook,
+    uninstall_hooks,
 )
 
 
@@ -314,3 +316,76 @@ def test_post_commit_hook_skips_python_when_nothing_was_seeded(tmp_path):
 def test_post_commit_hook_reconciles_when_a_proposal_was_seeded(tmp_path):
     _write_seed(tmp_path)
     assert _run_post_commit_hook(tmp_path) == "_reconcile\n"
+
+
+# ---- ownership & uninstall ----
+
+
+def test_only_exact_noidea_scripts_count_as_ours():
+    # Every script noidea has ever written, current and previous, is recognised.
+    assert is_noidea_hook('#!/bin/bash\nnoidea suggest --file "$1"\n')
+    assert is_noidea_hook("#!/bin/bash\nnoidea _reconcile\n")
+    assert all(is_noidea_hook(script) for script in HOOKS.values())
+    # A hand-edited hook is the user's, even when it still calls noidea: overwriting or
+    # deleting it would silently lose their edits.
+    assert not is_noidea_hook('#!/bin/bash\nnoidea suggest --file "$1"\nmake lint\n')
+    assert not is_noidea_hook("#!/bin/bash\necho mine\n")
+
+
+def test_install_backs_up_a_hand_edited_noidea_hook(tmp_path):
+    edited = '#!/bin/bash\nnoidea suggest --file "$1"\nmake lint\n'
+    (tmp_path / "prepare-commit-msg").write_text(edited)
+    with patch("noidea.git.get_hooks_dir", return_value=str(tmp_path)):
+        install_hook()
+    assert (tmp_path / "prepare-commit-msg.bak").read_text() == edited
+
+
+def test_uninstall_removes_our_hooks(tmp_path):
+    with patch("noidea.git.get_hooks_dir", return_value=str(tmp_path)):
+        install_hook()
+        result = uninstall_hooks()
+    assert result.success
+    assert sorted(result.removed) == sorted(HOOKS)
+    assert result.restored == [] and result.skipped == []
+    assert not any((tmp_path / name).exists() for name in HOOKS)
+
+
+def test_uninstall_restores_the_backed_up_user_hook(tmp_path):
+    (tmp_path / "prepare-commit-msg").write_text("#!/bin/bash\necho mine\n")
+    with patch("noidea.git.get_hooks_dir", return_value=str(tmp_path)):
+        install_hook()
+        result = uninstall_hooks()
+    assert result.restored == ["prepare-commit-msg"]
+    assert (tmp_path / "prepare-commit-msg").read_text() == "#!/bin/bash\necho mine\n"
+    assert not (tmp_path / "prepare-commit-msg.bak").exists()
+
+
+def test_uninstall_leaves_a_hook_noidea_did_not_write(tmp_path):
+    (tmp_path / "post-commit").write_text("#!/bin/bash\necho mine\n")
+    with patch("noidea.git.get_hooks_dir", return_value=str(tmp_path)):
+        result = uninstall_hooks()
+    assert result.skipped == ["post-commit"]
+    assert result.removed == []
+    assert (tmp_path / "post-commit").read_text() == "#!/bin/bash\necho mine\n"
+
+
+def test_uninstall_outside_a_repo_fails():
+    with patch("noidea.git.get_hooks_dir", return_value=None):
+        result = uninstall_hooks()
+    assert not result.success
+    assert "Not inside a git repository" in result.error
+
+
+def test_install_refuses_to_overwrite_a_foreign_hook_when_a_backup_exists(tmp_path):
+    # Backing up would clobber the existing .bak and installing would clobber the hook, so
+    # either way a user's script is lost. Refuse and say why instead.
+    (tmp_path / "prepare-commit-msg").write_text("#!/bin/bash\necho second\n")
+    (tmp_path / "prepare-commit-msg.bak").write_text("#!/bin/bash\necho first\n")
+    with patch("noidea.git.get_hooks_dir", return_value=str(tmp_path)):
+        result = install_hook()
+    assert not result.success
+    assert "prepare-commit-msg.bak" in result.error
+    assert (tmp_path / "prepare-commit-msg").read_text() == "#!/bin/bash\necho second\n"
+    assert (
+        tmp_path / "prepare-commit-msg.bak"
+    ).read_text() == "#!/bin/bash\necho first\n"

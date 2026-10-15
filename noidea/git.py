@@ -3,7 +3,7 @@
 import os
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -37,17 +37,23 @@ class HookResult:
     outcome: HookOutcome = HookOutcome.INSTALLED
 
 
+@dataclass
+class UninstallResult:
+    """What `noidea uninstall` did to each managed hook, by hook name."""
+
+    success: bool
+    error: str = ""
+    removed: list[str] = field(default_factory=list)
+    restored: list[str] = field(
+        default_factory=list
+    )  # A user's .bak put back in place.
+    skipped: list[str] = field(
+        default_factory=list
+    )  # Not written by noidea; left alone.
+
+
 HOOK_BACKUP_SUFFIX = ".bak"
 
-# The hooks noidea installs, name → script. prepare-commit-msg writes the message into the
-# commit buffer (seeding a queued agent proposal when one exists, else the fast single-shot —
-# see suggest.suggest). post-commit reconciles the committed message against any seeded agent
-# proposal to capture the accept/edit/discard signal (see dogfood.reconcile). post-commit's
-# exit status is ignored by git, so reconcile can never block a commit. "$2" is git's message
-# source, forwarded so suggest can leave a message the committer already supplied untouched.
-# post-commit runs on every commit, and starting Python costs ~0.5 s, so it first checks in the
-# shell for the seed pointer (dogfood._seeded_path; git runs hooks from the work-tree root) and
-# only starts noidea when an agent proposal is actually waiting to be reconciled.
 # prepare-commit-msg sources that already carry a deliberate message: -m/-F ("message"),
 # -c/-C/--amend ("commit"), merges, and squashes. Overwriting these would silently discard what
 # the committer wrote, so the hook leaves them alone. An empty source (plain `git commit`) and
@@ -64,12 +70,32 @@ _PREPARE_COMMIT_MSG = (
     'noidea suggest --file "$1" --source "$2"\n'
 )
 
+# The hooks noidea installs, name → script. prepare-commit-msg writes the message into the
+# commit buffer (seeding a queued agent proposal when one exists, else the fast single-shot —
+# see suggest.suggest). post-commit reconciles the committed message against any seeded agent
+# proposal to capture the accept/edit/discard signal (see dogfood.reconcile). post-commit's
+# exit status is ignored by git, so reconcile can never block a commit. It runs on every
+# commit, and starting Python costs ~0.5 s, so it first checks in the shell for the seed pointer
+# (dogfood._seeded_path; git runs hooks from the work-tree root) and only starts noidea when an
+# agent proposal is actually waiting to be reconciled.
 HOOKS = {
     "prepare-commit-msg": _PREPARE_COMMIT_MSG,
     "post-commit": (
         "#!/bin/bash\n[ -f .git/noidea/seeded.json ] || exit 0\nnoidea _reconcile\n"
     ),
 }
+
+# Scripts earlier noidea versions wrote. Ownership is an exact match against these and HOOKS:
+# a hand-edited hook belongs to the user even when it still calls noidea, so init backs it up
+# and uninstall leaves it alone rather than silently discarding the edits.
+_PREVIOUS_HOOK_SCRIPTS = frozenset(
+    {
+        '#!/bin/bash\nnoidea suggest --file "$1"\n',
+        '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n',
+        "#!/bin/bash\nnoidea _reconcile\n",
+    }
+)
+_NOIDEA_HOOK_SCRIPTS = _PREVIOUS_HOOK_SCRIPTS | frozenset(HOOKS.values())
 
 # TigerStyle: compile-time-style constant assertion — every hook must carry a real script.
 if not all(script.strip() for script in HOOKS.values()):
@@ -262,14 +288,17 @@ def get_hooks_dir() -> str | None:
 
 
 def _backup_existing_hook(hook_path: str) -> None:
-    """Back up an existing hook file. Skip if backup already exists."""
+    """Move a user's hook aside to .bak; refuse rather than overwrite an existing backup."""
+    assert isinstance(hook_path, str) and hook_path, "hook path must be non-empty"
     if not os.path.exists(hook_path):
         return
-    if os.path.exists(hook_path + HOOK_BACKUP_SUFFIX):
-        print("There is already a backup of the hook present.")
-        print("skipping backup creation")
-        return
-    os.rename(hook_path, hook_path + HOOK_BACKUP_SUFFIX)
+    backup_path = hook_path + HOOK_BACKUP_SUFFIX
+    if os.path.exists(backup_path):
+        # Both the hook and the backup are the user's; replacing either would lose a script.
+        raise FileExistsError(
+            f"{backup_path} already exists; move it or {hook_path} aside, then re-run"
+        )
+    os.rename(hook_path, backup_path)
 
 
 def _read_hook(hook_path: str) -> str | None:
@@ -282,9 +311,9 @@ def _read_hook(hook_path: str) -> str | None:
 
 
 def is_noidea_hook(script: str) -> bool:
-    """True when a hook script is one noidea wrote, in this or an earlier version."""
+    """True when a hook script is exactly one noidea wrote, in this or an earlier version."""
     assert isinstance(script, str), "script must be a string"
-    return any(line.startswith("noidea ") for line in script.splitlines())
+    return script in _NOIDEA_HOOK_SCRIPTS
 
 
 def _write_hook(hooks_dir: str, name: str, script: str) -> HookOutcome:
@@ -335,3 +364,41 @@ def install_hook() -> HookResult:
     if all(outcome is HookOutcome.INSTALLED for outcome in outcomes):
         return HookResult(success=True, outcome=HookOutcome.INSTALLED)
     return HookResult(success=True, outcome=HookOutcome.UPDATED)
+
+
+def _remove_hook(hooks_dir: str, name: str, result: UninstallResult) -> None:
+    """Delete our hook of this name and restore the user's backup; leave a foreign hook alone."""
+    assert isinstance(name, str) and name, "hook name must be non-empty"
+    hook_path = os.path.join(hooks_dir, name)
+    existing = _read_hook(hook_path)
+    if existing is None:
+        return
+    if not is_noidea_hook(existing):
+        result.skipped.append(name)
+        return
+    os.remove(hook_path)
+    result.removed.append(name)
+    backup_path = hook_path + HOOK_BACKUP_SUFFIX
+    if os.path.exists(backup_path):
+        os.rename(backup_path, hook_path)
+        result.restored.append(name)
+
+
+def uninstall_hooks() -> UninstallResult:
+    """Remove every hook noidea installed in this repo, restoring any hook it backed up."""
+    hooks_dir = get_hooks_dir()
+    if hooks_dir is None:
+        return UninstallResult(success=False, error="Not inside a git repository")
+    if not isinstance(hooks_dir, str) or not hooks_dir.strip():
+        return UninstallResult(success=False, error="hooks_dir is empty or invalid")
+
+    result = UninstallResult(success=True)
+    try:
+        for name in HOOKS:
+            _remove_hook(hooks_dir, name, result)
+    except OSError as e:
+        return UninstallResult(success=False, error=str(e))
+    assert set(result.restored) <= set(result.removed), (
+        "only a removed hook is restored"
+    )
+    return result
