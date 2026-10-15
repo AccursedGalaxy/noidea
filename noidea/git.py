@@ -33,9 +33,10 @@ HOOK_BACKUP_SUFFIX = ".bak"
 # commit buffer (seeding a queued agent proposal when one exists, else the fast single-shot —
 # see suggest.suggest). post-commit reconciles the committed message against any seeded agent
 # proposal to capture the accept/edit/discard signal (see dogfood.reconcile). post-commit's
-# exit status is ignored by git, so reconcile can never block a commit.
+# exit status is ignored by git, so reconcile can never block a commit. "$2" is git's message
+# source, forwarded so suggest can leave a message the committer already supplied untouched.
 HOOKS = {
-    "prepare-commit-msg": '#!/bin/bash\nnoidea suggest --file "$1"\n',
+    "prepare-commit-msg": '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n',
     "post-commit": "#!/bin/bash\nnoidea _reconcile\n",
 }
 

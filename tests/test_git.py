@@ -102,7 +102,7 @@ def test_install_hook(tmp_path):
     hook_path = tmp_path / "prepare-commit-msg"
 
     assert hook_path.exists()
-    assert hook_path.read_text() == '#!/bin/bash\nnoidea suggest --file "$1"\n'
+    assert hook_path.read_text() == '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n'
     assert os.access(hook_path, os.X_OK)
 
 
@@ -116,7 +116,7 @@ def test_install_hook_backs_up_existing(tmp_path):
     backup_path = tmp_path / "prepare-commit-msg.bak"
     assert backup_path.exists()
     assert backup_path.read_text() == "#!/bin/bash\necho old hook\n"
-    assert hook_path.read_text() == '#!/bin/bash\nnoidea suggest --file "$1"\n'
+    assert hook_path.read_text() == '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n'
 
 
 def test_install_hook_empty_hooks_dir():

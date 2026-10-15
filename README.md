@@ -49,6 +49,7 @@ noidea init
 ```
 
 That's it. Every `git commit` now opens your editor with a suggested message pre-filled.
+If you pass your own message (`-m`, `-F`, `--amend`, merges), noidea leaves it alone.
 
 > Requires [pipx](https://pipx.pypa.io). Alternatively: `pip install noidea`
 

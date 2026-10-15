@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- The `prepare-commit-msg` hook no longer overwrites a message you already wrote. `git commit -m`/`-F`, `-c`/`-C`/`--amend`, merges, and squashes keep their message as-is; only a plain `git commit` (or a `commit.template`) gets a generated one. To preview a suggestion and tweak it, run `noidea suggest` and commit the edited text with `git commit -m`. Re-run `noidea init` to update existing hooks.
+
 ## [1.2.0] - 2026-06-02
 
 ### Added

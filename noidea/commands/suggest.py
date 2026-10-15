@@ -254,6 +254,27 @@ def _run_agent_backend(
     return message, run_id
 
 
+# prepare-commit-msg sources that already carry a deliberate message: -m/-F ("message"),
+# -c/-C/--amend ("commit"), merges, and squashes. Overwriting these would silently discard what
+# the committer wrote, so the hook leaves them alone. An empty source (plain `git commit`) and
+# "template" (commit.template boilerplate) still get a generated message.
+MESSAGE_SOURCES_SUPPLIED = frozenset({"message", "commit", "merge", "squash"})
+
+
+def _keeps_supplied_message(file: str, source: str) -> bool:
+    """True when the hook should keep the committer's own message rather than generate one."""
+    assert file is None or isinstance(file, str), "file must be a path or None"
+    assert isinstance(source, str), "source must be a string"
+    if not file or source not in MESSAGE_SOURCES_SUPPLIED:
+        return False
+    # Drop any seed pointer left by an aborted earlier attempt, so post-commit does not
+    # reconcile this hand-written message against an unrelated agent proposal.
+    repo_root = get_git_root()
+    if repo_root:
+        clear_seeded(repo_root)
+    return True
+
+
 def suggest(
     file: str = typer.Option(
         None, "--file", "-F", help="Write output to a file instead of stdout"
@@ -266,8 +287,13 @@ def suggest(
         "--agent/--no-agent",
         help="Use the driver-os agent backend (richer, slower). Defaults to llm.use_agent.",
     ),
+    source: str = typer.Option(
+        "", "--source", hidden=True, help="git's commit message source (hook only)."
+    ),
 ):
     """Let AI do the thinking. Generates a commit message from your staged changes."""
+    if _keeps_supplied_message(file, source):
+        return
     diff = get_diff()
     if not diff.has_changes:
         print(

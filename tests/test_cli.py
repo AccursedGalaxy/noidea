@@ -255,6 +255,53 @@ class TestSuggest:
         with open(outfile) as f:
             assert f.read() == "feat: new thing"
 
+    @patch("noidea.commands.suggest.clear_seeded")
+    @patch("noidea.commands.suggest.get_git_root", return_value="/repo")
+    @patch("noidea.commands.suggest.complete")
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ new feature"),
+    )
+    def test_suggest_keeps_a_message_the_committer_supplied(
+        self, mock_diff, mock_complete, mock_root, mock_clear, tmp_path
+    ):
+        # git passes the message source as the hook's second argument. -m/-F ("message"),
+        # -c/-C/--amend ("commit"), merges, and squashes already carry a deliberate message,
+        # so the hook must leave the buffer alone instead of overwriting it.
+        for source in ("message", "commit", "merge", "squash"):
+            outfile = tmp_path / f"msg-{source}.txt"
+            outfile.write_text("fix: my own words\n")
+            result = runner.invoke(
+                app, ["suggest", "--file", str(outfile), "--source", source]
+            )
+            assert result.exit_code == 0
+            assert outfile.read_text() == "fix: my own words\n"
+        mock_complete.assert_not_called()
+        # A stale seed pointer must not reconcile this commit against an agent proposal.
+        assert mock_clear.call_count == 4
+
+    @patch("noidea.commands.suggest.complete", return_value="feat: new thing")
+    @patch(
+        "noidea.commands.suggest.load_config",
+        return_value=LlmConfig(system_prompt="gen msg"),
+    )
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ new feature"),
+    )
+    def test_suggest_generates_for_plain_and_template_commits(
+        self, mock_diff, mock_config, mock_complete, tmp_path
+    ):
+        # An empty source is a plain `git commit`; "template" is only commit.template
+        # boilerplate. Both still get a generated message.
+        for source in ("", "template"):
+            outfile = tmp_path / f"msg-{source or 'plain'}.txt"
+            result = runner.invoke(
+                app, ["suggest", "--file", str(outfile), "--source", source]
+            )
+            assert result.exit_code == 0
+            assert outfile.read_text() == "feat: new thing"
+
     @patch("noidea.commands.suggest.complete", return_value="chore: big change")
     @patch("noidea.commands.suggest.get_branch_name", return_value="main")
     @patch("noidea.commands.suggest.get_staged_files", return_value=["gen.txt"])
