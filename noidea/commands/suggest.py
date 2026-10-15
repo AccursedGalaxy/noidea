@@ -257,6 +257,64 @@ def _keeps_supplied_message(file: str, source: str) -> bool:
     return True
 
 
+def _read_staged_diff() -> str | None:
+    """Return the staged diff text, or None (after telling the user why) when there is none."""
+    diff = get_diff()
+    if not diff.has_changes:
+        print("Nothing staged yet. Stage some changes first — we can't read your mind (yet).")
+        return None
+    # TigerStyle: validate external data before sending to API.
+    if not diff.diff.strip():
+        print("Staged changes produced an empty diff. Nothing to do.")
+        return None
+    assert diff.diff.strip(), "a returned diff must carry content"
+    return diff.diff
+
+
+def _try_agent(
+    diff: str, file: str, branch: str, staged_files: list[str], repo_root: str, cfg: LlmConfig
+) -> bool:
+    """Generate and emit via the agent backend; False on any agent failure.
+
+    Runs inline even on the commit hook (the chosen "agent by default" behavior). A False return
+    sends the caller to the fast path, so an unavailable backend never blocks a commit.
+    """
+    assert isinstance(repo_root, str) and repo_root, "the agent needs a repository root"
+    # Bound the seed diff to the agent model's own window so a huge change can't overflow it.
+    agent_diff = _cap_diff(diff, _diff_budget_chars(cfg.agent_model, cfg))
+    result = _run_agent_backend(agent_diff, branch, staged_files, repo_root, cfg)
+    if result is None:
+        return False
+    message, run_id = result
+    if file:
+        mark_seeded(repo_root, run_id)  # So post-commit reconciles this inline run.
+    _emit_message(message, file)
+    return True
+
+
+def _run_fast_path(
+    diff: str, file: str, branch: str, staged_files: list[str], cfg: LlmConfig, announce: bool
+) -> None:
+    """Generate with one model call (the default when the agent is off or unavailable)."""
+    assert isinstance(diff, str) and diff.strip(), "diff must be a non-empty string"
+    profile_text = _learn_style(cfg)
+    # Character count, not tokens: real tokenization needs the API, but char
+    # count is cheap and sufficient for choosing between small and large model.
+    context_length_chars = len(cfg.system_prompt) + len(diff)
+    selected_model = cfg.select_model(context_length_chars)
+    if announce:
+        _print_routing_notice(cfg, selected_model)
+    # Bound the diff to the selected model's own window; this also protects the small model when a
+    # borderline-size diff routes to it, since the cap follows the model that will receive it.
+    capped_diff = _cap_diff(diff, _diff_budget_chars(selected_model, cfg))
+    commit_message = _generate_message(
+        capped_diff, cfg, selected_model, branch, staged_files, profile_text
+    )
+    if commit_message is None:
+        return
+    _emit_message(commit_message, file)
+
+
 def suggest(
     file: str = typer.Option(None, "--file", "-F", help="Write output to a file instead of stdout"),
     model: str = typer.Option(None, "--model", "-M", help="Run suggestion with a different model"),
@@ -272,14 +330,8 @@ def suggest(
     """Let AI do the thinking. Generates a commit message from your staged changes."""
     if _keeps_supplied_message(file, source):
         return
-    diff = get_diff()
-    if not diff.has_changes:
-        print("Nothing staged yet. Stage some changes first — we can't read your mind (yet).")
-        return
-
-    # TigerStyle: validate external data before sending to API.
-    if not diff.diff.strip():
-        print("Staged changes produced an empty diff. Nothing to do.")
+    diff = _read_staged_diff()
+    if diff is None:
         return
 
     cfg = load_config()
@@ -308,37 +360,7 @@ def suggest(
         and _seed_pending(repo_root, file, branch, staged_files, cfg)
     ):
         return
-
-    # Agent generation: explicit --agent, or the use_agent default. Runs inline even on the
-    # commit hook (the chosen "agent by default" behavior). Falls through to the fast path on any
-    # agent failure, so an unavailable backend never blocks a commit. Bound the seed diff to the
-    # agent model's own window so a huge staged change can't overflow it.
-    if use_agent and repo_root:
-        agent_diff = _cap_diff(diff.diff, _diff_budget_chars(cfg.agent_model, cfg))
-        result = _run_agent_backend(agent_diff, branch, staged_files, repo_root, cfg)
-        if result is not None:
-            message, run_id = result
-            if file:
-                mark_seeded(repo_root, run_id)  # so post-commit reconciles this inline run.
-            _emit_message(message, file)
-            return
-
-    # Fast single-shot path (the default when the agent is off or unavailable).
-    profile_text = _learn_style(cfg)
-    # Character count, not tokens: real tokenization needs the API, but char
-    # count is cheap and sufficient for choosing between small and large model.
-    context_length_chars = len(cfg.system_prompt) + len(diff.diff)
-    selected_model = cfg.select_model(context_length_chars)
-    # Show the routing decision, except when --model or the agent meant no decision was made.
-    if not model and not use_agent:
-        _print_routing_notice(cfg, selected_model)
-
-    # Bound the diff to the selected model's own window; this also protects the small model when a
-    # borderline-size diff routes to it, since the cap follows the model that will receive it.
-    capped_diff = _cap_diff(diff.diff, _diff_budget_chars(selected_model, cfg))
-    commit_message = _generate_message(
-        capped_diff, cfg, selected_model, branch, staged_files, profile_text
-    )
-    if commit_message is None:
+    if use_agent and repo_root and _try_agent(diff, file, branch, staged_files, repo_root, cfg):
         return
-    _emit_message(commit_message, file)
+    # Show the routing decision, except when --model or the agent meant no decision was made.
+    _run_fast_path(diff, file, branch, staged_files, cfg, announce=not model and not use_agent)
