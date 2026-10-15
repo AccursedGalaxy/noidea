@@ -131,3 +131,12 @@ class TestAtomicity:
         with pytest.raises(KeyStoreError):
             store.remove("anthropic")
         assert store.list() == ["anthropic"]
+
+
+
+def test_a_dotenv_file_is_never_loaded():
+    # A .env in a repo you commit in could set e.g. ANTHROPIC_BASE_URL and send your key to
+    # someone else's server, so noidea reads keys only from the keyring and real env vars.
+    import noidea.key_store
+
+    assert "load_dotenv" not in vars(noidea.key_store)

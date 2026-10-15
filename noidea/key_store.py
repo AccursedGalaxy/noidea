@@ -15,12 +15,12 @@ from enum import Enum
 
 import keyring
 import keyring.errors  # Explicit import so `keyring.errors.*` resolves under static analysis.
-from dotenv import load_dotenv
 
 from noidea.config import CONFIG_DIR, SERVICE_NAME
 
-# Load .env here because this module owns the env-var fallback for the secret.
-load_dotenv()
+# Keys come only from the keyring and real environment variables. A .env file is deliberately
+# never loaded: one in a repo you commit in could set e.g. ANTHROPIC_BASE_URL and send your key to
+# someone else's server.
 
 KEYS_FILENAME = "keys.json"
 KEYS_PATH = os.path.join(CONFIG_DIR, KEYS_FILENAME)
