@@ -45,9 +45,30 @@ HOOK_BACKUP_SUFFIX = ".bak"
 # proposal to capture the accept/edit/discard signal (see dogfood.reconcile). post-commit's
 # exit status is ignored by git, so reconcile can never block a commit. "$2" is git's message
 # source, forwarded so suggest can leave a message the committer already supplied untouched.
+# post-commit runs on every commit, and starting Python costs ~0.5 s, so it first checks in the
+# shell for the seed pointer (dogfood._seeded_path; git runs hooks from the work-tree root) and
+# only starts noidea when an agent proposal is actually waiting to be reconciled.
+# prepare-commit-msg sources that already carry a deliberate message: -m/-F ("message"),
+# -c/-C/--amend ("commit"), merges, and squashes. Overwriting these would silently discard what
+# the committer wrote, so the hook leaves them alone. An empty source (plain `git commit`) and
+# "template" (commit.template boilerplate) still get a generated message.
+MESSAGE_SOURCES_SUPPLIED = frozenset({"message", "commit", "merge", "squash"})
+
+# The supplied-message check runs in the shell, so a `git commit -m` never pays for Python
+# startup; it drops a stale seed pointer on the way out, exactly as suggest does. The pattern is
+# generated from MESSAGE_SOURCES_SUPPLIED so the shell and Python can never disagree.
+_PREPARE_COMMIT_MSG = (
+    "#!/bin/bash\n"
+    f'case "$2" in {"|".join(sorted(MESSAGE_SOURCES_SUPPLIED))})'
+    " rm -f .git/noidea/seeded.json; exit 0 ;; esac\n"
+    'noidea suggest --file "$1" --source "$2"\n'
+)
+
 HOOKS = {
-    "prepare-commit-msg": '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n',
-    "post-commit": "#!/bin/bash\nnoidea _reconcile\n",
+    "prepare-commit-msg": _PREPARE_COMMIT_MSG,
+    "post-commit": (
+        "#!/bin/bash\n[ -f .git/noidea/seeded.json ] || exit 0\nnoidea _reconcile\n"
+    ),
 }
 
 # TigerStyle: compile-time-style constant assertion — every hook must carry a real script.

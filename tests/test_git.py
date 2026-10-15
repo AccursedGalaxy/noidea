@@ -1,4 +1,5 @@
 import os
+import subprocess
 from unittest.mock import MagicMock, patch
 
 from noidea.git import (
@@ -106,10 +107,7 @@ def test_install_hook(tmp_path):
     hook_path = tmp_path / "prepare-commit-msg"
 
     assert hook_path.exists()
-    assert (
-        hook_path.read_text()
-        == '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n'
-    )
+    assert hook_path.read_text() == HOOKS["prepare-commit-msg"]
     assert os.access(hook_path, os.X_OK)
 
 
@@ -123,10 +121,7 @@ def test_install_hook_backs_up_existing(tmp_path):
     backup_path = tmp_path / "prepare-commit-msg.bak"
     assert backup_path.exists()
     assert backup_path.read_text() == "#!/bin/bash\necho old hook\n"
-    assert (
-        hook_path.read_text()
-        == '#!/bin/bash\nnoidea suggest --file "$1" --source "$2"\n'
-    )
+    assert hook_path.read_text() == HOOKS["prepare-commit-msg"]
 
 
 def test_install_hook_empty_hooks_dir():
@@ -261,3 +256,61 @@ def test_install_hook_over_a_foreign_hook_reports_installed(tmp_path):
     assert (
         tmp_path / "prepare-commit-msg.bak"
     ).read_text() == "#!/bin/bash\necho mine\n"
+
+
+def _run_hook(tmp_path, name, *arguments):
+    """Run a managed hook script from a repo root with a fake `noidea` on PATH; return its calls."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    calls = tmp_path / "calls.txt"
+    calls.unlink(missing_ok=True)
+    fake = bin_dir / "noidea"
+    fake.write_text(f'#!/bin/bash\necho "$@" >> {calls}\n')
+    fake.chmod(0o755)
+    hook = tmp_path / name
+    hook.write_text(HOOKS[name])
+    hook.chmod(0o755)
+    env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+    subprocess.run([str(hook), *arguments], cwd=tmp_path, env=env, check=True)
+    return calls.read_text() if calls.exists() else ""
+
+
+def _run_post_commit_hook(tmp_path):
+    return _run_hook(tmp_path, "post-commit")
+
+
+def _write_seed(tmp_path):
+    from noidea.dogfood import _seeded_path
+
+    seeded = _seeded_path(str(tmp_path))
+    os.makedirs(os.path.dirname(seeded), exist_ok=True)
+    with open(seeded, "w") as handle:
+        handle.write("{}")
+    return seeded
+
+
+def test_prepare_hook_skips_python_for_a_supplied_message(tmp_path):
+    # -m, --amend, merges, and squashes keep their message, so the hook decides that in the
+    # shell rather than paying ~0.5 s of Python startup to reach the same conclusion. It still
+    # drops a stale seed pointer so post-commit cannot mis-reconcile the hand-written message.
+    for source in ("message", "commit", "merge", "squash"):
+        seeded = _write_seed(tmp_path)
+        assert _run_hook(tmp_path, "prepare-commit-msg", "MSG", source) == ""
+        assert not os.path.exists(seeded)
+
+
+def test_prepare_hook_generates_for_plain_and_template_commits(tmp_path):
+    for arguments in (("MSG",), ("MSG", "template")):
+        calls = _run_hook(tmp_path, "prepare-commit-msg", *arguments)
+        assert calls.startswith("suggest --file MSG --source")
+
+
+def test_post_commit_hook_skips_python_when_nothing_was_seeded(tmp_path):
+    # Every commit runs this hook; starting Python costs ~0.5 s, so a commit with no seeded
+    # agent proposal (the common case) must exit in the shell without invoking noidea.
+    assert _run_post_commit_hook(tmp_path) == ""
+
+
+def test_post_commit_hook_reconciles_when_a_proposal_was_seeded(tmp_path):
+    _write_seed(tmp_path)
+    assert _run_post_commit_hook(tmp_path) == "_reconcile\n"

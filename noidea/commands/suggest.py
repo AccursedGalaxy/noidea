@@ -14,6 +14,7 @@ from noidea.dogfood import (
     run_file_for,
 )
 from noidea.git import (
+    MESSAGE_SOURCES_SUPPLIED,
     get_branch_name,
     get_diff,
     get_git_root,
@@ -254,15 +255,12 @@ def _run_agent_backend(
     return message, run_id
 
 
-# prepare-commit-msg sources that already carry a deliberate message: -m/-F ("message"),
-# -c/-C/--amend ("commit"), merges, and squashes. Overwriting these would silently discard what
-# the committer wrote, so the hook leaves them alone. An empty source (plain `git commit`) and
-# "template" (commit.template boilerplate) still get a generated message.
-MESSAGE_SOURCES_SUPPLIED = frozenset({"message", "commit", "merge", "squash"})
-
-
 def _keeps_supplied_message(file: str, source: str) -> bool:
-    """True when the hook should keep the committer's own message rather than generate one."""
+    """True when the hook should keep the committer's own message rather than generate one.
+
+    The current hook already filters these sources in the shell; this check keeps the behaviour
+    for a hook installed before that filter existed, which forwards every source to suggest.
+    """
     assert file is None or isinstance(file, str), "file must be a path or None"
     assert isinstance(source, str), "source must be a string"
     if not file or source not in MESSAGE_SOURCES_SUPPLIED:
