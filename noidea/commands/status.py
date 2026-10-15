@@ -4,7 +4,7 @@ from rich.console import Console
 
 from noidea import build_version
 from noidea.config import CONFIG_PATH, SERVICE_NAME, LlmConfig, load_config
-from noidea.git import HOOKS, get_git_root, get_hooks_dir
+from noidea.git import HOOKS, get_git_root, get_hooks_dir, is_noidea_hook
 from noidea.key_store import KeyStatus, KeyStoreError, key_store
 
 console = Console(stderr=True)
@@ -45,8 +45,15 @@ def _report_one_hook(hooks_dir: str, name: str) -> None:
     except OSError:
         console.print(f"Hook:           {FAIL} could not read {name}")
         return
-    if SERVICE_NAME in content:
+    # A package upgrade never rewrites hooks already in a repo, so an older noidea script keeps
+    # running stale behaviour until `noidea init` replaces it. Say so rather than report it OK.
+    if content == HOOKS[name]:
         console.print(f"Hook:           {OK} {name} installed ({hooks_dir})")
+    elif is_noidea_hook(content):
+        console.print(
+            f"Hook:           [yellow]![/yellow] {name} outdated"
+            f" (run '{SERVICE_NAME} init' to update)"
+        )
     else:
         console.print(
             f"Hook:           [yellow]![/yellow] {name} exists"

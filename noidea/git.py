@@ -281,7 +281,7 @@ def _read_hook(hook_path: str) -> str | None:
         return handle.read()
 
 
-def _is_noidea_hook(script: str) -> bool:
+def is_noidea_hook(script: str) -> bool:
     """True when a hook script is one noidea wrote, in this or an earlier version."""
     assert isinstance(script, str), "script must be a string"
     return any(line.startswith("noidea ") for line in script.splitlines())
@@ -297,7 +297,7 @@ def _write_hook(hooks_dir: str, name: str, script: str) -> HookOutcome:
         return HookOutcome.UNCHANGED
     # Only a foreign hook is backed up. Our own older script is safe to overwrite, and backing
     # it up would shadow (or be skipped in favour of) a real user hook's backup.
-    is_ours = existing is not None and _is_noidea_hook(existing)
+    is_ours = existing is not None and is_noidea_hook(existing)
     if not is_ours:
         _backup_existing_hook(hook_path)
     with open(hook_path, "w") as f:

@@ -684,3 +684,32 @@ class TestKeysList:
         assert result.exit_code == 0
         assert "anthropic" in result.output
         mock_list.assert_called_once()
+
+
+class TestStatusHooks:
+    """status tells a current hook apart from an older noidea hook that `noidea init` would
+    update, since a package upgrade never rewrites hook files already sitting in a repo."""
+
+    def test_current_hook_reports_installed(self, tmp_path, capsys):
+        from noidea.commands.status import _report_one_hook
+        from noidea.git import HOOKS
+
+        (tmp_path / "post-commit").write_text(HOOKS["post-commit"])
+        _report_one_hook(str(tmp_path), "post-commit")
+        assert "post-commit installed" in capsys.readouterr().err
+
+    def test_older_noidea_hook_reports_outdated(self, tmp_path, capsys):
+        from noidea.commands.status import _report_one_hook
+
+        (tmp_path / "post-commit").write_text("#!/bin/bash\nnoidea _reconcile\n")
+        _report_one_hook(str(tmp_path), "post-commit")
+        err = capsys.readouterr().err
+        assert "post-commit outdated" in err
+        assert "noidea init" in err
+
+    def test_foreign_hook_reports_not_managed(self, tmp_path, capsys):
+        from noidea.commands.status import _report_one_hook
+
+        (tmp_path / "post-commit").write_text("#!/bin/bash\necho mine\n")
+        _report_one_hook(str(tmp_path), "post-commit")
+        assert "not managed by noidea" in capsys.readouterr().err
