@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-16
+
 > **Upgrading:** run `noidea init` in each repo after upgrading. A package upgrade doesn't touch the hooks already in your repos, so the hook fixes below only apply once `init` rewrites them. `noidea status` flags any hook that is out of date.
 
 ### Added
@@ -211,7 +213,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - Graceful early exit when no git diff is detected
 
-[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/AccursedGalaxy/noidea/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/AccursedGalaxy/noidea/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/AccursedGalaxy/noidea/compare/v1.1.1...v1.2.0
+[1.1.1]: https://github.com/AccursedGalaxy/noidea/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/AccursedGalaxy/noidea/compare/v1.0.2...v1.1.0
+[1.0.2]: https://github.com/AccursedGalaxy/noidea/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/AccursedGalaxy/noidea/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.4...v1.0.0
 [0.5.4]: https://github.com/AccursedGalaxy/noidea/compare/v0.5.3...v0.5.4
