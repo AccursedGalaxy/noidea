@@ -318,6 +318,130 @@ class TestSuggest:
             assert result.exit_code == 0
             assert outfile.read_text() == "feat: new thing"
 
+    @patch("noidea.commands.suggest.complete", return_value="feat: new thing")
+    @patch(
+        "noidea.commands.suggest.load_config",
+        return_value=LlmConfig.from_dict({"provider": "ollama"}),
+    )
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ new feature"),
+    )
+    def test_suggest_on_ollama_uses_an_installed_model(self, mock_diff, mock_config, mock_c):
+        # Only "provider": "ollama" in the config: the model comes from the local server.
+        resolved = LlmConfig(provider="ollama", small_model="qwen3", large_model="qwen3")
+        with patch("noidea.commands.suggest.resolve_models", return_value=resolved):
+            result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 0
+        assert mock_c.call_args.args[2] == "qwen3"
+        assert "qwen3" in result.stderr
+
+    @patch("noidea.commands.suggest.complete")
+    @patch(
+        "noidea.commands.suggest.load_config",
+        return_value=LlmConfig.from_dict({"provider": "ollama"}),
+    )
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ new feature"),
+    )
+    def test_suggest_reports_an_unreachable_ollama(self, mock_diff, mock_config, mock_c):
+        error = ProviderError(ErrorKind.CONNECTION, "Could not reach Ollama at http://x")
+        with patch("noidea.commands.suggest.resolve_models", side_effect=error):
+            result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 1
+        assert "Could not reach Ollama" in result.stderr
+        mock_c.assert_not_called()
+
+    @patch(
+        "noidea.commands.suggest.load_config",
+        return_value=LlmConfig(system_prompt="gen msg"),
+    )
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ new feature"),
+    )
+    def test_suggest_strips_reasoning_and_code_fences(self, mock_diff, mock_config):
+        # Local and reasoning models often wrap the message in a fence or prepend their
+        # thinking; either would land verbatim in the commit.
+        replies = {
+            "<think>\nThe diff adds a flag.\n</think>\n\nfeat: add flag": "feat: add flag",
+            "```\nfeat: add flag\n\n- detail\n```": "feat: add flag\n\n- detail",
+            "```text\nfeat: add flag\n```\n": "feat: add flag",
+            "feat: keep `inline` code": "feat: keep `inline` code",
+            # Some chat templates put the opening tag in the prompt, so only the close comes back.
+            "The diff adds a flag.\n</think>\n\nfeat: add flag": "feat: add flag",
+            # A message that talks about the tags is a message, not reasoning.
+            "feat: strip <think>...</think> blocks": "feat: strip <think>...</think> blocks",
+            "docs: explain </think> then <think>": "docs: explain </think> then <think>",
+        }
+        for reply, expected in replies.items():
+            with patch("noidea.commands.suggest.complete", return_value=reply):
+                result = runner.invoke(app, ["suggest"])
+            assert result.exit_code == 0
+            assert result.stdout == expected + "\n"
+
+    @patch("noidea.commands.suggest.complete", return_value="<think>cut off by max_tok")
+    @patch(
+        "noidea.commands.suggest.load_config",
+        return_value=LlmConfig(system_prompt="gen msg"),
+    )
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ new feature"),
+    )
+    def test_suggest_fails_when_only_reasoning_comes_back(self, mock_diff, mock_config, mock_c):
+        result = runner.invoke(app, ["suggest"])
+        assert result.exit_code == 1
+        assert result.stdout == ""
+        assert "no commit message" in result.stderr
+
+    @patch("noidea.commands.suggest.complete", return_value="feat: new thing")
+    @patch(
+        "noidea.commands.suggest.load_config",
+        return_value=LlmConfig(system_prompt="gen msg"),
+    )
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ new feature"),
+    )
+    def test_suggest_keeps_what_git_put_in_the_buffer(
+        self, mock_diff, mock_config, mock_complete, tmp_path
+    ):
+        # git fills the buffer before the hook runs: a team's commit.template, its own comment
+        # block, and with -v the diff below the scissors line. The suggestion goes on top.
+        buffer = (
+            "\nTicket: \n"
+            "# Please enter the commit message for your changes.\n"
+            "# ------------------------ >8 ------------------------\n"
+            "diff --git a/app.py b/app.py\n"
+        )
+        outfile = tmp_path / "COMMIT_EDITMSG"
+        outfile.write_text(buffer)
+        result = runner.invoke(app, ["suggest", "--file", str(outfile), "--source", "template"])
+        assert result.exit_code == 0
+        assert outfile.read_text() == "feat: new thing\n\n" + buffer.lstrip("\n")
+
+    @patch("noidea.commands.suggest.mark_seeded")
+    @patch("noidea.commands.suggest.clear_seeded")
+    @patch("noidea.commands.suggest.get_git_root", return_value="/repo")
+    @patch("noidea.commands.suggest.complete")
+    @patch(
+        "noidea.commands.suggest.get_diff",
+        return_value=DiffResult(has_changes=True, diff="+ new feature"),
+    )
+    def test_a_seeded_agent_proposal_also_keeps_the_buffer(
+        self, mock_diff, mock_complete, mock_root, mock_clear, mock_mark, tmp_path
+    ):
+        proposal = MagicMock(run_id="run-1", proposed_message="feat: queued message")
+        outfile = tmp_path / "COMMIT_EDITMSG"
+        outfile.write_text("\nTicket: \n# git comments\n")
+        with patch("noidea.commands.suggest.find_fresh_proposal", return_value=proposal):
+            result = runner.invoke(app, ["suggest", "--file", str(outfile)])
+        assert result.exit_code == 0
+        assert outfile.read_text() == "feat: queued message\n\nTicket: \n# git comments\n"
+        mock_complete.assert_not_called()
+
     @patch("noidea.commands.suggest.complete", return_value="chore: big change")
     @patch("noidea.commands.suggest.get_branch_name", return_value="main")
     @patch("noidea.commands.suggest.get_staged_files", return_value=["gen.txt"])
@@ -521,6 +645,18 @@ class TestTestCommand:
         result = runner.invoke(app, ["test"])
         assert result.exit_code == 0
         assert "Couldn't reach the API" in result.output
+
+    @patch("noidea.commands.test.complete", return_value="hello!")
+    @patch(
+        "noidea.commands.test.load_config",
+        return_value=LlmConfig.from_dict({"provider": "ollama"}),
+    )
+    def test_test_on_ollama_uses_an_installed_model(self, mock_config, mock_complete):
+        resolved = LlmConfig(provider="ollama", small_model="qwen3", large_model="qwen3")
+        with patch("noidea.commands.test.resolve_models", return_value=resolved):
+            result = runner.invoke(app, ["test"])
+        assert "hello!" in result.output
+        assert mock_complete.call_args.args[2] == "qwen3"
 
 
 class TestUpdate:
@@ -836,6 +972,19 @@ class TestStatusKey:
         err = self._report("groq", capsys)
         assert "noidea keys add groq" in err
         assert "GROQ_API_KEY" in err
+
+    def test_env_var_key_counts_when_the_keyring_is_unreadable(self, capsys, monkeypatch):
+        # Headless hosts have no keyring backend; the env var still makes suggest work there.
+        from noidea.commands.status import _check_api_key
+        from noidea.key_store import KeyStoreError
+
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ci")
+        with patch("noidea.commands.status.key_store") as mock_store:
+            mock_store.status_of.side_effect = KeyStoreError("no backend")
+            _check_api_key(LlmConfig(provider="anthropic"))
+        err = capsys.readouterr().err
+        assert "anthropic (ANTHROPIC_API_KEY)" in err
+        assert "could not read the keyring" not in err
 
     def test_keyless_provider_needs_no_key(self, capsys):
         assert "not needed" in self._report("ollama", capsys)

@@ -2,7 +2,9 @@ import json
 from unittest.mock import patch
 
 from noidea.config import (
+    PROVIDER_DEFAULT_MODELS,
     LlmConfig,
+    Provider,
     deep_merge,
     initialize,
     load_config,
@@ -116,6 +118,50 @@ def _patch_paths(tmp_path):
 def _patch_no_repo():
     """Patch get_git_root to return empty string (not in a repo)."""
     return patch("noidea.config.get_git_root", return_value="")
+
+
+class TestProviderDefaultModels:
+    """Switching provider must not leave Claude model names behind: they 404 everywhere else."""
+
+    def test_anthropic_keeps_the_claude_defaults(self):
+        cfg = LlmConfig.from_dict({})
+        assert cfg.small_model == "claude-haiku-5-5"
+        assert cfg.large_model == "claude-sonnet-5-5"
+
+    def test_openrouter_gets_its_own_namespaced_defaults(self):
+        cfg = LlmConfig.from_dict({"provider": "openrouter"})
+        assert cfg.small_model == "anthropic/claude-haiku-5.5"
+        assert cfg.large_model == "anthropic/claude-sonnet-5.5"
+
+    def test_ollama_leaves_the_models_to_be_found_at_runtime(self):
+        # Which models exist depends on what the user pulled, so no name is right in advance.
+        cfg = LlmConfig.from_dict({"provider": "ollama"})
+        assert cfg.small_model == ""
+        assert cfg.large_model == ""
+
+    def test_a_model_the_user_set_always_wins(self):
+        cfg = LlmConfig.from_dict({"provider": "ollama", "small_model": "llama3.2"})
+        assert cfg.small_model == "llama3.2"
+        assert cfg.large_model == ""
+
+    def test_a_claude_id_set_on_purpose_survives_a_provider_switch(self):
+        # An OpenAI-compatible gateway (LiteLLM and the like) can serve Claude under its own ID.
+        cfg = LlmConfig.from_dict({"provider": "openai", "small_model": "claude-haiku-5-5"})
+        assert cfg.small_model == "claude-haiku-5-5"
+        assert cfg.large_model == "gpt-6.1-sol"
+
+    def test_load_config_applies_the_provider_pair(self, tmp_path):
+        user_config = tmp_path / "config.json"
+        user_config.write_text(json.dumps({"llm": {"provider": "groq"}}))
+        with (
+            patch("noidea.config.CONFIG_PATH", str(user_config)),
+            patch("noidea.config.get_git_root", return_value=None),
+        ):
+            cfg = load_config()
+        assert cfg.small_model == "llama-3.1-8b-instant"
+
+    def test_every_provider_has_a_default_pair(self):
+        assert set(PROVIDER_DEFAULT_MODELS) == {member.value for member in Provider}
 
 
 class TestDeepMerge:

@@ -18,7 +18,7 @@ import subprocess
 from rich.console import Console
 
 from noidea.config import LlmConfig
-from noidea.key_store import key_store
+from noidea.key_store import KeyStoreError, key_store
 
 # Notices go to stderr; stdout is reserved for the commit message the hook/CI consumes.
 console = Console(stderr=True)
@@ -68,7 +68,11 @@ def generate_with_agent(
             "[dim]agent backend: binary not found — set llm.agent_binary; falling back.[/dim]"
         )
         return None
-    api_key = key_store.get("openrouter")
+    try:
+        api_key = key_store.get("openrouter")
+    except KeyStoreError:
+        # No keyring backend and no OPENROUTER_API_KEY: the same as having no key.
+        api_key = None
     if not api_key:
         console.print(
             "[dim]agent backend: no OpenRouter key — run 'noidea keys add'; falling back.[/dim]"

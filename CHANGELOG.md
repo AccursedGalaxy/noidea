@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The hook keeps what git put in the buffer.** It used to replace the whole commit buffer, which dropped a team's `commit.template`, trailers, git's own comment block and the `-v` diff. The suggestion now goes on top and everything git wrote stays below it, for a queued agent message too.
+- **Env-var keys work without a keyring.** On hosts with no keyring backend (CI runners, containers, headless Linux), `ANTHROPIC_API_KEY` and the other provider variables were never read, and `noidea suggest` crashed with a traceback. noidea now falls back to the variable and `noidea status` reports it. With no variable either, you get a short error naming the one to set.
+- **Lockfiles no longer crowd out your code.** `package-lock.json`, `poetry.lock`, `Cargo.lock`, `go.sum` and other lockfiles are sent as one line with their added and removed line counts. A dependency bump used to fill the whole diff budget, leave your real change out of the prompt, and push the commit to the large model. noidea also asks git for plain `a/` `b/` diff prefixes, so `diff.mnemonicPrefix` and `diff.noprefix` don't change what it sees.
+- **Switching provider no longer needs model names.** Each provider has its own default `small_model` and `large_model`, so `{"llm": {"provider": "openai"}}` is a complete config. The Claude defaults used to stay, and every other provider answered with a 404. With Ollama, noidea uses your most recently pulled chat model, or the one model you set for both.
+- **Reasoning and code fences are stripped from replies.** A leading `<think>` block and a code fence around the whole reply no longer end up in the commit. A reply that is only reasoning (usually a model that ran out of `max_tokens`) is reported as an error instead of being written to the buffer.
+- The agent backend falls back to the normal generator, instead of crashing, when the keyring can't be read and `OPENROUTER_API_KEY` isn't set.
+
 ## [1.3.0] - 2026-10-16
 
 > **Upgrading:** run `noidea init` in each repo after upgrading. A package upgrade doesn't touch the hooks already in your repos, so the hook fixes below only apply once `init` rewrites them. `noidea status` flags any hook that is out of date.

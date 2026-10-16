@@ -14,10 +14,14 @@ class InMemoryKeyring:
         self._store: dict[tuple[str, str], str] = {}
         self.set_should_fail = False
         self.delete_should_fail = False
+        # Mimics a host with no usable backend (headless Linux, containers), where reads raise.
+        self.get_should_fail = False
 
     def get_password(self, service_name: str, username: str) -> str | None:
         assert isinstance(service_name, str), "service_name must be a string"
         assert isinstance(username, str), "username must be a string"
+        if self.get_should_fail:
+            raise keyring.errors.KeyringError("injected get failure")
         return self._store.get((service_name, username))
 
     def set_password(self, service_name: str, username: str, password: str) -> None:

@@ -78,10 +78,10 @@ with Ollama it never leaves your machine.
 
 Anthropic is the default. OpenAI, Gemini, DeepSeek, Groq and OpenRouter work with a key, Ollama
 runs locally without one, and any OpenAI-compatible server works through `base_url`. Switching is
-a few lines of config:
+one line of config:
 
 ```json
-{ "llm": { "provider": "ollama", "small_model": "llama3.2", "large_model": "llama3.2" } }
+{ "llm": { "provider": "ollama" } }
 ```
 
 See [Providers](https://noidea-ai.readthedocs.io/en/latest/providers.html) for keys, endpoints and

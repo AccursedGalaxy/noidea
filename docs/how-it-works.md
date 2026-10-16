@@ -21,10 +21,13 @@ git commit
 1. Git runs the `prepare-commit-msg` hook before it opens the editor.
 2. If the commit already has a message, the hook exits in the shell and noidea does nothing else.
 3. Otherwise the hook runs `noidea suggest`, which reads `git diff --cached`. Binary files appear
-   as one line each that names the file, never as their contents.
+   as one line each that names the file, never as their contents. Dependency lockfiles
+   (`package-lock.json`, `poetry.lock`, `Cargo.lock`, `go.sum` and the like) appear as one line
+   with their added and removed line counts, so a dependency bump can't crowd out the code.
 4. noidea builds the request from the system prompt, the branch name, the staged file list, the
    style hints, and the diff, then picks a model and sends one request.
-5. The reply is written to the commit message file and git opens your editor.
+5. The reply is written to the top of the commit message file, above anything git already put
+   there (a `commit.template`, git's comment block, the `-v` diff), and git opens your editor.
 
 noidea never blocks a commit. If no key is configured, the provider rejects the request, times
 out, or is unreachable, or `noidea` isn't on the `PATH` git runs hooks with, the hook prints the

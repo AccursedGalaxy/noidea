@@ -7,14 +7,20 @@ collapse their SDK's exception hierarchy into one ProviderError here, so callers
 error type and never import a provider SDK.
 """
 
+import dataclasses
+import http.client
+import json
 import re
+import urllib.error
+import urllib.request
 from enum import Enum
 
 import anthropic
 from anthropic import Anthropic
 from anthropic.types import TextBlock
 
-from noidea.key_store import env_var_for, key_store
+from noidea.config import LlmConfig
+from noidea.key_store import KeyStoreError, env_var_for, key_store
 
 
 class ErrorKind(Enum):
@@ -116,16 +122,73 @@ def context_window_tokens(model: str) -> int:
 def get_api_key(provider: str = "anthropic") -> str:
     # key_store consults the keyring first, then the provider's *_API_KEY env var for CI/headless.
     assert isinstance(provider, str) and provider, "provider must be a non-empty string"
-    key = key_store.get(provider)
+    env_var = env_var_for(provider)
+    hint = f"Run 'noidea keys add {provider}'"
+    if env_var:
+        hint += f" or set {env_var}"
+    # Handled errors, never SystemExit or a traceback: the commit hook must not abort a commit.
+    try:
+        key = key_store.get(provider)
+    except KeyStoreError as error:
+        # keyring's own messages end in a period; one sentence break is enough.
+        reason = str(error).rstrip(".")
+        raise ProviderError(ErrorKind.MISSING_KEY, f"{reason}. {hint}.") from error
     if not key:
-        # A handled error, never SystemExit: the commit hook must not abort a commit over it.
-        env_var = env_var_for(provider)
-        hint = f"Run 'noidea keys add {provider}'"
-        if env_var:
-            hint += f" or set {env_var}"
         raise ProviderError(ErrorKind.MISSING_KEY, f"No API key found for {provider}. {hint}.")
     assert isinstance(key, str) and key, "api key must be a non-empty string"
     return key
+
+
+# A model listing is a local round-trip; a server that has not answered in this long is down or
+# wedged, and the commit is waiting on it.
+_OLLAMA_TAGS_TIMEOUT_SECONDS = 3.0
+_OLLAMA_TAGS_BYTES_MAX = 1_000_000
+
+
+def resolve_models(cfg: LlmConfig) -> LlmConfig:
+    """Fill unset Ollama models: one chosen model covers both, else ask the local server.
+
+    Which Ollama models exist depends entirely on what the user pulled, so no default name can be
+    right in advance (config.PROVIDER_DEFAULT_MODELS leaves them ""). Every other provider, and
+    any model the user set, passes through without a network call.
+    """
+    assert isinstance(cfg, LlmConfig), "cfg must be an LlmConfig"
+    if cfg.provider != "ollama" or (cfg.small_model and cfg.large_model):
+        return cfg
+    # A user who picked one model meant it; pairing it with another installed model would not be.
+    chosen = cfg.small_model or cfg.large_model or _first_chat_model(cfg.base_url)
+    resolved = dataclasses.replace(cfg, small_model=chosen, large_model=chosen)
+    assert resolved.small_model == resolved.large_model, "an Ollama fill uses one model for both"
+    assert resolved.small_model, "the filled model must be non-empty"
+    return resolved
+
+
+def _first_chat_model(base_url: str) -> str:
+    """Return the first model Ollama lists that can chat, raising ProviderError if none."""
+    assert isinstance(base_url, str), "base_url must be a string"
+    server_url = (base_url or _DEFAULT_BASE_URLS["ollama"]).rstrip("/").removesuffix("/v1")
+    tags_url = f"{server_url}/api/tags"
+    try:
+        with urllib.request.urlopen(tags_url, timeout=_OLLAMA_TAGS_TIMEOUT_SECONDS) as response:
+            listing = json.loads(response.read(_OLLAMA_TAGS_BYTES_MAX))
+    except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError) as error:
+        raise ProviderError(
+            ErrorKind.CONNECTION,
+            f"no usable answer from Ollama at {server_url} ({error}). Is 'ollama serve' running?",
+        ) from error
+    models = listing.get("models") if isinstance(listing, dict) else None
+    names = [m.get("name") for m in models or [] if isinstance(m, dict)]
+    # Embedding models (nomic-embed-text and the like) are often pulled for RAG tools and
+    # cannot chat; Ollama's listing does not say which is which without a call per model.
+    names = [n for n in names if isinstance(n, str) and n and "embed" not in n.lower()]
+    if not names:
+        raise ProviderError(
+            ErrorKind.STATUS,
+            "Ollama has no chat models installed. Run 'ollama pull llama3.2' or set"
+            " llm.small_model.",
+        )
+    assert names[0], "a listed model name must be non-empty"
+    return names[0]
 
 
 def complete(

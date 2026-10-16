@@ -82,7 +82,11 @@ def _check_api_key(cfg: LlmConfig) -> None:
     try:
         key_status = key_store.status_of(provider)
     except KeyStoreError:
-        console.print(f"API Key:        {FAIL} could not read the keyring")
+        # No keyring backend (headless Linux, CI): the env var alone is a working key there.
+        if os.environ.get(env_var):
+            console.print(f"API Key:        {OK} {provider} ({env_var})")
+        else:
+            console.print(f"API Key:        {FAIL} could not read the keyring (or set {env_var})")
         return
     if key_status is KeyStatus.PRESENT:
         console.print(f"API Key:        {OK} {provider} (keyring)")
@@ -108,8 +112,11 @@ def status():
     cfg = _check_config()
     console.print(f"Provider:       {cfg.provider}")
     _check_api_key(cfg)
-    console.print(f"Small Model:    {cfg.small_model}")
-    console.print(f"Large Model:    {cfg.large_model}")
+    # An unset Ollama model is resolved per run from the local server (provider.resolve_models);
+    # status stays offline, so it names the rule instead of asking the server.
+    unset_model = "newest pulled Ollama model"
+    console.print(f"Small Model:    {cfg.small_model or unset_model}")
+    console.print(f"Large Model:    {cfg.large_model or unset_model}")
     console.print(f"Context Limit:  {cfg.context_limit:g} characters")
     console.print(f"Temperature:    {cfg.temperature}")
     console.print()

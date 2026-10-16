@@ -21,21 +21,33 @@ noidea looks for a key in two places, in this order:
 1. The operating system's keyring, written by `noidea keys add <provider>`.
 2. The provider's environment variable from the table above.
 
-Use the keyring on your own machine and the environment variable on servers and in CI.
+Use the keyring on your own machine and the environment variable on servers and in CI. If the
+host has no keyring backend, noidea uses the environment variable instead of failing.
 `noidea keys show` lists the providers that have a key in the keyring.
 
 ## Choosing models
 
-Every provider uses the same two settings, `small_model` and `large_model`. The defaults are
-Anthropic model IDs, so when you switch provider, set both to models that provider serves. If you
-only want one model, give both settings the same value.
+Every provider uses the same two settings, `small_model` and `large_model`. Each provider comes
+with its own pair, so setting `provider` alone is enough:
+
+| Provider | `small_model` | `large_model` |
+|--|--|--|
+| `anthropic` | `claude-haiku-5-5` | `claude-sonnet-5-5` |
+| `openai` | `gpt-6-luna` | `gpt-6.1-sol` |
+| `gemini` | `gemini-3.8-flash` | `gemini-4-argon` |
+| `deepseek` | `deepseek-flash` | `deepseek-v4-pro` |
+| `groq` | `llama-3.1-8b-instant` | `llama-3.3-70b-versatile` |
+| `openrouter` | `anthropic/claude-haiku-5.5` | `anthropic/claude-sonnet-5.5` |
+| `ollama` | newest pulled model | newest pulled model |
+
+Set either one to override it. If you only want one model, give both settings the same value.
 
 ```json
 {
   "llm": {
     "provider": "openai",
-    "small_model": "gpt-4o-mini",
-    "large_model": "gpt-4o"
+    "small_model": "gpt-6-luna",
+    "large_model": "gpt-6-luna"
   }
 }
 ```
@@ -56,14 +68,12 @@ ollama pull llama3.2
 ```
 
 ```json
-{
-  "llm": {
-    "provider": "ollama",
-    "small_model": "llama3.2",
-    "large_model": "llama3.2"
-  }
-}
+{ "llm": { "provider": "ollama" } }
 ```
+
+With no model set, noidea asks Ollama for its models and uses the most recently pulled one,
+skipping embedding models. Pulling another model changes the choice, so set `small_model` to pin
+one; with only one of the two set, noidea uses it for both.
 
 If Ollama listens somewhere other than `localhost:11434`, set `base_url`.
 
@@ -86,7 +96,8 @@ any visible text, the request fails. Raise `llm.max_tokens` if that happens; see
 ## Gemini, DeepSeek and Groq
 
 All three speak the OpenAI-compatible API at the endpoints in the table. Add a key with
-`noidea keys add gemini` (or `deepseek`, `groq`) and set the two model names.
+`noidea keys add gemini` (or `deepseek`, `groq`). The models come from the
+[table above](#choosing-models) unless you set `small_model` and `large_model`.
 
 ## OpenRouter
 

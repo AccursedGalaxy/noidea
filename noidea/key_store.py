@@ -117,12 +117,19 @@ class KeyStore:
     def get(self, provider: str) -> str | None:
         """Return the keyring secret, falling back to the provider's env var if it has one."""
         assert isinstance(provider, str) and provider, "provider must be a non-empty string"
-        secret = self._read_secret(provider)
+        # No keyless provider (e.g. ollama) is in the table, so it never reads an env var.
+        env_var = _PROVIDER_ENV_VARS.get(provider)
+        env_secret = os.environ.get(env_var) if env_var else None
+        try:
+            secret = self._read_secret(provider)
+        except KeyStoreError:
+            # CI runners, containers and headless Linux often have no keyring backend at all, and
+            # the env var is how those hosts supply a key. Only with no env var is it an error.
+            if not env_secret:
+                raise
+            secret = None
         if not secret:
-            # No keyless provider (e.g. ollama) is in the table, so it never reads an env var.
-            env_var = _PROVIDER_ENV_VARS.get(provider)
-            if env_var:
-                secret = os.environ.get(env_var)
+            secret = env_secret
         assert secret is None or isinstance(secret, str), "secret must be a string or None"
         return secret
 
