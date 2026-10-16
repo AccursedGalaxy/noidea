@@ -1,9 +1,14 @@
+import http.client
+import json
+import urllib.error
 from unittest.mock import MagicMock, patch
 
 import anthropic
 import httpx
 import pytest
 
+from noidea.config import LlmConfig
+from noidea.key_store import KeyStoreError
 from noidea.provider import (
     _DEFAULT_CONTEXT_TOKENS,
     ErrorKind,
@@ -11,6 +16,7 @@ from noidea.provider import (
     complete,
     context_window_tokens,
     get_api_key,
+    resolve_models,
 )
 
 
@@ -57,6 +63,16 @@ class TestGetApiKey:
         # The message names both ways to fix it: the keyring command and the env var.
         assert "noidea keys add openai" in exc.value.message
         assert "OPENAI_API_KEY" in exc.value.message
+
+    @patch("noidea.provider.key_store")
+    def test_unreadable_keyring_is_a_handled_provider_error(self, mock_store):
+        # With no keyring backend and no env var, suggest printed a traceback instead of a fix.
+        mock_store.get.side_effect = KeyStoreError("could not read secret from keyring: none")
+        with pytest.raises(ProviderError) as exc:
+            get_api_key("anthropic")
+        assert exc.value.kind is ErrorKind.MISSING_KEY
+        assert "could not read secret from keyring" in exc.value.message
+        assert "ANTHROPIC_API_KEY" in exc.value.message
 
 
 class TestComplete:
@@ -599,3 +615,86 @@ class TestCompleteNonTextBlock:
         with pytest.raises(ProviderError) as exc:
             complete("system", "user", "model", 100)
         assert exc.value.kind is ErrorKind.STATUS
+
+
+class TestResolveModels:
+    """Ollama's models are whatever the user pulled, so an unset model is asked of the server."""
+
+    def _tags_response(self, names):
+        response = MagicMock()
+        response.read.return_value = json.dumps({"models": [{"name": n} for n in names]}).encode()
+        response.__enter__.return_value = response
+        return response
+
+    def test_unset_ollama_models_become_the_first_installed_model(self):
+        cfg = LlmConfig(provider="ollama", small_model="", large_model="")
+        with patch(
+            "noidea.provider.urllib.request.urlopen",
+            return_value=self._tags_response(["qwen3:30b-a3b", "llama3.2"]),
+        ) as mock_open:
+            resolved = resolve_models(cfg)
+        assert resolved.small_model == "qwen3:30b-a3b"
+        assert resolved.large_model == "qwen3:30b-a3b"
+        assert mock_open.call_args.args[0] == "http://localhost:11434/api/tags"
+
+    def test_a_custom_base_url_is_asked_instead(self):
+        cfg = LlmConfig(
+            provider="ollama", small_model="", large_model="", base_url="http://gpu-box:11434/v1"
+        )
+        with patch(
+            "noidea.provider.urllib.request.urlopen", return_value=self._tags_response(["phi4"])
+        ) as mock_open:
+            resolved = resolve_models(cfg)
+        assert mock_open.call_args.args[0] == "http://gpu-box:11434/api/tags"
+        assert resolved.small_model == "phi4"
+
+    def test_models_already_set_never_touch_the_network(self):
+        cfg = LlmConfig(provider="ollama", small_model="llama3.2", large_model="llama3.2")
+        with patch("noidea.provider.urllib.request.urlopen") as mock_open:
+            assert resolve_models(cfg) == cfg
+        mock_open.assert_not_called()
+
+    def test_no_installed_models_names_the_fix(self):
+        cfg = LlmConfig(provider="ollama", small_model="", large_model="")
+        with patch("noidea.provider.urllib.request.urlopen", return_value=self._tags_response([])):
+            with pytest.raises(ProviderError) as exc:
+                resolve_models(cfg)
+        assert "ollama pull" in exc.value.message
+
+    def test_unreachable_ollama_is_a_connection_error(self):
+        cfg = LlmConfig(provider="ollama", small_model="", large_model="")
+        with patch(
+            "noidea.provider.urllib.request.urlopen",
+            side_effect=urllib.error.URLError("refused"),
+        ):
+            with pytest.raises(ProviderError) as exc:
+                resolve_models(cfg)
+        assert exc.value.kind is ErrorKind.CONNECTION
+        assert "localhost:11434" in exc.value.message
+
+    def test_one_model_set_is_used_for_both_without_asking_the_server(self):
+        # A user who picked one model meant it; a second, unrelated model would be a surprise.
+        cfg = LlmConfig(provider="ollama", small_model="llama3.2", large_model="")
+        with patch("noidea.provider.urllib.request.urlopen") as mock_open:
+            resolved = resolve_models(cfg)
+        mock_open.assert_not_called()
+        assert resolved.small_model == "llama3.2"
+        assert resolved.large_model == "llama3.2"
+
+    def test_embedding_models_are_skipped(self):
+        # Embedding models are often pulled for RAG tools, and they cannot chat.
+        cfg = LlmConfig(provider="ollama", small_model="", large_model="")
+        with patch(
+            "noidea.provider.urllib.request.urlopen",
+            return_value=self._tags_response(["nomic-embed-text:latest", "qwen3"]),
+        ):
+            assert resolve_models(cfg).small_model == "qwen3"
+
+    def test_a_broken_response_is_a_handled_error(self):
+        cfg = LlmConfig(provider="ollama", small_model="", large_model="")
+        with patch(
+            "noidea.provider.urllib.request.urlopen",
+            side_effect=http.client.IncompleteRead(b"{"),
+        ):
+            with pytest.raises(ProviderError):
+                resolve_models(cfg)

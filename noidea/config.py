@@ -40,6 +40,24 @@ class Provider(str, Enum):
     OPENROUTER = "openrouter"
 
 
+# The (small, large) model pair each provider starts with, so that setting only llm.provider works.
+# Model names are provider-specific: a Claude ID sent to any other provider is a 404. Ollama has
+# no entry that could be right in advance, because its models are whatever the user pulled; ""
+# means "ask the local server" (see provider.resolve_models).
+PROVIDER_DEFAULT_MODELS = {
+    Provider.ANTHROPIC.value: ("claude-haiku-5-5", "claude-sonnet-5-5"),
+    Provider.OPENAI.value: ("gpt-6-luna", "gpt-6.1-sol"),
+    Provider.OLLAMA.value: ("", ""),
+    Provider.GEMINI.value: ("gemini-3.8-flash", "gemini-4-argon"),
+    Provider.DEEPSEEK.value: ("deepseek-flash", "deepseek-v4-pro"),
+    # Groq's production models that do not reason: its reasoning models default to a 1024-token
+    # completion budget, which reasoning alone can exhaust before the message is written.
+    Provider.GROQ.value: ("llama-3.1-8b-instant", "llama-3.3-70b-versatile"),
+    Provider.OPENROUTER.value: ("anthropic/claude-haiku-5.5", "anthropic/claude-sonnet-5.5"),
+}
+assert set(PROVIDER_DEFAULT_MODELS) == {member.value for member in Provider}
+
+
 @dataclass(frozen=True)
 class LlmConfig:
     """The LLM settings, owning the field set in one place: defaults are the field defaults.
@@ -51,8 +69,8 @@ class LlmConfig:
 
     # Current Claude models think before they answer and spend part of this budget doing so.
     max_tokens: int = 8192
-    small_model: str = "claude-haiku-5-5"
-    large_model: str = "claude-sonnet-5-5"
+    small_model: str = PROVIDER_DEFAULT_MODELS[Provider.ANTHROPIC.value][0]
+    large_model: str = PROVIDER_DEFAULT_MODELS[Provider.ANTHROPIC.value][1]
     # Characters (prompt plus diff) at which a change escalates to the large model: ~10k tokens,
     # well inside the small model's window, so the strong model sees big diffs uncut.
     context_limit: float = 40000.0
@@ -135,6 +153,14 @@ class LlmConfig:
                 file=sys.stderr,
             )
             values["provider"] = defaults.provider
+        # A model nobody set comes from the provider's own pair: the field default is a Claude ID,
+        # which every other provider rejects. A set model always wins, even one that equals a
+        # Claude ID, since an OpenAI-compatible gateway can serve Claude under that name.
+        small_default, large_default = PROVIDER_DEFAULT_MODELS[values["provider"]]
+        if "small_model" not in data:
+            values["small_model"] = small_default
+        if "large_model" not in data:
+            values["large_model"] = large_default
         result = cls(**values)
         assert isinstance(result, LlmConfig), "from_dict must return an LlmConfig"
         return result
@@ -160,9 +186,6 @@ def _matches_default_type(value, default) -> bool:
         return isinstance(value, (int, float))
     return isinstance(value, type(default))
 
-
-# Derived from the dataclass so the field set is enumerated exactly once. Used as the merge base.
-DEFAULTS = {"llm": dataclasses.asdict(LlmConfig())}
 
 # Before 1.3.0, initialize() wrote every default into ~/.noidea/config.json, freezing them there:
 # a later default change never reached an existing user. A user-config value equal to one of these
@@ -234,10 +257,10 @@ def _collect_config_paths() -> list[str]:
 
 
 def load_config() -> LlmConfig:
-    # Merge order: defaults → user config → repo config (last wins). The merge stays
-    # dict-shaped (deep_merge handles arbitrary nested JSON); the typed LlmConfig is
-    # constructed last, from the merged dict.
-    config = DEFAULTS
+    # Merge order: user config → repo config (last wins), then LlmConfig.from_dict fills every
+    # absent field with its default. Defaults stay out of the merge so from_dict can tell a
+    # setting nobody made from one that happens to equal a default (see the provider model pair).
+    config: dict = {"llm": {}}
     for path in _collect_config_paths():
         try:
             with open(path) as f:

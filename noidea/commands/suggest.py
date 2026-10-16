@@ -27,6 +27,7 @@ from noidea.provider import (
     ProviderError,
     complete,
     context_window_tokens,
+    resolve_models,
 )
 from noidea.style import SAMPLE_SIZE, analyze_commits, render_profile
 
@@ -183,7 +184,7 @@ def _generate_message(
     # complete() raises one ProviderError; wording per kind stays local to this command.
     try:
         with console.status("[grey]Thinking of something clever...", spinner="dots"):
-            return complete(
+            reply = complete(
                 cfg.system_prompt,
                 user_content,
                 model,
@@ -195,6 +196,83 @@ def _generate_message(
     except ProviderError as error:
         _report_error(SUGGEST_WORDING[error.kind](error))
         return None
+    message = _clean_message(reply)
+    if not message:
+        _report_error("The model's reply contained no commit message.")
+        return None
+    return message
+
+
+_REASONING_OPEN = "<think>"
+_REASONING_CLOSE = "</think>"
+
+
+def _strip_reasoning(reply: str) -> str:
+    """Drop the reasoning some models (qwen3, deepseek-r1 via Ollama) put before the answer.
+
+    Only a leading block counts, so a message that mentions the tags survives. Two shapes occur:
+    the reply opens with <think>, or the chat template already sent the opening tag and only a
+    "</think>" line comes back. An opening tag that is never closed means the token budget ran
+    out mid-reasoning, and nothing after it is a message.
+    """
+    assert isinstance(reply, str), "reply must be a string"
+    text = reply.lstrip()
+    if text.startswith(_REASONING_OPEN):
+        close_index = text.find(_REASONING_CLOSE)
+        if close_index == -1:
+            return ""
+        text = text[close_index + len(_REASONING_CLOSE) :]
+    else:
+        lines = text.split("\n")
+        if _REASONING_CLOSE in (line.strip() for line in lines):
+            close_line = [line.strip() for line in lines].index(_REASONING_CLOSE)
+            if not any(_REASONING_OPEN in line for line in lines[:close_line]):
+                text = "\n".join(lines[close_line + 1 :])
+    assert len(text) <= len(reply), "stripping can only remove text"
+    return text.strip()
+
+
+def _clean_message(reply: str) -> str:
+    """Strip leading reasoning and a wrapping code fence; "" when nothing but those came back.
+
+    Both would otherwise land verbatim in the commit. Inline backticks are left alone: only a
+    fence that wraps the whole reply is removed.
+    """
+    assert isinstance(reply, str), "reply must be a string"
+    message = _strip_reasoning(reply)
+    lines = message.split("\n")
+    if len(lines) >= 2 and lines[0].startswith("```") and lines[-1].strip() == "```":
+        message = "\n".join(lines[1:-1]).strip()
+    assert message == message.strip(), "the message must carry no outer whitespace"
+    return message
+
+
+def _read_buffer(file: str) -> str:
+    """Return what git already wrote to the commit-msg file, or "" when there is no such file."""
+    assert isinstance(file, str) and file, "file must be a non-empty path"
+    try:
+        with open(file) as handle:
+            buffer = handle.read()
+    except FileNotFoundError:
+        buffer = ""
+    assert isinstance(buffer, str), "buffer must be a string"
+    return buffer
+
+
+def _message_above_buffer(message: str, buffer: str) -> str:
+    """Put the message on top of git's buffer instead of replacing it.
+
+    git fills the buffer before the hook runs: a team's commit.template and trailers, its own
+    comment block, and with -v the diff below the scissors line. Overwriting would silently drop
+    all of it, so it stays below the suggestion; git strips the comments when the commit is made.
+    """
+    assert isinstance(message, str) and message, "message must be a non-empty string"
+    assert isinstance(buffer, str), "buffer must be a string"
+    if not buffer.strip():
+        return message
+    combined = message.rstrip("\n") + "\n\n" + buffer.lstrip("\n")
+    assert combined.startswith(message.rstrip("\n")), "the suggestion must open the buffer"
+    return combined
 
 
 def _emit_message(message: str, file: str) -> bool:
@@ -204,8 +282,9 @@ def _emit_message(message: str, file: str) -> bool:
         print(message)
         return True
     try:
+        buffer = _read_buffer(file)
         with open(file, "w") as handle:
-            handle.write(message)
+            handle.write(_message_above_buffer(message, buffer))
     except OSError as error:
         _report_error(f"Could not write to {file}: {error}")
         return False
@@ -219,8 +298,9 @@ def _seed_pending(
     """Seed a queued agent proposal into the commit buffer (no model call); True if one matched.
 
     Preferred over regenerating: an earlier explicit `noidea suggest --agent` already paid for
-    this message. If a fresh proposal matches the staged change, write it verbatim and record the
-    seed pointer so post-commit reconciles it. The caller clears the pointer first (see suggest).
+    this message. If a fresh proposal matches the staged change, write it above git's buffer and
+    record the seed pointer so post-commit reconciles it. The caller clears the pointer first (see
+    suggest).
     """
     assert isinstance(repo_root, str) and repo_root, "repo_root must be non-empty"
     assert isinstance(file, str) and file, "file must be a non-empty path"
@@ -228,8 +308,9 @@ def _seed_pending(
     if proposal is None:
         return False
     try:
+        buffer = _read_buffer(file)
         with open(file, "w") as handle:
-            handle.write(proposal.proposed_message)
+            handle.write(_message_above_buffer(proposal.proposed_message, buffer))
     except OSError as error:
         console.print(f"[dim]could not seed agent message into {file}: {error}[/dim]")
         return False
@@ -327,6 +408,12 @@ def _run_fast_path(
 ) -> None:
     """Generate with one model call (the default when the agent is off or unavailable)."""
     assert isinstance(diff, str) and diff.strip(), "diff must be a non-empty string"
+    try:
+        cfg = resolve_models(cfg)
+    except ProviderError as error:
+        _report_error(SUGGEST_WORDING[error.kind](error))
+        _fail(file)
+        return
     profile_text = _learn_style(cfg)
     # Character count, not tokens: real tokenization needs the API, but char
     # count is cheap and sufficient for choosing between small and large model.

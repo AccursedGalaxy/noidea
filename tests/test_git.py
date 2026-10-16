@@ -198,6 +198,42 @@ def test_get_diff_strips_binary_and_survives_bad_bytes():
     assert "Binary files" not in result.diff
 
 
+def test_get_diff_summarizes_lockfiles_and_keeps_the_code():
+    # A dependency bump rewrites thousands of lockfile lines that say nothing about intent. Sent
+    # in full they crowd the real change out of the capped diff and escalate to the large model.
+    lockfile_lines = "".join(f"+    resolved {index}\n" for index in range(5000))
+    mock_result = MagicMock()
+    mock_result.stdout = (
+        "diff --git a/frontend/package-lock.json b/frontend/package-lock.json\n"
+        "--- a/frontend/package-lock.json\n"
+        "+++ b/frontend/package-lock.json\n"
+        "@@ -1,2 +1,5001 @@\n"
+        "-    old 1\n"
+        "-    old 2\n" + lockfile_lines + "diff --git a/src/util.py b/src/util.py\n"
+        "--- a/src/util.py\n"
+        "+++ b/src/util.py\n"
+        "@@ -1 +1 @@\n"
+        "-def old():\n"
+        "+def new():\n"
+    ).encode()
+    with patch("noidea.git.subprocess.run", return_value=mock_result):
+        result = get_diff()
+    assert "diff --git a/frontend/package-lock.json b/frontend/package-lock.json" in result.diff
+    assert "[lockfile: +5000 -2 lines, diff omitted]" in result.diff
+    assert "resolved" not in result.diff
+    assert "+def new():" in result.diff
+    assert len(result.diff) < 500
+
+
+def test_get_diff_keeps_files_that_only_resemble_lockfiles():
+    diff = "diff --git a/docs/yarn.lock.md b/docs/yarn.lock.md\n@@ -1 +1 @@\n-old\n+new\n"
+    mock_result = MagicMock()
+    mock_result.stdout = diff.encode()
+    with patch("noidea.git.subprocess.run", return_value=mock_result):
+        result = get_diff()
+    assert result.diff == diff
+
+
 def test_install_hook_not_in_repo():
     with patch("noidea.git.get_hooks_dir", return_value=None):
         result = install_hook()
@@ -423,3 +459,19 @@ def test_the_previous_hook_scripts_are_still_recognised_as_ours():
     assert is_noidea_hook(
         "#!/bin/bash\n[ -f .git/noidea/seeded.json ] || exit 0\nnoidea _reconcile\n"
     )
+
+
+def test_get_diff_survives_any_diff_prefix_setting():
+    # diff.mnemonicPrefix gives "c/ i/" headers and diff.noprefix gives none; the diff comes
+    # from the user's own git config, so its shape is input to handle, not an invariant.
+    for header in ("diff --git c/go.sum i/go.sum", "diff --git go.sum go.sum"):
+        mock_result = MagicMock()
+        mock_result.stdout = f"{header}\n@@ -1 +1 @@\n-old\n+new\n".encode()
+        with patch("noidea.git.subprocess.run", return_value=mock_result) as mock_run:
+            result = get_diff()
+        assert result.has_changes
+        assert header in result.diff
+    # noidea asks for fixed a/ b/ prefixes, so lockfile matching works whatever the config says.
+    command = mock_run.call_args.args[0]
+    assert "--src-prefix=a/" in command
+    assert "--dst-prefix=b/" in command

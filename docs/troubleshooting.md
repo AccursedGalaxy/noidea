@@ -51,10 +51,35 @@ Fix: read the upstream error. If the model is unavailable, pick another one in `
 
 ## Ollama or another provider says the model does not exist
 
-Cause: `small_model` and `large_model` still hold the default Anthropic model IDs, which other
-providers do not serve.
+Cause: `small_model` or `large_model` names a model the provider doesn't serve, for example a
+Claude model ID copied into a config for another provider.
 
-Fix: set both to a model your provider has. For Ollama, `ollama list` shows the pulled models.
+Fix: remove both settings to use the provider's own defaults, or set them to a model your provider
+has. For Ollama, `ollama list` shows the pulled models.
+
+## Ollama has no chat models installed
+
+Cause: `small_model` and `large_model` are unset for the `ollama` provider, and the local server
+lists no models other than embedding models (names containing `embed`).
+
+Fix: run `ollama pull llama3.2`, or set `llm.small_model` and `llm.large_model`.
+
+## The model's reply contained no commit message
+
+Cause: after noidea removed a leading `<think>` reasoning block and any code fence wrapped around
+the whole reply, nothing was left. Most often the reasoning never closed because the model ran out
+of `max_tokens` while still thinking.
+
+Fix: raise `max_tokens` so the model finishes after reasoning, or pick another model.
+
+## Could not read the keyring
+
+Cause: the host has no keyring backend, which is common on CI runners, containers and headless
+Linux. With the provider's environment variable set, noidea uses it and `noidea status` shows
+the variable. Without it, the error names the variable to set.
+
+Fix: export the variable from the [providers table](providers.md), for example
+`ANTHROPIC_API_KEY`.
 
 ## Nothing staged yet
 

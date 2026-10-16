@@ -250,10 +250,83 @@ def _strip_binary_hunks(diff_text: str) -> str:
     return result
 
 
+# Dependency lockfiles, matched by basename. Their diffs are machine-written and can run to
+# hundreds of thousands of characters on a routine bump, while the intent of the change is in the
+# manifest next to them, so only a line count is sent. Basenames only: "yarn.lock.md" stays.
+LOCKFILE_NAMES = frozenset(
+    {
+        "Cargo.lock",
+        "Gemfile.lock",
+        "Package.resolved",
+        "Pipfile.lock",
+        "bun.lock",
+        "composer.lock",
+        "flake.lock",
+        "go.sum",
+        "gradle.lockfile",
+        "mix.lock",
+        "npm-shrinkwrap.json",
+        "package-lock.json",
+        "packages.lock.json",
+        "pdm.lock",
+        "pnpm-lock.yaml",
+        "poetry.lock",
+        "pubspec.lock",
+        "uv.lock",
+        "yarn.lock",
+    }
+)
+
+
+def _hunk_path(part: str) -> str:
+    """Return the post-image path of one file's diff, or "" when the header is not "a/X b/X".
+
+    get_diff asks git for a/ b/ prefixes, but the text is still external input, so an unexpected
+    header means "not a lockfile", never a crash inside the commit hook.
+    """
+    assert part.startswith("diff --git "), "part must start with a diff header"
+    header = part.split("\n", 1)[0]
+    _, separator, path = header.rpartition(" b/")
+    if not separator:
+        return ""
+    assert "\n" not in path, "a path comes from the header line alone"
+    return path
+
+
+def _summarize_lockfile_hunks(diff_text: str) -> str:
+    """Replace each lockfile's diff with its header and a count of added and removed lines.
+
+    The count keeps the scale visible ("+5000 -2" reads as a dependency bump) without letting
+    the lockfile crowd the real change out of the capped diff or escalate the model choice.
+    """
+    assert isinstance(diff_text, str), "diff_text must be a string"
+    parts = re.split(r"(?=^diff --git )", diff_text, flags=re.MULTILINE)
+    cleaned: list[str] = []
+    for part in parts:
+        if not part.startswith("diff --git ") or os.path.basename(_hunk_path(part)) not in (
+            LOCKFILE_NAMES
+        ):
+            cleaned.append(part)
+            continue
+        lines = part.split("\n")
+        added = sum(1 for line in lines if line.startswith("+") and not line.startswith("+++ "))
+        removed = sum(1 for line in lines if line.startswith("-") and not line.startswith("--- "))
+        cleaned.append(f"{lines[0]}\n[lockfile: +{added} -{removed} lines, diff omitted]\n")
+    result = "".join(cleaned)
+    assert len(result) <= len(diff_text) + 64 * len(parts), "summaries never grow the diff much"
+    return result
+
+
 def get_diff() -> DiffResult:
     try:
         # text=False: binary diffs contain non-UTF-8 bytes that crash text mode.
-        result = subprocess.run(["git", "diff", "--staged"], capture_output=True, check=True)
+        # Fixed prefixes: diff.mnemonicPrefix or diff.noprefix in the user's config would
+        # otherwise change every header that lockfile matching reads.
+        result = subprocess.run(
+            ["git", "diff", "--staged", "--src-prefix=a/", "--dst-prefix=b/"],
+            capture_output=True,
+            check=True,
+        )
 
         if not result.stdout:
             return DiffResult(has_changes=False)
@@ -261,6 +334,7 @@ def get_diff() -> DiffResult:
         # Decode with replace to survive any stray non-UTF-8 bytes.
         diff_text = result.stdout.decode("utf-8", errors="replace")
         diff_text = _strip_binary_hunks(diff_text)
+        diff_text = _summarize_lockfile_hunks(diff_text)
 
         assert isinstance(diff_text, str), "diff must be a string after processing"
         return DiffResult(has_changes=True, diff=diff_text)

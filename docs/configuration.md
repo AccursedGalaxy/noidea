@@ -34,8 +34,8 @@ Warning: llm.temperature has wrong type (str), using default.
 | Key | Type | Default | Effect |
 |---|---|---|---|
 | `provider` | string | `"anthropic"` | Which [provider](providers.md) receives requests. |
-| `small_model` | string | `"claude-haiku-5-5"` | Model for ordinary diffs. |
-| `large_model` | string | `"claude-sonnet-5-5"` | Model for diffs at or over `context_limit`, and for `noidea test`. |
+| `small_model` | string | the provider's small model | Model for ordinary diffs. See [Choosing models](providers.md#choosing-models). |
+| `large_model` | string | the provider's large model | Model for diffs at or over `context_limit`, and for `noidea test`. |
 | `context_limit` | number | `40000` | Size in characters where routing switches to `large_model`. |
 | `diff_chars_max` | integer | `200000` | Upper limit on diff characters sent. `0` sizes it from the model's context window alone. |
 | `max_tokens` | integer | `8192` | Output token budget per request. Current Claude models spend part of it thinking before they answer. |

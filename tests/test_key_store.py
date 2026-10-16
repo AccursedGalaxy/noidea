@@ -53,6 +53,23 @@ class TestAddAndGet:
         store = _make_store(tmp_path)
         assert store.get("ollama") is None
 
+    def test_get_falls_back_to_env_var_when_the_keyring_is_unreadable(self, tmp_path, monkeypatch):
+        # CI runners, containers and headless Linux often have no keyring backend at all; the
+        # env var is exactly how those hosts supply a key, so a broken keyring must not hide it.
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "env-key-ci")
+        fake = InMemoryKeyring()
+        fake.get_should_fail = True
+        store = KeyStore(fake, str(tmp_path / "keys.json"))
+        assert store.get("anthropic") == "env-key-ci"
+
+    def test_get_raises_when_the_keyring_is_unreadable_and_no_env_var(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        fake = InMemoryKeyring()
+        fake.get_should_fail = True
+        store = KeyStore(fake, str(tmp_path / "keys.json"))
+        with pytest.raises(KeyStoreError):
+            store.get("anthropic")
+
     def test_keyring_secret_wins_over_env_var(self, tmp_path, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "env-loses")
         store = _make_store(tmp_path)

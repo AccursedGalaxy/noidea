@@ -3,7 +3,7 @@ import random
 from rich.console import Console
 
 from noidea.config import load_config
-from noidea.provider import ErrorKind, ProviderError, complete
+from noidea.provider import ErrorKind, ProviderError, complete, resolve_models
 
 console = Console()
 
@@ -48,6 +48,7 @@ def test():
 
     # test calls complete() directly: it wants a generic completion, not a commit message.
     try:
+        cfg = resolve_models(cfg)
         with console.status("[grey]Checking systems...", spinner="dots"):
             joke = complete(
                 "only output the joke nothing else. be original and avoid cliché jokes.",

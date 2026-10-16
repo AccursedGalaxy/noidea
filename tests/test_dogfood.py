@@ -234,3 +234,22 @@ def test_remove_repo_state_deletes_the_queue_and_seed(tmp_path):
     assert not (tmp_path / ".git" / "noidea").exists()
     # Nothing to remove is not an error: uninstall can run in a repo noidea never seeded.
     assert not remove_repo_state(repo_root)
+
+
+def test_agent_falls_back_when_the_keyring_is_unreadable(tmp_path):
+    # With no keyring backend and no OPENROUTER_API_KEY, the agent must hand over to the fast
+    # path like any other agent failure, never raise inside the commit hook.
+    from unittest.mock import patch
+
+    from noidea.agent_backend import generate_with_agent
+    from noidea.config import LlmConfig
+    from noidea.key_store import KeyStoreError
+
+    with (
+        patch("noidea.agent_backend.resolve_binary", return_value="/usr/bin/commit-msg"),
+        patch("noidea.agent_backend.key_store.get", side_effect=KeyStoreError("no backend")),
+    ):
+        message = generate_with_agent(
+            str(tmp_path), "+ change", "main", ["a.py"], str(tmp_path / "run.json"), LlmConfig()
+        )
+    assert message is None
